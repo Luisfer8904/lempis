@@ -1,0 +1,107 @@
+{% extends "app/_layout.html" %}
+{% block title %}Productos — {{ APP_NAME }}{% endblock %}
+{% block heading %}Productos{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('productos.new') }}"
+   class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
+  + Nuevo producto
+</a>
+{% endblock %}
+
+{% block content %}
+<form method="GET" class="mb-4 flex gap-2">
+  <input type="search" name="q" value="{{ q }}" placeholder="Buscar por nombre, SKU o descripción..."
+         class="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white" />
+  <select name="category_id" class="px-4 py-2 border rounded-lg bg-white">
+    <option value="">Todas las categorías</option>
+    {% for cat in categorias %}
+      <option value="{{ cat.id }}" {% if selected_category == cat.id %}selected{% endif %}>
+        {{ cat.name }}
+      </option>
+    {% endfor %}
+  </select>
+  <button class="bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-800 text-sm">Buscar</button>
+  {% if q or selected_category %}
+    <a href="{{ url_for('productos.list') }}"
+       class="border px-4 py-2 rounded-lg hover:bg-slate-50 text-sm">Limpiar</a>
+  {% endif %}
+</form>
+
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+  {% if productos %}
+    <table class="saas-table w-full">
+      <thead>
+        <tr>
+          <th>SKU</th>
+          <th>Nombre</th>
+          <th>Categoría</th>
+          <th>Tipo</th>
+          <th class="text-right">Precio</th>
+          <th class="text-right">Stock</th>
+          <th>Estado</th>
+          <th class="text-right">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in productos %}
+        <tr class="hover:bg-slate-50">
+          <td class="font-mono text-sm">{{ p.sku }}</td>
+          <td>
+            <div class="font-medium">{{ p.name }}</div>
+            {% if p.description %}<div class="text-xs text-slate-500 truncate max-w-xs">{{ p.description }}</div>{% endif %}
+          </td>
+          <td class="text-sm">{{ p.category.name if p.category else '—' }}</td>
+          <td>
+            {% if p.kind == 'service' %}
+              <span class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">Servicio</span>
+            {% else %}
+              <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Producto</span>
+            {% endif %}
+          </td>
+          <td class="text-right font-medium">{{ '%.2f'|format(p.price) }}</td>
+          <td class="text-right">
+            {% if p.track_stock %}{{ p.stock }}{% else %}—{% endif %}
+          </td>
+          <td>
+            {% if p.is_active %}
+              <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Activo</span>
+            {% else %}
+              <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">Inactivo</span>
+            {% endif %}
+          </td>
+          <td class="text-right whitespace-nowrap">
+            <a href="{{ url_for('productos.edit', product_id=p.id) }}"
+               class="text-indigo-600 hover:underline text-sm">Editar</a>
+            <form method="POST" action="{{ url_for('productos.delete', product_id=p.id) }}"
+                  class="inline ml-2"
+                  onsubmit="return confirm('¿Eliminar producto {{ p.name }}?');">
+              <button class="text-rose-600 hover:underline text-sm">Eliminar</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="text-center py-16">
+      <div class="text-6xl mb-3">📦</div>
+      <p class="text-slate-500 mb-4">
+        {% if q or selected_category %}
+          No encontramos productos con esos filtros.
+        {% else %}
+          Aún no tienes productos registrados.
+        {% endif %}
+      </p>
+      <a href="{{ url_for('productos.new') }}"
+         class="inline-block bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+        Crear el primer producto
+      </a>
+    </div>
+  {% endif %}
+</div>
+
+{% if productos %}
+  <p class="text-sm text-slate-500 mt-3">{{ productos|length }} producto(s)</p>
+{% endif %}
+{% endblock %}

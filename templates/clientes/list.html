@@ -1,0 +1,91 @@
+{% extends "app/_layout.html" %}
+{% block title %}Clientes — {{ APP_NAME }}{% endblock %}
+{% block heading %}Clientes{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('clientes.new') }}"
+   class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
+  + Nuevo cliente
+</a>
+{% endblock %}
+
+{% block content %}
+<form method="GET" class="mb-4">
+  <div class="flex gap-2">
+    <input type="search" name="q" value="{{ q }}" placeholder="Buscar por nombre, RTN, email o teléfono..."
+           class="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white" />
+    <button class="bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-800 text-sm">
+      Buscar
+    </button>
+    {% if q %}
+      <a href="{{ url_for('clientes.list') }}"
+         class="border px-4 py-2 rounded-lg hover:bg-slate-50 text-sm">Limpiar</a>
+    {% endif %}
+  </div>
+</form>
+
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+  {% if clientes %}
+    <table class="saas-table w-full">
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>RTN / ID Fiscal</th>
+          <th>Email</th>
+          <th>Teléfono</th>
+          <th>Estado</th>
+          <th class="text-right">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in clientes %}
+        <tr class="hover:bg-slate-50">
+          <td>
+            <div class="font-medium">{{ c.name }}</div>
+            {% if c.city %}<div class="text-xs text-slate-500">{{ c.city }}</div>{% endif %}
+          </td>
+          <td class="font-mono text-sm">{{ c.tax_id or '—' }}</td>
+          <td class="text-sm">{{ c.email or '—' }}</td>
+          <td class="text-sm">{{ c.phone or '—' }}</td>
+          <td>
+            {% if c.is_active %}
+              <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Activo</span>
+            {% else %}
+              <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">Inactivo</span>
+            {% endif %}
+          </td>
+          <td class="text-right whitespace-nowrap">
+            <a href="{{ url_for('clientes.edit', client_id=c.id) }}"
+               class="text-indigo-600 hover:underline text-sm">Editar</a>
+            <form method="POST" action="{{ url_for('clientes.delete', client_id=c.id) }}"
+                  class="inline ml-2"
+                  onsubmit="return confirm('¿Eliminar cliente {{ c.name }}? Esta acción no se puede deshacer.');">
+              <button class="text-rose-600 hover:underline text-sm">Eliminar</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="text-center py-16">
+      <div class="text-6xl mb-3">👥</div>
+      <p class="text-slate-500 mb-4">
+        {% if q %}
+          No encontramos clientes que coincidan con "{{ q }}".
+        {% else %}
+          Aún no tienes clientes registrados.
+        {% endif %}
+      </p>
+      <a href="{{ url_for('clientes.new') }}"
+         class="inline-block bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+        Crear el primer cliente
+      </a>
+    </div>
+  {% endif %}
+</div>
+
+{% if clientes %}
+  <p class="text-sm text-slate-500 mt-3">{{ clientes|length }} cliente(s)</p>
+{% endif %}
+{% endblock %}

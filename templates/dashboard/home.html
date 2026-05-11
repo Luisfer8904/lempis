@@ -1,0 +1,55 @@
+{% extends "app/_layout.html" %}
+{% block title %}Dashboard — {{ tenant.name }}{% endblock %}
+{% block heading %}Dashboard{% endblock %}
+
+{% block content %}
+<section class="mb-6">
+  <h2 class="text-2xl font-bold mb-1">Hola, {{ user.full_name or user.email }} 👋</h2>
+  <p class="text-slate-500">{{ tenant.name }} — {{ tenant.country_code }} ({{ tenant.currency }})</p>
+</section>
+
+<section class="grid md:grid-cols-4 gap-4 mb-8">
+  <div class="bg-white p-5 rounded-xl shadow-sm border">
+    <div class="text-slate-500 text-sm">Facturas (total)</div>
+    <div class="text-3xl font-bold">{{ invoices_count }}</div>
+  </div>
+  <div class="bg-white p-5 rounded-xl shadow-sm border">
+    <div class="text-slate-500 text-sm">Clientes</div>
+    <div class="text-3xl font-bold">{{ customers_count }}</div>
+    <a href="{{ url_for('clientes.list') }}" class="text-xs text-indigo-600 hover:underline">Ver todos →</a>
+  </div>
+  <div class="bg-white p-5 rounded-xl shadow-sm border">
+    <div class="text-slate-500 text-sm">Productos</div>
+    <div class="text-3xl font-bold">{{ products_count }}</div>
+    <a href="{{ url_for('productos.list') }}" class="text-xs text-indigo-600 hover:underline">Ver todos →</a>
+  </div>
+  <div class="bg-white p-5 rounded-xl shadow-sm border">
+    <div class="text-slate-500 text-sm">Ingresos 30 días</div>
+    <div class="text-3xl font-bold">{{ tenant.currency }} {{ '%.2f'|format(revenue_30d) }}</div>
+  </div>
+</section>
+
+<section class="bg-white p-6 rounded-xl shadow-sm border">
+  <h3 class="text-lg font-semibold mb-3">Próximos pasos</h3>
+  <ul class="space-y-2 text-slate-600">
+    <li class="flex items-center gap-2">
+      {% if customers_count > 0 %}✅{% else %}⬜{% endif %}
+      <a href="{{ url_for('clientes.new') }}" class="text-indigo-600 hover:underline">
+        Carga tus primeros clientes
+      </a>
+    </li>
+    <li class="flex items-center gap-2">
+      {% if products_count > 0 %}✅{% else %}⬜{% endif %}
+      <a href="{{ url_for('productos.new') }}" class="text-indigo-600 hover:underline">
+        Carga tus productos
+      </a>
+    </li>
+    <li class="flex items-center gap-2">
+      ⬜ <span class="text-slate-400">Crea tu primera factura (próximamente)</span>
+    </li>
+    <li class="flex items-center gap-2">
+      ⬜ <span class="text-slate-400">Invita a tu equipo (próximamente)</span>
+    </li>
+  </ul>
+</section>
+{% endblock %}

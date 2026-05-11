@@ -1,0 +1,26 @@
+/* Estilos personalizados — complementan a Tailwind */
+
+html { scroll-behavior: smooth; }
+
+/* Mejoras en formularios */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+}
+
+/* Tablas estilo SaaS */
+table.saas-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+table.saas-table th,
+table.saas-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+}
+table.saas-table th {
+  background: #f8fafc;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #475569;
+}

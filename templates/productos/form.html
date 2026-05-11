@@ -1,0 +1,113 @@
+{% extends "app/_layout.html" %}
+{% block title %}{{ 'Editar' if producto else 'Nuevo' }} producto — {{ APP_NAME }}{% endblock %}
+{% block heading %}{{ 'Editar producto' if producto else 'Nuevo producto' }}{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('productos.list') }}" class="text-slate-600 hover:text-slate-900 text-sm">
+  ← Volver
+</a>
+{% endblock %}
+
+{% block content %}
+<form method="POST" class="bg-white p-6 rounded-xl shadow-sm border max-w-3xl">
+  <div class="grid md:grid-cols-2 gap-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">SKU / Código *</label>
+      <input name="sku" required value="{{ producto.sku if producto else '' }}"
+             placeholder="P-001"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Tipo</label>
+      <select name="kind"
+              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+        <option value="product"  {% if producto and producto.kind == 'product' %}selected{% endif %}>Producto</option>
+        <option value="service"  {% if producto and producto.kind == 'service' %}selected{% endif %}>Servicio</option>
+      </select>
+    </div>
+
+    <div class="md:col-span-2">
+      <label class="block text-sm font-medium mb-1">Nombre *</label>
+      <input name="name" required value="{{ producto.name if producto else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+
+    <div class="md:col-span-2">
+      <label class="block text-sm font-medium mb-1">Descripción</label>
+      <textarea name="description" rows="2"
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">{{ producto.description if producto else '' }}</textarea>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">Categoría</label>
+      <select name="category_id"
+              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+        <option value="">— Sin categoría —</option>
+        {% for cat in categorias %}
+          <option value="{{ cat.id }}"
+                  {% if producto and producto.category_id == cat.id %}selected{% endif %}>
+            {{ cat.name }}
+          </option>
+        {% endfor %}
+      </select>
+      <a href="{{ url_for('categorias.new') }}" class="text-xs text-indigo-600 hover:underline">
+        + Crear categoría
+      </a>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">Impuesto</label>
+      <select name="tax_config_id"
+              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+        <option value="">— Sin impuesto / Default del país —</option>
+        {% for tax in impuestos %}
+          <option value="{{ tax.id }}"
+                  {% if producto and producto.tax_config_id == tax.id %}selected{% endif %}>
+            {{ tax.name }} ({{ '%.2f'|format(tax.rate) }}%)
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">Precio de venta *</label>
+      <input type="number" step="0.01" min="0" name="price" required
+             value="{{ '%.2f'|format(producto.price) if producto else '0.00' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Costo (opcional)</label>
+      <input type="number" step="0.01" min="0" name="cost"
+             value="{{ '%.2f'|format(producto.cost) if producto else '0.00' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right" />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">Stock</label>
+      <input type="number" min="0" name="stock"
+             value="{{ producto.stock if producto else '0' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right" />
+    </div>
+    <div class="flex items-end gap-4">
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="track_stock"
+               {% if not producto or producto.track_stock %}checked{% endif %} />
+        Controlar stock
+      </label>
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="is_active"
+               {% if not producto or producto.is_active %}checked{% endif %} />
+        Activo
+      </label>
+    </div>
+  </div>
+
+  <div class="flex gap-3 mt-6 pt-6 border-t">
+    <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+      {{ 'Guardar cambios' if producto else 'Crear producto' }}
+    </button>
+    <a href="{{ url_for('productos.list') }}"
+       class="border px-6 py-2 rounded-lg hover:bg-slate-50">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

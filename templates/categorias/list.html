@@ -1,0 +1,61 @@
+{% extends "app/_layout.html" %}
+{% block title %}Categorías — {{ APP_NAME }}{% endblock %}
+{% block heading %}Categorías{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('categorias.new') }}"
+   class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
+  + Nueva categoría
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+  {% if categorias %}
+    <table class="saas-table w-full">
+      <thead>
+        <tr>
+          <th>Categoría</th>
+          <th>Descripción</th>
+          <th class="text-right">Productos</th>
+          <th class="text-right">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in categorias %}
+        <tr class="hover:bg-slate-50">
+          <td>
+            <div class="flex items-center gap-2">
+              {% if c.color %}
+                <span class="inline-block w-3 h-3 rounded-full" style="background: {{ c.color }}"></span>
+              {% endif %}
+              <span class="font-medium">{{ c.name }}</span>
+            </div>
+          </td>
+          <td class="text-sm text-slate-600">{{ c.description or '—' }}</td>
+          <td class="text-right text-sm">{{ counts.get(c.id, 0) }}</td>
+          <td class="text-right whitespace-nowrap">
+            <a href="{{ url_for('categorias.edit', cat_id=c.id) }}"
+               class="text-indigo-600 hover:underline text-sm">Editar</a>
+            <form method="POST" action="{{ url_for('categorias.delete', cat_id=c.id) }}"
+                  class="inline ml-2"
+                  onsubmit="return confirm('¿Eliminar categoría {{ c.name }}? Los productos asociados quedarán sin categoría.');">
+              <button class="text-rose-600 hover:underline text-sm">Eliminar</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="text-center py-16">
+      <div class="text-6xl mb-3">🏷️</div>
+      <p class="text-slate-500 mb-4">Aún no tienes categorías.</p>
+      <a href="{{ url_for('categorias.new') }}"
+         class="inline-block bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+        Crear primera categoría
+      </a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

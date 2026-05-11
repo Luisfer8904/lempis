@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Iniciar sesión — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto bg-white p-8 rounded-xl shadow-sm">
+  <h1 class="text-2xl font-bold mb-6 text-center">Iniciar sesión</h1>
+
+  <form method="POST" class="space-y-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Correo</label>
+      <input type="email" name="email" required
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Contraseña</label>
+      <input type="password" name="password" required
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="remember" /> Recordarme
+    </label>
+
+    <button class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">
+      Entrar
+    </button>
+  </form>
+
+  <div class="text-sm text-center mt-4 space-x-2">
+    <a href="{{ url_for('auth.forgot') }}" class="text-slate-500 hover:underline">¿Olvidaste tu contraseña?</a>
+    <span class="text-slate-300">·</span>
+    <a href="{{ url_for('auth.signup') }}" class="text-indigo-600">Crear cuenta</a>
+  </div>
+</div>
+{% endblock %}

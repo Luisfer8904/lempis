@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ APP_NAME }} — Facturación en la nube{% endblock %}
+
+{% block content %}
+<section class="text-center py-16">
+  <h1 class="text-5xl font-extrabold text-slate-900 mb-4">
+    Facturación profesional para tu empresa,
+    <span class="text-indigo-600">sin complicaciones.</span>
+  </h1>
+  <p class="text-xl text-slate-600 max-w-2xl mx-auto mb-8">
+    Cada empresa tiene su propio espacio seguro: tus clientes, productos y facturas
+    nunca se mezclan con los de nadie más. Multi-país (LatAm), multi-usuario, listo
+    para crecer contigo.
+  </p>
+  <div class="flex justify-center gap-4">
+    <a href="{{ url_for('auth.signup') }}"
+       class="bg-indigo-600 text-white px-8 py-3 rounded-lg text-lg hover:bg-indigo-700">
+      Comenzar prueba gratis
+    </a>
+    <a href="{{ url_for('landing.pricing') }}"
+       class="border border-slate-300 px-8 py-3 rounded-lg text-lg hover:bg-slate-100">
+      Ver planes
+    </a>
+  </div>
+  <p class="mt-3 text-sm text-slate-500">14 días de prueba — sin tarjeta de crédito.</p>
+</section>
+
+<section class="grid md:grid-cols-3 gap-8 py-12">
+  <div class="bg-white p-6 rounded-xl shadow-sm">
+    <div class="text-3xl mb-2">🔒</div>
+    <h3 class="font-semibold text-lg">Tus datos, solo tuyos</h3>
+    <p class="text-slate-600">Aislamiento total por empresa. Ningún otro usuario ve tu información.</p>
+  </div>
+  <div class="bg-white p-6 rounded-xl shadow-sm">
+    <div class="text-3xl mb-2">🌎</div>
+    <h3 class="font-semibold text-lg">Multi-país LatAm</h3>
+    <p class="text-slate-600">ISV/IVA/IGV configurados para Honduras, México, Perú, Colombia y más.</p>
+  </div>
+  <div class="bg-white p-6 rounded-xl shadow-sm">
+    <div class="text-3xl mb-2">⚡</div>
+    <h3 class="font-semibold text-lg">Roles y permisos</h3>
+    <p class="text-slate-600">Invita a tu equipo: vendedores, contadores, administradores.</p>
+  </div>
+</section>
+{% endblock %}

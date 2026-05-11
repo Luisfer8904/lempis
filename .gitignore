@@ -1,0 +1,48 @@
+# --- Entornos ---
+.env
+.env.local
+.env.production
+venv/
+env/
+.venv/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- IDE / Editor ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# --- Base de datos ---
+*.sqlite
+*.sqlite3
+*.db
+instance/
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Uploads / Storage ---
+uploads/
+storage/
+static/uploads/
+
+# --- Migraciones (mantener carpeta pero ignorar archivos sensibles) ---
+migrations/__pycache__/
+
+# --- Build ---
+dist/
+build/
+*.egg
