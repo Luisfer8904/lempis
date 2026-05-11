@@ -1,0 +1,271 @@
+{% extends "app/_layout.html" %}
+{% block title %}{{ 'Editar' if factura else 'Nueva' }} factura — {{ APP_NAME }}{% endblock %}
+{% block heading %}{{ 'Editar factura' if factura else 'Nueva factura' }}{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('facturas.list') }}" class="text-slate-600 hover:text-slate-900 text-sm">
+  ← Volver
+</a>
+{% endblock %}
+
+{% block content %}
+
+{% if not can_emit %}
+  <div class="mb-6 px-4 py-3 rounded-lg bg-rose-50 border border-rose-200">
+    <p class="font-medium text-rose-900">No puedes emitir todavía</p>
+    <p class="text-sm text-rose-700">{{ reason }}</p>
+    <a href="{{ url_for('configuracion.facturacion') }}"
+       class="inline-block mt-2 bg-rose-600 text-white px-4 py-2 rounded-lg hover:bg-rose-700 text-sm">
+      Ir a configuración
+    </a>
+  </div>
+{% endif %}
+
+<form method="POST" class="space-y-6" id="invoice-form">
+
+  <div class="bg-white p-6 rounded-xl shadow-sm border">
+    <div class="flex justify-between items-start mb-4">
+      <div>
+        <p class="text-sm text-slate-500">Número de factura</p>
+        <p class="text-2xl font-mono font-bold text-indigo-600">{{ next_number }}</p>
+      </div>
+      <div class="text-right">
+        <p class="text-sm text-slate-500">Fecha</p>
+        <p class="text-lg">{{ (factura.issue_date if factura else None).strftime('%d/%m/%Y') if factura and factura.issue_date else 'Hoy' }}</p>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Cliente</label>
+        <select name="customer_id" id="customer-select"
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+          <option value="">— Consumidor final —</option>
+          {% for c in clientes %}
+            <option value="{{ c.id }}"
+                    {% if factura and factura.customer_id == c.id %}selected{% endif %}>
+              {{ c.name }}{% if c.tax_id %} — {{ c.tax_id }}{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+        <a href="{{ url_for('clientes.new') }}" class="text-xs text-indigo-600 hover:underline" target="_blank">
+          + Crear cliente nuevo
+        </a>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Método de pago</label>
+        <select name="payment_method" id="payment-method"
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+          {% set pm = factura.payment_method if factura else 'efectivo' %}
+          <option value="efectivo"        {% if pm == 'efectivo' %}selected{% endif %}>Efectivo</option>
+          <option value="transferencia"   {% if pm == 'transferencia' %}selected{% endif %}>Transferencia bancaria</option>
+          <option value="tarjeta"         {% if pm == 'tarjeta' %}selected{% endif %}>Tarjeta crédito/débito</option>
+          <option value="credito"         {% if pm == 'credito' %}selected{% endif %}>Crédito a plazo</option>
+        </select>
+      </div>
+      <div id="terms-row" {% if not factura or factura.payment_method != 'credito' %}style="display:none"{% endif %}>
+        <label class="block text-sm font-medium mb-1">Días de crédito</label>
+        <select name="payment_terms_days"
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+          {% set td = factura.payment_terms_days if factura else 30 %}
+          <option value="15"  {% if td == 15 %}selected{% endif %}>15 días</option>
+          <option value="30"  {% if td == 30 %}selected{% endif %}>30 días</option>
+          <option value="45"  {% if td == 45 %}selected{% endif %}>45 días</option>
+          <option value="60"  {% if td == 60 %}selected{% endif %}>60 días</option>
+          <option value="90"  {% if td == 90 %}selected{% endif %}>90 días</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  {# ============ LÍNEAS ============ #}
+  <div class="bg-white p-6 rounded-xl shadow-sm border">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-lg font-semibold">Detalle de la factura</h2>
+      <button type="button" onclick="addLine()"
+              class="bg-slate-700 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 text-sm">
+        + Agregar línea
+      </button>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm" id="items-table">
+        <thead class="bg-slate-50 border-b">
+          <tr>
+            <th class="text-left px-2 py-2 w-1/3">Descripción</th>
+            <th class="text-right px-2 py-2">Cantidad</th>
+            <th class="text-right px-2 py-2">Precio</th>
+            <th class="text-right px-2 py-2">ISV %</th>
+            <th class="text-right px-2 py-2">Descuento</th>
+            <th class="text-right px-2 py-2">Subtotal</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="items-body">
+          {% if factura and factura.items %}
+            {% for item in factura.items %}
+              {% include 'facturas/_item_row.html' %}
+            {% endfor %}
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# ============ TOTALES + NOTAS ============ #}
+  <div class="grid md:grid-cols-2 gap-6">
+    <div class="bg-white p-6 rounded-xl shadow-sm border">
+      <label class="block text-sm font-medium mb-1">Notas / Observaciones</label>
+      <textarea name="notes" rows="6"
+                placeholder="Información adicional para el cliente..."
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">{{ factura.notes if factura else '' }}</textarea>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl shadow-sm border">
+      <h3 class="font-semibold mb-3">Resumen</h3>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between">
+          <span class="text-slate-500">Subtotal</span>
+          <span class="font-mono" id="sum-subtotal">0.00</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-500">Descuento</span>
+          <span class="font-mono" id="sum-discount">0.00</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-500">ISV / Impuestos</span>
+          <span class="font-mono" id="sum-tax">0.00</span>
+        </div>
+        <div class="flex justify-between border-t pt-2 text-lg font-bold">
+          <span>Total</span>
+          <span class="font-mono text-indigo-600" id="sum-total">{{ tenant.currency }} 0.00</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ============ ACCIONES ============ #}
+  <div class="flex justify-end gap-3 sticky bottom-0 bg-slate-50 py-4 -mx-6 px-6 border-t">
+    <a href="{{ url_for('facturas.list') }}" class="border px-6 py-2 rounded-lg hover:bg-white">
+      Cancelar
+    </a>
+    <button name="action" value="draft" formnovalidate
+            class="border border-indigo-600 text-indigo-600 px-6 py-2 rounded-lg hover:bg-indigo-50">
+      Guardar borrador
+    </button>
+    {% if can_emit %}
+      <button name="action" value="emit"
+              class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 font-medium">
+        Emitir factura
+      </button>
+    {% endif %}
+  </div>
+</form>
+
+{# Template para agregar líneas dinámicamente #}
+<template id="line-template">
+  <tr class="border-b item-row">
+    <td class="px-2 py-2">
+      <select class="item-product w-full px-2 py-1 border rounded text-sm" onchange="onProductChange(this)">
+        <option value="">— Manual —</option>
+        {% for p in productos %}
+          <option value="{{ p.id }}"
+                  data-name="{{ p.name }}"
+                  data-price="{{ p.price }}"
+                  data-tax="{{ (p.tax_config.rate if p.tax_config else 15) }}">
+            {{ p.sku }} — {{ p.name }}
+          </option>
+        {% endfor %}
+      </select>
+      <input type="text" name="item_description[]" class="item-desc w-full px-2 py-1 border rounded text-sm mt-1"
+             placeholder="Descripción" oninput="recalc()" />
+      <input type="hidden" name="item_product_id[]" class="item-product-id" />
+    </td>
+    <td class="px-2 py-2 w-24">
+      <input type="number" step="0.01" min="0.01" name="item_quantity[]" value="1"
+             class="item-qty w-full px-2 py-1 border rounded text-sm text-right" oninput="recalc()" />
+    </td>
+    <td class="px-2 py-2 w-28">
+      <input type="number" step="0.01" min="0" name="item_unit_price[]" value="0.00"
+             class="item-price w-full px-2 py-1 border rounded text-sm text-right" oninput="recalc()" />
+    </td>
+    <td class="px-2 py-2 w-20">
+      <input type="number" step="0.01" min="0" name="item_tax_rate[]" value="15.00"
+             class="item-tax w-full px-2 py-1 border rounded text-sm text-right" oninput="recalc()" />
+    </td>
+    <td class="px-2 py-2 w-24">
+      <input type="number" step="0.01" min="0" name="item_discount[]" value="0.00"
+             class="item-disc w-full px-2 py-1 border rounded text-sm text-right" oninput="recalc()" />
+    </td>
+    <td class="px-2 py-2 w-28 text-right font-mono item-subtotal">0.00</td>
+    <td class="px-2 py-2">
+      <button type="button" onclick="removeLine(this)" class="text-rose-500 hover:text-rose-700">✕</button>
+    </td>
+  </tr>
+</template>
+
+<script>
+const tenantCurrency = "{{ tenant.currency }}";
+const itemsBody = document.getElementById("items-body");
+
+function addLine() {
+  const tpl = document.getElementById("line-template");
+  const clone = tpl.content.cloneNode(true);
+  itemsBody.appendChild(clone);
+  recalc();
+}
+
+function removeLine(btn) {
+  btn.closest("tr").remove();
+  recalc();
+}
+
+function onProductChange(select) {
+  const row = select.closest("tr");
+  const opt = select.options[select.selectedIndex];
+  if (opt.value) {
+    row.querySelector(".item-desc").value = opt.dataset.name;
+    row.querySelector(".item-price").value = parseFloat(opt.dataset.price).toFixed(2);
+    row.querySelector(".item-tax").value = parseFloat(opt.dataset.tax).toFixed(2);
+    row.querySelector(".item-product-id").value = opt.value;
+  } else {
+    row.querySelector(".item-product-id").value = "";
+  }
+  recalc();
+}
+
+function recalc() {
+  let subtotal = 0, taxTotal = 0, discTotal = 0;
+  document.querySelectorAll(".item-row").forEach(row => {
+    const qty   = parseFloat(row.querySelector(".item-qty").value)   || 0;
+    const price = parseFloat(row.querySelector(".item-price").value) || 0;
+    const tax   = parseFloat(row.querySelector(".item-tax").value)   || 0;
+    const disc  = parseFloat(row.querySelector(".item-disc").value)  || 0;
+    const lineSubtotal = qty * price;
+    const lineTax = lineSubtotal * (tax / 100);
+    row.querySelector(".item-subtotal").textContent = lineSubtotal.toFixed(2);
+    subtotal += lineSubtotal;
+    taxTotal += lineTax;
+    discTotal += disc;
+  });
+  const total = subtotal + taxTotal - discTotal;
+  document.getElementById("sum-subtotal").textContent = subtotal.toFixed(2);
+  document.getElementById("sum-tax").textContent      = taxTotal.toFixed(2);
+  document.getElementById("sum-discount").textContent = discTotal.toFixed(2);
+  document.getElementById("sum-total").textContent    = tenantCurrency + " " + total.toFixed(2);
+}
+
+// Mostrar/ocultar plazo de crédito
+document.getElementById("payment-method").addEventListener("change", e => {
+  document.getElementById("terms-row").style.display =
+    e.target.value === "credito" ? "block" : "none";
+});
+
+// Si no hay líneas al cargar, agregar una vacía
+if (!itemsBody.children.length) {
+  addLine();
+} else {
+  recalc();
+}
+</script>
+{% endblock %}

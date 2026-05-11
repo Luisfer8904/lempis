@@ -44,6 +44,35 @@ class Tenant(db.Model, TimestampMixin):
     trial_ends_at = Column(DateTime)
     onboarding_completed = Column(Boolean, default=False)
 
+    # ===== Configuración SAR Honduras (facturación fiscal) =====
+    # CAI: Código de Autorización de Impresión
+    cai_code = Column(String(40))                  # ej. "ABC123-DEF456-...-78"
+    cai_valid_from = Column(DateTime)              # inicio vigencia CAI
+    cai_valid_until = Column(DateTime)             # fin vigencia CAI
+    cai_range_start = Column(Integer, default=1)   # primer correlativo autorizado
+    cai_range_end = Column(Integer, default=99999999)  # último correlativo
+
+    # Identificación del punto de emisión
+    establecimiento = Column(String(3), default="001")    # 3 dígitos
+    punto_emision = Column(String(3), default="001")      # 3 dígitos
+    tipo_documento = Column(String(2), default="01")      # 01 = Factura
+
+    # Próximo correlativo a asignar (se incrementa al emitir)
+    next_invoice_number = Column(Integer, default=1)
+
+    def has_cai_configured(self) -> bool:
+        """¿El tenant ya configuró su CAI y puede emitir facturas?"""
+        return bool(
+            self.cai_code
+            and self.cai_valid_from
+            and self.cai_valid_until
+            and self.tax_id
+        )
+
+    def format_invoice_number(self, correlativo: int) -> str:
+        """Devuelve el número formateado tipo SAR: 001-001-01-00000001"""
+        return f"{self.establecimiento}-{self.punto_emision}-{self.tipo_documento}-{correlativo:08d}"
+
     # Relaciones
     users = relationship("User", back_populates="tenant", cascade="all, delete-orphan")
     subscription = relationship("Subscription", back_populates="tenant", uselist=False, cascade="all, delete-orphan")

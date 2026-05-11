@@ -41,7 +41,31 @@ class Invoice(db.Model, TimestampMixin):
         nullable=False,
     )
 
-    payment_method = Column(String(40))   # cash, transfer, card, ...
+    # Método de pago: efectivo, transferencia, tarjeta, credito
+    payment_method = Column(
+        Enum("efectivo", "transferencia", "tarjeta", "credito", name="payment_method"),
+        default="efectivo",
+        nullable=False,
+    )
+    # Para crédito: días de plazo (ej. 15, 30, 60)
+    payment_terms_days = Column(Integer, default=0)
+
+    # ===== Datos SAR "congelados" al momento de emitir =====
+    # Se copian del Tenant al emitir para no perderlos si cambia el CAI después
+    cai_code = Column(String(40))
+    cai_range_start = Column(Integer)
+    cai_range_end = Column(Integer)
+    cai_valid_until = Column(DateTime)
+
+    # Datos del emisor congelados (por si la empresa cambia datos después)
+    emisor_name = Column(String(160))
+    emisor_tax_id = Column(String(40))
+    emisor_address = Column(Text)
+
+    # Datos del receptor congelados
+    receptor_name = Column(String(160))
+    receptor_tax_id = Column(String(40))
+
     notes = Column(Text)
 
     # Relaciones

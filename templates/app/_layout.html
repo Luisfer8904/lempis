@@ -36,16 +36,11 @@
         </a>
       {% endmacro %}
 
-      {{ navlink('dashboard.home',    'Dashboard',  '🏠') }}
-      {{ navlink('clientes.list',     'Clientes',   '👥') }}
-      {{ navlink('productos.list',    'Productos',  '📦') }}
-      {{ navlink('categorias.list',   'Categorías', '🏷️') }}
-      {# Facturas y Reportes vienen en Sprint 1B #}
-      <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 cursor-not-allowed"
-         title="Próximamente">
-        <span class="text-lg">🧾</span> Facturas
-        <span class="ml-auto text-[10px] bg-slate-200 px-2 py-0.5 rounded">Pronto</span>
-      </a>
+      {{ navlink('dashboard.home',          'Dashboard',  '🏠') }}
+      {{ navlink('facturas.list',           'Facturas',   '🧾') }}
+      {{ navlink('clientes.list',           'Clientes',   '👥') }}
+      {{ navlink('productos.list',          'Productos',  '📦') }}
+      {{ navlink('categorias.list',         'Categorías', '🏷️') }}
       <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 cursor-not-allowed"
          title="Próximamente">
         <span class="text-lg">📊</span> Reportes
@@ -53,7 +48,8 @@
       </a>
 
       <div class="pt-4 mt-4 border-t">
-        {{ navlink('billing.index', 'Suscripción', '💳') }}
+        {{ navlink('configuracion.empresa', 'Configuración', '⚙️') }}
+        {{ navlink('billing.index',         'Suscripción',   '💳') }}
       </div>
     </nav>
 

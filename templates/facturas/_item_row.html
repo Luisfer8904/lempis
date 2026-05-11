@@ -1,0 +1,44 @@
+{# Fila de detalle pre-rellenada al editar #}
+<tr class="border-b item-row">
+  <td class="px-2 py-2">
+    <select class="item-product w-full px-2 py-1 border rounded text-sm" onchange="onProductChange(this)">
+      <option value="">— Manual —</option>
+      {% for p in productos %}
+        <option value="{{ p.id }}"
+                data-name="{{ p.name }}"
+                data-price="{{ p.price }}"
+                data-tax="{{ (p.tax_config.rate if p.tax_config else 15) }}"
+                {% if item.product_id == p.id %}selected{% endif %}>
+          {{ p.sku }} — {{ p.name }}
+        </option>
+      {% endfor %}
+    </select>
+    <input type="text" name="item_description[]" class="item-desc w-full px-2 py-1 border rounded text-sm mt-1"
+           value="{{ item.description }}" oninput="recalc()" />
+    <input type="hidden" name="item_product_id[]" class="item-product-id" value="{{ item.product_id or '' }}" />
+  </td>
+  <td class="px-2 py-2 w-24">
+    <input type="number" step="0.01" min="0.01" name="item_quantity[]"
+           value="{{ '%.2f'|format(item.quantity) }}"
+           class="item-qty w-full px-2 py-1 border rounded text-sm text-right" oninput="recalc()" />
+  </td>
+  <td class="px-2 py-2 w-28">
+    <input type="number" step="0.01" min="0" name="item_unit_price[]"
+           value="{{ '%.2f'|format(item.unit_price) }}"
+           class="item-price w-full px-2 py-1 border rounded text-sm text-right" oninput="recalc()" />
+  </td>
+  <td class="px-2 py-2 w-20">
+    <input type="number" step="0.01" min="0" name="item_tax_rate[]"
+           value="{{ '%.2f'|format(item.tax_rate) }}"
+           class="item-tax w-full px-2 py-1 border rounded text-sm text-right" oninput="recalc()" />
+  </td>
+  <td class="px-2 py-2 w-24">
+    <input type="number" step="0.01" min="0" name="item_discount[]"
+           value="{{ '%.2f'|format(item.discount_amount) }}"
+           class="item-disc w-full px-2 py-1 border rounded text-sm text-right" oninput="recalc()" />
+  </td>
+  <td class="px-2 py-2 w-28 text-right font-mono item-subtotal">{{ '%.2f'|format(item.subtotal) }}</td>
+  <td class="px-2 py-2">
+    <button type="button" onclick="removeLine(this)" class="text-rose-500 hover:text-rose-700">✕</button>
+  </td>
+</tr>

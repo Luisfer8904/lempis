@@ -15,9 +15,14 @@ from models.tenant import Tenant
 def _resolve_by_session():
     tenant_id = session.get("tenant_id")
     if tenant_id:
-        return Tenant.query.get(tenant_id)
+        tenant = Tenant.query.get(tenant_id)
+        if tenant is not None:
+            return tenant
     if current_user.is_authenticated:
-        return current_user.tenant
+        tenant = current_user.tenant
+        if tenant is not None:
+            session["tenant_id"] = tenant.id
+        return tenant
     return None
 
 

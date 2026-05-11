@@ -1,0 +1,124 @@
+{% extends "app/_layout.html" %}
+{% block title %}Facturas — {{ APP_NAME }}{% endblock %}
+{% block heading %}Facturas{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('facturas.new') }}"
+   class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
+  + Nueva factura
+</a>
+{% endblock %}
+
+{% block content %}
+
+{% if not cai_ok %}
+  <div class="mb-6 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 flex items-center gap-3">
+    <span class="text-2xl">⚠️</span>
+    <div class="flex-1">
+      <p class="font-medium text-amber-900">Falta configurar tu CAI</p>
+      <p class="text-sm text-amber-700">No puedes emitir facturas válidas sin tu Código CAI del SAR.</p>
+    </div>
+    <a href="{{ url_for('configuracion.facturacion') }}"
+       class="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 text-sm">
+      Configurar
+    </a>
+  </div>
+{% endif %}
+
+<form method="GET" class="mb-4 flex gap-2">
+  <input type="search" name="q" value="{{ q }}" placeholder="Buscar por número, cliente o RTN..."
+         class="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white" />
+  <select name="status" class="px-4 py-2 border rounded-lg bg-white">
+    <option value="">Todos los estados</option>
+    <option value="draft"           {% if status == 'draft' %}selected{% endif %}>Borrador</option>
+    <option value="issued"          {% if status == 'issued' %}selected{% endif %}>Emitida</option>
+    <option value="paid"            {% if status == 'paid' %}selected{% endif %}>Pagada</option>
+    <option value="partially_paid"  {% if status == 'partially_paid' %}selected{% endif %}>Pago parcial</option>
+    <option value="overdue"         {% if status == 'overdue' %}selected{% endif %}>Vencida</option>
+    <option value="void"            {% if status == 'void' %}selected{% endif %}>Anulada</option>
+  </select>
+  <button class="bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-800 text-sm">Buscar</button>
+</form>
+
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+  {% if facturas %}
+    <table class="saas-table w-full">
+      <thead>
+        <tr>
+          <th>Número</th>
+          <th>Fecha</th>
+          <th>Cliente</th>
+          <th>Método</th>
+          <th class="text-right">Total</th>
+          <th>Estado</th>
+          <th class="text-right">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in facturas %}
+        <tr class="hover:bg-slate-50">
+          <td class="font-mono text-sm">{{ f.number }}</td>
+          <td class="text-sm">{{ f.issue_date.strftime('%d/%m/%Y') }}</td>
+          <td>
+            <div class="font-medium">{{ f.receptor_name or f.customer.name if f.customer else 'Consumidor final' }}</div>
+            {% if f.receptor_tax_id %}<div class="text-xs text-slate-500 font-mono">{{ f.receptor_tax_id }}</div>{% endif %}
+          </td>
+          <td>
+            {% set methods = {'efectivo': 'Efectivo', 'transferencia': 'Transferencia', 'tarjeta': 'Tarjeta', 'credito': 'Crédito'} %}
+            <span class="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded">
+              {{ methods.get(f.payment_method, f.payment_method) }}
+              {% if f.payment_method == 'credito' and f.payment_terms_days %}({{ f.payment_terms_days }}d){% endif %}
+            </span>
+          </td>
+          <td class="text-right font-semibold">{{ f.currency }} {{ '%.2f'|format(f.total) }}</td>
+          <td>
+            {% set badges = {
+              'draft': 'bg-slate-200 text-slate-700',
+              'issued': 'bg-sky-100 text-sky-800',
+              'paid': 'bg-green-100 text-green-800',
+              'partially_paid': 'bg-amber-100 text-amber-800',
+              'overdue': 'bg-rose-100 text-rose-800',
+              'void': 'bg-slate-300 text-slate-600 line-through',
+            } %}
+            {% set labels = {
+              'draft': 'Borrador', 'issued': 'Emitida', 'paid': 'Pagada',
+              'partially_paid': 'Parcial', 'overdue': 'Vencida', 'void': 'Anulada',
+            } %}
+            <span class="text-xs px-2 py-1 rounded {{ badges.get(f.status, 'bg-slate-100 text-slate-700') }}">
+              {{ labels.get(f.status, f.status) }}
+            </span>
+          </td>
+          <td class="text-right whitespace-nowrap">
+            <a href="{{ url_for('facturas.detail', invoice_id=f.id) }}"
+               class="text-indigo-600 hover:underline text-sm">Ver</a>
+            {% if f.status != 'void' %}
+              <a href="{{ url_for('facturas.pdf', invoice_id=f.id) }}"
+                 class="text-slate-600 hover:underline text-sm ml-2">PDF</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="text-center py-16">
+      <div class="text-6xl mb-3">🧾</div>
+      <p class="text-slate-500 mb-4">
+        {% if q or status %}
+          No se encontraron facturas con esos filtros.
+        {% else %}
+          Aún no has emitido facturas.
+        {% endif %}
+      </p>
+      <a href="{{ url_for('facturas.new') }}"
+         class="inline-block bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+        Crear la primera factura
+      </a>
+    </div>
+  {% endif %}
+</div>
+
+{% if facturas %}
+  <p class="text-sm text-slate-500 mt-3">{{ facturas|length }} factura(s)</p>
+{% endif %}
+{% endblock %}
