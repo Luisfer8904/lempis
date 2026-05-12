@@ -1,0 +1,71 @@
+{% extends "admin/_layout.html" %}
+{% block title %}Usuarios — Admin{% endblock %}
+{% block heading %}Usuarios (cross-tenant){% endblock %}
+
+{% block content %}
+<form method="GET" class="mb-4 flex gap-2">
+  <input type="search" name="q" value="{{ q }}"
+         placeholder="Buscar por email o nombre..."
+         class="flex-1 px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 focus:ring-2 focus:ring-rose-500" />
+  <button class="bg-rose-600 text-white px-4 py-2 rounded-lg hover:bg-rose-700">Buscar</button>
+</form>
+
+<div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-900 text-slate-400">
+      <tr>
+        <th class="text-left px-4 py-3">Email</th>
+        <th class="text-left px-4 py-3">Nombre</th>
+        <th class="text-left px-4 py-3">Empresa</th>
+        <th class="text-left px-4 py-3">Rol</th>
+        <th class="text-left px-4 py-3">SuperAdmin</th>
+        <th class="text-right px-4 py-3">Último acceso</th>
+        <th class="text-right px-4 py-3">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr class="border-t border-slate-700 hover:bg-slate-700/30">
+        <td class="px-4 py-3">{{ u.email }}</td>
+        <td class="px-4 py-3 text-slate-300">{{ u.full_name or '—' }}</td>
+        <td class="px-4 py-3">
+          {% if u.tenant %}
+            <a href="{{ url_for('admin.empresa_detail', tenant_id=u.tenant_id) }}"
+               class="text-rose-400 hover:underline">
+              {{ u.tenant.name }}
+            </a>
+          {% else %}—{% endif %}
+        </td>
+        <td class="px-4 py-3">
+          {% if u.is_owner %}<span class="text-amber-300 text-xs">👑 Owner</span>
+          {% elif u.roles %}<span class="text-xs">{{ u.roles[0].name }}</span>
+          {% else %}<span class="text-slate-500 text-xs">—</span>{% endif %}
+        </td>
+        <td class="px-4 py-3">
+          {% if u.is_superadmin %}
+            <span class="text-rose-300 text-xs bg-rose-900/40 px-2 py-1 rounded">⚡ Sí</span>
+          {% else %}
+            <span class="text-slate-500 text-xs">—</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-right text-xs text-slate-400">
+          {{ u.last_login_at.strftime('%d/%m/%Y %H:%M') if u.last_login_at else 'Nunca' }}
+        </td>
+        <td class="px-4 py-3 text-right">
+          {% if u.id != current_user.id %}
+            <form method="POST" action="{{ url_for('admin.toggle_superadmin', user_id=u.id) }}"
+                  onsubmit="return confirm('¿{{ 'Remover' if u.is_superadmin else 'Promover a' }} SuperAdmin?');">
+              <button class="text-xs text-rose-400 hover:underline">
+                {{ 'Remover SA' if u.is_superadmin else 'Promover SA' }}
+              </button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="text-sm text-slate-400 mt-3">{{ users|length }} usuario(s) (límite 200)</p>
+{% endblock %}

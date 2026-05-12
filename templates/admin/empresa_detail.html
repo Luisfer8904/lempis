@@ -1,0 +1,149 @@
+{% extends "admin/_layout.html" %}
+{% block title %}{{ tenant.name }} — Admin{% endblock %}
+{% block heading %}{{ tenant.name }}{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('admin.empresas') }}" class="text-slate-300 hover:text-white text-sm mr-3">← Volver</a>
+<form method="POST" action="{{ url_for('admin.empresa_toggle', tenant_id=tenant.id) }}"
+      onsubmit="return confirm('¿{{ 'Suspender' if tenant.is_active else 'Reactivar' }} esta empresa?');">
+  <button class="{% if tenant.is_active %}bg-rose-600 hover:bg-rose-700{% else %}bg-green-600 hover:bg-green-700{% endif %} text-white px-4 py-2 rounded-lg text-sm">
+    {{ 'Suspender' if tenant.is_active else 'Reactivar' }} empresa
+  </button>
+</form>
+{% endblock %}
+
+{% block content %}
+<section class="grid md:grid-cols-5 gap-4 mb-6">
+  <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl">
+    <p class="text-xs text-slate-400">Usuarios</p>
+    <p class="text-2xl font-bold">{{ stats.users }}</p>
+  </div>
+  <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl">
+    <p class="text-xs text-slate-400">Facturas</p>
+    <p class="text-2xl font-bold">{{ stats.invoices }}</p>
+  </div>
+  <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl">
+    <p class="text-xs text-slate-400">Clientes</p>
+    <p class="text-2xl font-bold">{{ stats.customers }}</p>
+  </div>
+  <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl">
+    <p class="text-xs text-slate-400">Productos</p>
+    <p class="text-2xl font-bold">{{ stats.products }}</p>
+  </div>
+  <div class="bg-gradient-to-br from-rose-700 to-pink-800 p-4 rounded-xl border border-rose-600">
+    <p class="text-xs text-rose-100/80">Ingresos totales</p>
+    <p class="text-2xl font-bold text-white">{{ tenant.currency }} {{ '%.2f'|format(stats.revenue) }}</p>
+  </div>
+</section>
+
+<div class="grid md:grid-cols-2 gap-6 mb-6">
+  <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl">
+    <h3 class="text-lg font-semibold mb-4">Datos de la empresa</h3>
+    <dl class="text-sm space-y-2">
+      <div><dt class="text-slate-400 inline">Slug:</dt> <dd class="inline font-mono">{{ tenant.slug }}</dd></div>
+      <div><dt class="text-slate-400 inline">RTN:</dt> <dd class="inline font-mono">{{ tenant.tax_id or '—' }}</dd></div>
+      <div><dt class="text-slate-400 inline">Razón social:</dt> <dd class="inline">{{ tenant.legal_name or '—' }}</dd></div>
+      <div><dt class="text-slate-400 inline">Email:</dt> <dd class="inline">{{ tenant.email or '—' }}</dd></div>
+      <div><dt class="text-slate-400 inline">Teléfono:</dt> <dd class="inline">{{ tenant.phone or '—' }}</dd></div>
+      <div><dt class="text-slate-400 inline">País:</dt> <dd class="inline">{{ tenant.country_code }} ({{ tenant.currency }})</dd></div>
+      <div><dt class="text-slate-400 inline">Registrada:</dt> <dd class="inline">{{ tenant.created_at.strftime('%d/%m/%Y %H:%M') }}</dd></div>
+      {% if tenant.trial_ends_at %}
+        <div><dt class="text-slate-400 inline">Trial hasta:</dt> <dd class="inline">{{ tenant.trial_ends_at.strftime('%d/%m/%Y') }}</dd></div>
+      {% endif %}
+      <div><dt class="text-slate-400 inline">CAI:</dt>
+        <dd class="inline">
+          {% if tenant.has_cai_configured() %}
+            ✅ Configurado
+          {% else %}
+            <span class="text-amber-400">⚠️ Sin configurar</span>
+          {% endif %}
+        </dd>
+      </div>
+    </dl>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl">
+    <h3 class="text-lg font-semibold mb-4">Suscripción</h3>
+    {% if tenant.subscription %}
+      <dl class="text-sm space-y-2">
+        <div><dt class="text-slate-400 inline">Plan:</dt> <dd class="inline font-semibold">{{ tenant.subscription.plan.name }}</dd></div>
+        <div><dt class="text-slate-400 inline">Estado:</dt> <dd class="inline">{{ tenant.subscription.status }}</dd></div>
+        <div><dt class="text-slate-400 inline">Precio:</dt> <dd class="inline">${{ tenant.subscription.plan.price_monthly }}/mes</dd></div>
+        {% if tenant.subscription.current_period_end %}
+          <div><dt class="text-slate-400 inline">Periodo vence:</dt> <dd class="inline">{{ tenant.subscription.current_period_end.strftime('%d/%m/%Y') }}</dd></div>
+        {% endif %}
+        {% if tenant.subscription.stripe_customer_id %}
+          <div><dt class="text-slate-400 inline">Stripe Customer:</dt> <dd class="inline font-mono text-xs">{{ tenant.subscription.stripe_customer_id }}</dd></div>
+        {% endif %}
+      </dl>
+    {% else %}
+      <p class="text-slate-500">Sin suscripción</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="bg-slate-800 border border-slate-700 p-6 rounded-xl mb-6">
+  <h3 class="text-lg font-semibold mb-4">Usuarios ({{ users|length }})</h3>
+  <table class="w-full text-sm">
+    <thead class="text-slate-400 border-b border-slate-700">
+      <tr>
+        <th class="text-left py-2">Email</th>
+        <th class="text-left py-2">Nombre</th>
+        <th class="text-left py-2">Rol</th>
+        <th class="text-left py-2">Estado</th>
+        <th class="text-right py-2">Último acceso</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr class="border-b border-slate-700/50">
+        <td class="py-2">{{ u.email }}</td>
+        <td class="py-2 text-slate-300">{{ u.full_name or '—' }}</td>
+        <td class="py-2">
+          {% if u.is_owner %}<span class="text-amber-300 text-xs">👑 Owner</span>
+          {% elif u.roles %}<span class="text-xs">{{ u.roles[0].name }}</span>
+          {% else %}<span class="text-slate-500 text-xs">—</span>{% endif %}
+        </td>
+        <td class="py-2">
+          {% if u.is_active %}<span class="text-green-400 text-xs">Activo</span>
+          {% else %}<span class="text-slate-500 text-xs">Inactivo</span>{% endif %}
+        </td>
+        <td class="py-2 text-right text-xs text-slate-400">
+          {{ u.last_login_at.strftime('%d/%m/%Y %H:%M') if u.last_login_at else 'Nunca' }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="bg-slate-800 border border-slate-700 p-6 rounded-xl">
+  <h3 class="text-lg font-semibold mb-4">Últimas facturas ({{ last_invoices|length }})</h3>
+  {% if last_invoices %}
+    <table class="w-full text-sm">
+      <thead class="text-slate-400 border-b border-slate-700">
+        <tr>
+          <th class="text-left py-2">Número</th>
+          <th class="text-left py-2">Cliente</th>
+          <th class="text-right py-2">Total</th>
+          <th class="text-left py-2">Estado</th>
+          <th class="text-right py-2">Fecha</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in last_invoices %}
+        <tr class="border-b border-slate-700/50">
+          <td class="py-2 font-mono text-xs">{{ f.number }}</td>
+          <td class="py-2">{{ f.receptor_name or 'Consumidor final' }}</td>
+          <td class="py-2 text-right font-mono">{{ f.currency }} {{ '%.2f'|format(f.total) }}</td>
+          <td class="py-2 text-xs">{{ f.status }}</td>
+          <td class="py-2 text-right text-xs text-slate-400">{{ f.issue_date.strftime('%d/%m/%Y') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="text-slate-500 text-sm">Sin facturas todavía</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -32,6 +32,7 @@ def create_app(config_name: str | None = None) -> Flask:
     from routes.configuracion import configuracion_bp
     from routes.reportes import reportes_bp
     from routes.usuarios import usuarios_bp
+    from routes.admin import admin_bp
 
     app.register_blueprint(landing_bp)
     app.register_blueprint(auth_bp)
@@ -44,6 +45,7 @@ def create_app(config_name: str | None = None) -> Flask:
     app.register_blueprint(configuracion_bp)
     app.register_blueprint(reportes_bp)
     app.register_blueprint(usuarios_bp)
+    app.register_blueprint(admin_bp)
 
     # Middleware: resolver tenant en cada request
     @app.before_request

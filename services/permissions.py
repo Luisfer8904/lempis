@@ -24,13 +24,26 @@ def role_required(*role_codes):
 
 
 def admin_required(fn):
-    """Atajo para owner/admin."""
+    """Atajo para owner/admin del tenant."""
     @wraps(fn)
     def wrapper(*args, **kwargs):
         if not current_user.is_authenticated:
             return redirect(url_for("auth.login"))
         if not current_user.is_admin():
             flash("Solo los administradores pueden acceder.", "danger")
+            return abort(403)
+        return fn(*args, **kwargs)
+    return wrapper
+
+
+def superadmin_required(fn):
+    """Solo para superadmins de la plataforma Lempis (cross-tenant)."""
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        if not current_user.is_authenticated:
+            return redirect(url_for("auth.login"))
+        if not getattr(current_user, "is_superadmin", False):
+            flash("Acceso restringido al equipo de Lempis.", "danger")
             return abort(403)
         return fn(*args, **kwargs)
     return wrapper

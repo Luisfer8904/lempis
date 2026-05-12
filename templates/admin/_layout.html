@@ -1,0 +1,87 @@
+{# Layout para el panel SuperAdmin de Lempis #}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Admin — {{ APP_NAME }}{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+
+<div class="flex min-h-screen">
+  <aside class="w-64 bg-slate-800 border-r border-slate-700 flex flex-col">
+    <div class="px-6 py-5 border-b border-slate-700">
+      <a href="{{ url_for('admin.index') }}" class="text-2xl font-bold text-rose-400">
+        ⚡ {{ APP_NAME }} Admin
+      </a>
+      <p class="text-xs text-slate-400 mt-1">Panel de plataforma</p>
+    </div>
+
+    <nav class="flex-1 px-3 py-4 space-y-1">
+      {% set ep = request.endpoint or '' %}
+      {% macro nav(endpoint, label, icon) %}
+        <a href="{{ url_for(endpoint) }}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+                  {% if ep == endpoint %}
+                    bg-rose-900/40 text-rose-200
+                  {% else %}
+                    text-slate-300 hover:bg-slate-700
+                  {% endif %}">
+          <span class="text-lg">{{ icon }}</span> {{ label }}
+        </a>
+      {% endmacro %}
+
+      {{ nav('admin.index',         'Overview',      '📊') }}
+      {{ nav('admin.empresas',      'Empresas',      '🏢') }}
+      {{ nav('admin.usuarios',      'Usuarios',      '👥') }}
+      {{ nav('admin.suscripciones', 'Suscripciones', '💳') }}
+
+      <div class="pt-4 mt-4 border-t border-slate-700">
+        <a href="{{ url_for('dashboard.home') }}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700">
+          <span class="text-lg">↩️</span> Volver al app
+        </a>
+      </div>
+    </nav>
+
+    <div class="px-4 py-3 border-t border-slate-700 flex items-center gap-3">
+      <div class="h-8 w-8 rounded-full bg-rose-900 flex items-center justify-center text-rose-200 text-sm font-semibold">
+        {{ (current_user.full_name or current_user.email)[:1] | upper }}
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium truncate">{{ current_user.full_name or current_user.email }}</p>
+        <span class="text-xs text-rose-400">👑 SuperAdmin</span>
+      </div>
+    </div>
+  </aside>
+
+  <main class="flex-1 overflow-x-hidden">
+    <header class="bg-slate-800 border-b border-slate-700 px-6 py-3 flex justify-between items-center">
+      <h1 class="text-xl font-semibold">{% block heading %}{% endblock %}</h1>
+      <div class="flex items-center gap-2">
+        {% block actions %}{% endblock %}
+      </div>
+    </header>
+
+    <div class="px-6 py-6">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+          <div class="mb-4 px-4 py-3 rounded-lg
+                      {% if cat=='success' %}bg-green-900/40 text-green-200 border border-green-800
+                      {% elif cat=='danger' %}bg-rose-900/40 text-rose-200 border border-rose-800
+                      {% elif cat=='warning' %}bg-amber-900/40 text-amber-200 border border-amber-800
+                      {% else %}bg-sky-900/40 text-sky-200 border border-sky-800{% endif %}">
+            {{ msg }}
+          </div>
+        {% endfor %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

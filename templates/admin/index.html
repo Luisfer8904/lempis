@@ -1,0 +1,84 @@
+{% extends "admin/_layout.html" %}
+{% block title %}Overview — Admin{% endblock %}
+{% block heading %}Overview de la plataforma{% endblock %}
+
+{% block content %}
+<section class="grid md:grid-cols-4 gap-4 mb-6">
+  <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl">
+    <p class="text-xs text-slate-400 uppercase">Empresas activas</p>
+    <p class="text-3xl font-bold">{{ active_tenants }} <span class="text-slate-500 text-lg">/{{ total_tenants }}</span></p>
+    <p class="text-xs text-slate-500 mt-1">+{{ new_tenants }} en los últimos 30 días</p>
+  </div>
+  <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl">
+    <p class="text-xs text-slate-400 uppercase">Usuarios totales</p>
+    <p class="text-3xl font-bold">{{ total_users }}</p>
+  </div>
+  <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl">
+    <p class="text-xs text-slate-400 uppercase">Facturas (mes)</p>
+    <p class="text-3xl font-bold">{{ invoices_this_month }}</p>
+    <p class="text-xs text-slate-500 mt-1">{{ total_invoices }} totales</p>
+  </div>
+  <div class="bg-gradient-to-br from-rose-700 to-pink-800 p-5 rounded-xl border border-rose-600">
+    <p class="text-xs uppercase text-rose-100/80">MRR estimado</p>
+    <p class="text-3xl font-bold text-white">${{ '%.2f'|format(mrr) }}</p>
+    <p class="text-xs text-rose-100/80 mt-1">USD por mes recurrente</p>
+  </div>
+</section>
+
+<div class="grid md:grid-cols-3 gap-6 mb-6">
+  <div class="md:col-span-1 bg-slate-800 border border-slate-700 p-6 rounded-xl">
+    <h3 class="text-lg font-semibold mb-4">Distribución por plan</h3>
+    {% for p in plan_distribution %}
+      <div class="mb-3">
+        <div class="flex justify-between text-sm mb-1">
+          <span>{{ p.plan_name }}</span>
+          <span class="font-mono text-rose-400">{{ p.count }}</span>
+        </div>
+        <div class="w-full bg-slate-700 rounded-full h-2">
+          {% set pct = (p.count / active_tenants * 100) if active_tenants else 0 %}
+          <div class="bg-rose-500 h-2 rounded-full" style="width: {{ pct }}%"></div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="md:col-span-2 bg-slate-800 border border-slate-700 p-6 rounded-xl">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-semibold">Empresas recientes</h3>
+      <a href="{{ url_for('admin.empresas') }}" class="text-rose-400 hover:underline text-sm">
+        Ver todas →
+      </a>
+    </div>
+    <table class="w-full text-sm">
+      <thead class="text-slate-400 border-b border-slate-700">
+        <tr>
+          <th class="text-left py-2">Empresa</th>
+          <th class="text-left py-2">País</th>
+          <th class="text-left py-2">Plan</th>
+          <th class="text-right py-2">Registrada</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in recent_tenants %}
+        <tr class="border-b border-slate-700/50 hover:bg-slate-700/30 cursor-pointer"
+            onclick="window.location='{{ url_for('admin.empresa_detail', tenant_id=t.id) }}'">
+          <td class="py-2">
+            <div class="font-medium">{{ t.name }}</div>
+            <div class="text-xs text-slate-500">{{ t.slug }}</div>
+          </td>
+          <td class="text-slate-300">{{ t.country_code }} ({{ t.currency }})</td>
+          <td>
+            {% if t.subscription %}
+              <span class="text-xs bg-slate-700 px-2 py-1 rounded">{{ t.subscription.plan.name }}</span>
+            {% else %}
+              <span class="text-xs text-slate-500">—</span>
+            {% endif %}
+          </td>
+          <td class="text-right text-xs text-slate-400">{{ t.created_at.strftime('%d/%m/%Y') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

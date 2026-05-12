@@ -49,6 +49,13 @@
         {% endif %}
         {{ navlink('configuracion.empresa', 'Configuración', '⚙️') }}
         {{ navlink('billing.index',         'Suscripción',   '💳') }}
+        {% if current_user.is_superadmin %}
+          <a href="{{ url_for('admin.index') }}"
+             class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+                    bg-rose-50 text-rose-700 hover:bg-rose-100 mt-2">
+            <span class="text-lg">⚡</span> Admin Lempis
+          </a>
+        {% endif %}
       </div>
     </nav>
 

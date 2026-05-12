@@ -57,6 +57,7 @@ class User(UserMixin, db.Model, TimestampMixin):
     # Estado
     is_active = Column(Boolean, default=True, nullable=False)
     is_owner = Column(Boolean, default=False)  # creador del tenant
+    is_superadmin = Column(Boolean, default=False, nullable=False)  # admin de la plataforma Lempis
     email_verified = Column(Boolean, default=False)
     last_login_at = Column(DateTime)
 

@@ -1,0 +1,60 @@
+{% extends "admin/_layout.html" %}
+{% block title %}Empresas — Admin{% endblock %}
+{% block heading %}Empresas (Tenants){% endblock %}
+
+{% block content %}
+<form method="GET" class="mb-4 flex gap-2">
+  <input type="search" name="q" value="{{ q }}"
+         placeholder="Buscar por nombre, slug, RTN o email..."
+         class="flex-1 px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 focus:ring-2 focus:ring-rose-500" />
+  <button class="bg-rose-600 text-white px-4 py-2 rounded-lg hover:bg-rose-700">Buscar</button>
+</form>
+
+<div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-900 text-slate-400">
+      <tr>
+        <th class="text-left px-4 py-3">Empresa</th>
+        <th class="text-left px-4 py-3">RTN</th>
+        <th class="text-left px-4 py-3">País</th>
+        <th class="text-left px-4 py-3">Plan</th>
+        <th class="text-right px-4 py-3">Usuarios</th>
+        <th class="text-right px-4 py-3">Facturas</th>
+        <th class="text-left px-4 py-3">Estado</th>
+        <th class="text-right px-4 py-3">Registrada</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in tenants %}
+      <tr class="border-t border-slate-700 hover:bg-slate-700/30 cursor-pointer"
+          onclick="window.location='{{ url_for('admin.empresa_detail', tenant_id=t.id) }}'">
+        <td class="px-4 py-3">
+          <div class="font-medium">{{ t.name }}</div>
+          <div class="text-xs text-slate-500">{{ t.slug }} · {{ t.email or '—' }}</div>
+        </td>
+        <td class="px-4 py-3 font-mono text-xs text-slate-300">{{ t.tax_id or '—' }}</td>
+        <td class="px-4 py-3 text-slate-300">{{ t.country_code }} ({{ t.currency }})</td>
+        <td class="px-4 py-3">
+          {% if t.subscription %}
+            <span class="text-xs bg-slate-700 px-2 py-1 rounded">{{ t.subscription.plan.name }}</span>
+            <span class="text-xs text-slate-500 ml-1">{{ t.subscription.status }}</span>
+          {% else %}—{% endif %}
+        </td>
+        <td class="px-4 py-3 text-right">{{ counts[t.id].users }}</td>
+        <td class="px-4 py-3 text-right">{{ counts[t.id].invoices }}</td>
+        <td class="px-4 py-3">
+          {% if t.is_active %}
+            <span class="text-xs bg-green-900/40 text-green-300 px-2 py-1 rounded">Activa</span>
+          {% else %}
+            <span class="text-xs bg-rose-900/40 text-rose-300 px-2 py-1 rounded">Suspendida</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-right text-xs text-slate-400">{{ t.created_at.strftime('%d/%m/%Y') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="text-sm text-slate-400 mt-3">{{ tenants|length }} empresa(s)</p>
+{% endblock %}

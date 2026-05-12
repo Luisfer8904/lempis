@@ -1,0 +1,88 @@
+{% extends "admin/_layout.html" %}
+{% block title %}Suscripciones — Admin{% endblock %}
+{% block heading %}Suscripciones{% endblock %}
+
+{% block content %}
+<form method="GET" class="mb-4 flex gap-2">
+  <select name="status"
+          class="px-4 py-2 rounded-lg bg-slate-800 border border-slate-700">
+    <option value="">Todos los estados</option>
+    <option value="trialing"   {% if status == 'trialing' %}selected{% endif %}>Trial</option>
+    <option value="active"     {% if status == 'active' %}selected{% endif %}>Activa</option>
+    <option value="past_due"   {% if status == 'past_due' %}selected{% endif %}>Atrasada</option>
+    <option value="canceled"   {% if status == 'canceled' %}selected{% endif %}>Cancelada</option>
+    <option value="unpaid"     {% if status == 'unpaid' %}selected{% endif %}>No pagada</option>
+  </select>
+  <button class="bg-rose-600 text-white px-4 py-2 rounded-lg hover:bg-rose-700">Filtrar</button>
+</form>
+
+<div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-900 text-slate-400">
+      <tr>
+        <th class="text-left px-4 py-3">Empresa</th>
+        <th class="text-left px-4 py-3">Plan actual</th>
+        <th class="text-left px-4 py-3">Estado</th>
+        <th class="text-right px-4 py-3">Precio</th>
+        <th class="text-right px-4 py-3">Periodo termina</th>
+        <th class="text-left px-4 py-3">Stripe</th>
+        <th class="text-right px-4 py-3">Cambiar</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in subs %}
+      <tr class="border-t border-slate-700 hover:bg-slate-700/30">
+        <td class="px-4 py-3">
+          <a href="{{ url_for('admin.empresa_detail', tenant_id=s.tenant_id) }}"
+             class="text-rose-400 hover:underline font-medium">{{ s.tenant.name }}</a>
+        </td>
+        <td class="px-4 py-3">{{ s.plan.name }}</td>
+        <td class="px-4 py-3">
+          {% set badges = {
+            'trialing': 'bg-sky-900/40 text-sky-300',
+            'active': 'bg-green-900/40 text-green-300',
+            'past_due': 'bg-amber-900/40 text-amber-300',
+            'canceled': 'bg-slate-700 text-slate-400',
+            'unpaid': 'bg-rose-900/40 text-rose-300',
+          } %}
+          <span class="text-xs px-2 py-1 rounded {{ badges.get(s.status, 'bg-slate-700') }}">
+            {{ s.status }}
+          </span>
+        </td>
+        <td class="px-4 py-3 text-right font-mono">${{ '%.2f'|format(s.plan.price_monthly) }}</td>
+        <td class="px-4 py-3 text-right text-xs text-slate-400">
+          {{ s.current_period_end.strftime('%d/%m/%Y') if s.current_period_end else '—' }}
+        </td>
+        <td class="px-4 py-3">
+          {% if s.stripe_subscription_id %}
+            <span class="text-xs font-mono text-slate-400">{{ s.stripe_subscription_id[:20] }}...</span>
+          {% else %}
+            <span class="text-xs text-slate-500">— (manual)</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-right">
+          <form method="POST" action="{{ url_for('admin.change_plan', sub_id=s.id) }}" class="flex gap-1 justify-end">
+            <select name="plan_code" class="text-xs bg-slate-700 border border-slate-600 rounded px-2 py-1">
+              <option value="">— Plan —</option>
+              <option value="free">Free</option>
+              <option value="pro">Pro</option>
+              <option value="business">Business</option>
+            </select>
+            <select name="status" class="text-xs bg-slate-700 border border-slate-600 rounded px-2 py-1">
+              <option value="">— Estado —</option>
+              <option value="active">active</option>
+              <option value="trialing">trialing</option>
+              <option value="past_due">past_due</option>
+              <option value="canceled">canceled</option>
+            </select>
+            <button class="text-xs bg-rose-600 hover:bg-rose-700 text-white px-2 py-1 rounded">OK</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="text-sm text-slate-400 mt-3">{{ subs|length }} suscripción(es)</p>
+{% endblock %}
