@@ -1,0 +1,119 @@
+{% extends "admin/_layout.html" %}
+{% block title %}Inactividad — Admin{% endblock %}
+{% block heading %}🧹 Cuentas inactivas{% endblock %}
+
+{% block content %}
+
+<section class="bg-slate-800 border border-slate-700 p-5 rounded-xl mb-6">
+  <p class="text-sm text-slate-400 mb-3">Filtrar empresas {{ criterio }}:</p>
+  <div class="flex flex-wrap gap-2">
+    {% set filters = [
+      ('30',  '> 30 días sin login'),
+      ('60',  '> 60 días sin login'),
+      ('90',  '> 90 días sin login'),
+      ('nunca', 'Nunca han entrado'),
+      ('sin_datos', 'Sin datos cargados'),
+    ] %}
+    {% for code, label in filters %}
+      <a href="{{ url_for('admin.inactividad', filtro=code) }}"
+         class="px-3 py-1.5 rounded-lg text-sm
+                {% if filtro == code %}
+                  bg-rose-600 text-white
+                {% else %}
+                  bg-slate-700 text-slate-300 hover:bg-slate-600
+                {% endif %}">
+        {{ label }}
+      </a>
+    {% endfor %}
+  </div>
+</section>
+
+{% if empresas_inactivas %}
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-900 text-slate-400">
+        <tr>
+          <th class="text-left px-4 py-3">Empresa</th>
+          <th class="text-left px-4 py-3">RTN</th>
+          <th class="text-right px-4 py-3">Usuarios</th>
+          <th class="text-right px-4 py-3">Clientes</th>
+          <th class="text-right px-4 py-3">Productos</th>
+          <th class="text-right px-4 py-3">Facturas</th>
+          <th class="text-right px-4 py-3">Última factura</th>
+          <th class="text-right px-4 py-3">Último login</th>
+          <th class="text-right px-4 py-3">Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in empresas_inactivas %}
+          {% set t = item.tenant %}
+          {% set s = item.stats %}
+        <tr class="border-t border-slate-700 hover:bg-slate-700/30">
+          <td class="px-4 py-3">
+            <a href="{{ url_for('admin.empresa_detail', tenant_id=t.id) }}"
+               class="font-medium text-rose-400 hover:underline">{{ t.name }}</a>
+            <div class="text-xs text-slate-500">{{ t.slug }}</div>
+          </td>
+          <td class="px-4 py-3 font-mono text-xs text-slate-300">{{ t.tax_id or '—' }}</td>
+          <td class="px-4 py-3 text-right">
+            {{ s.users }}
+          </td>
+          <td class="px-4 py-3 text-right">
+            {% if s.customers == 0 %}<span class="text-rose-400">0</span>{% else %}{{ s.customers }}{% endif %}
+          </td>
+          <td class="px-4 py-3 text-right">
+            {% if s.products == 0 %}<span class="text-rose-400">0</span>{% else %}{{ s.products }}{% endif %}
+          </td>
+          <td class="px-4 py-3 text-right">
+            {% if s.invoices == 0 %}<span class="text-rose-400">0</span>{% else %}{{ s.invoices }}{% endif %}
+          </td>
+          <td class="px-4 py-3 text-right text-xs">
+            {% if s.last_invoice_date %}
+              {{ s.last_invoice_date.strftime('%d/%m/%Y') }}
+            {% else %}
+              <span class="text-slate-500">—</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-right text-xs">
+            {% if item.last_login is defined %}
+              {% if item.last_login %}
+                {{ item.last_login.strftime('%d/%m/%Y') }}
+              {% else %}
+                <span class="text-amber-400">Nunca</span>
+              {% endif %}
+            {% else %}
+              <span class="text-slate-500">—</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-right">
+            <a href="{{ url_for('admin.empresa_detail', tenant_id=t.id) }}"
+               class="text-xs text-sky-400 hover:underline">Ver →</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <p class="text-sm text-slate-400 mt-3">
+    {{ empresas_inactivas|length }} empresa(s) coinciden con el criterio.
+  </p>
+
+  <div class="mt-6 bg-amber-900/20 border border-amber-800/50 p-4 rounded-lg text-sm text-amber-200">
+    <p class="font-medium mb-1">💡 Para eliminar empresas en masa:</p>
+    <p class="text-amber-300/80 text-xs">
+      Por seguridad, la eliminación masiva no está habilitada. Entra al detalle
+      de cada empresa y usa "🗑 Eliminar empresa" (requiere confirmación con slug exacto).
+    </p>
+  </div>
+
+{% else %}
+  <div class="text-center py-16 bg-slate-800 border border-slate-700 rounded-xl">
+    <div class="text-6xl mb-3">🎉</div>
+    <p class="text-slate-300 font-medium">Ninguna empresa coincide con el criterio.</p>
+    <p class="text-slate-500 text-sm mt-1">
+      Todas las empresas tienen actividad reciente o datos cargados.
+    </p>
+  </div>
+{% endif %}
+{% endblock %}

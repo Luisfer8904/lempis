@@ -18,7 +18,7 @@
         <th class="text-left px-4 py-3">Nombre</th>
         <th class="text-left px-4 py-3">Empresa</th>
         <th class="text-left px-4 py-3">Rol</th>
-        <th class="text-left px-4 py-3">SuperAdmin</th>
+        <th class="text-left px-4 py-3">SA</th>
         <th class="text-right px-4 py-3">Último acceso</th>
         <th class="text-right px-4 py-3">Acciones</th>
       </tr>
@@ -43,22 +43,43 @@
         </td>
         <td class="px-4 py-3">
           {% if u.is_superadmin %}
-            <span class="text-rose-300 text-xs bg-rose-900/40 px-2 py-1 rounded">⚡ Sí</span>
+            <span class="text-rose-300 text-xs bg-rose-900/40 px-2 py-1 rounded">⚡</span>
           {% else %}
             <span class="text-slate-500 text-xs">—</span>
           {% endif %}
         </td>
-        <td class="px-4 py-3 text-right text-xs text-slate-400">
-          {{ u.last_login_at.strftime('%d/%m/%Y %H:%M') if u.last_login_at else 'Nunca' }}
+        <td class="px-4 py-3 text-right text-xs">
+          {% set days = user_inactivity[u.id] %}
+          {% if days is none %}
+            <span class="text-amber-400">Nunca</span>
+          {% elif days == 0 %}
+            <span class="text-green-400">Hoy</span>
+          {% elif days <= 7 %}
+            <span class="text-green-400">Hace {{ days }}d</span>
+          {% elif days <= 30 %}
+            <span class="text-slate-300">Hace {{ days }}d</span>
+          {% elif days <= 60 %}
+            <span class="text-amber-400">Hace {{ days }}d</span>
+          {% else %}
+            <span class="text-rose-400">Hace {{ days }}d</span>
+          {% endif %}
         </td>
-        <td class="px-4 py-3 text-right">
+        <td class="px-4 py-3 text-right whitespace-nowrap">
           {% if u.id != current_user.id %}
-            <form method="POST" action="{{ url_for('admin.toggle_superadmin', user_id=u.id) }}"
+            <form method="POST" action="{{ url_for('admin.toggle_superadmin', user_id=u.id) }}" class="inline"
                   onsubmit="return confirm('¿{{ 'Remover' if u.is_superadmin else 'Promover a' }} SuperAdmin?');">
-              <button class="text-xs text-rose-400 hover:underline">
-                {{ 'Remover SA' if u.is_superadmin else 'Promover SA' }}
-              </button>
+              <button class="text-xs text-rose-400 hover:underline" title="Toggle SuperAdmin">⚡</button>
             </form>
+
+            {% if not u.is_owner %}
+              <button onclick="openMoveModal({{ u.id }}, '{{ u.email }}', '{{ u.tenant.name if u.tenant else '' }}')"
+                      class="text-xs text-sky-400 hover:underline ml-2" title="Mover a otra empresa">↔️</button>
+
+              <form method="POST" action="{{ url_for('admin.usuario_delete', user_id=u.id) }}" class="inline"
+                    onsubmit="return confirm('¿Eliminar permanentemente al usuario {{ u.email }}? Esta acción no se puede deshacer.');">
+                <button class="text-xs text-rose-500 hover:underline ml-2" title="Eliminar usuario">🗑</button>
+              </form>
+            {% endif %}
           {% endif %}
         </td>
       </tr>
@@ -68,4 +89,48 @@
 </div>
 
 <p class="text-sm text-slate-400 mt-3">{{ users|length }} usuario(s) (límite 200)</p>
+
+{# ====== MODAL MOVER USUARIO ====== #}
+<div id="move-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+  <div class="bg-slate-800 border border-sky-700 rounded-xl max-w-md w-full p-6">
+    <h3 class="text-xl font-bold text-sky-400 mb-2">↔️ Mover usuario a otra empresa</h3>
+    <p class="text-slate-300 text-sm mb-1">Usuario: <strong id="move-email"></strong></p>
+    <p class="text-slate-400 text-xs mb-4">Actualmente en: <span id="move-current"></span></p>
+    <form method="POST" id="move-form" class="space-y-3">
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">Empresa destino:</label>
+        <select name="target_tenant_id" required
+                class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-sky-500">
+          <option value="">— Seleccionar —</option>
+          {% for t in all_tenants %}
+            <option value="{{ t.id }}">{{ t.name }} ({{ t.slug }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <p class="text-xs text-slate-400">
+        Se le asignará el rol <strong>Vendedor</strong> en la nueva empresa.
+        Los roles anteriores se eliminarán.
+      </p>
+      <div class="flex gap-3 justify-end">
+        <button type="button"
+                onclick="document.getElementById('move-modal').classList.add('hidden')"
+                class="border border-slate-600 text-slate-300 px-4 py-2 rounded-lg hover:bg-slate-700">
+          Cancelar
+        </button>
+        <button class="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg font-medium">
+          Mover usuario
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openMoveModal(userId, email, currentTenant) {
+  document.getElementById('move-email').textContent = email;
+  document.getElementById('move-current').textContent = currentTenant || '—';
+  document.getElementById('move-form').action = `/admin/usuarios/${userId}/move`;
+  document.getElementById('move-modal').classList.remove('hidden');
+}
+</script>
 {% endblock %}

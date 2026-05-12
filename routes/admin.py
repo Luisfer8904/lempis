@@ -149,12 +149,22 @@ def empresa_detail(tenant_id):
         .scalar()
     )
 
+    # Indicadores de actividad
+    last_login_overall = None
+    for u in users:
+        if u.last_login_at and (last_login_overall is None or u.last_login_at > last_login_overall):
+            last_login_overall = u.last_login_at
+
+    last_invoice = last_invoices[0] if last_invoices else None
+
     stats = {
         "users": len(users),
         "invoices": Invoice.query.filter_by(tenant_id=tenant.id).count(),
         "customers": Customer.query.filter_by(tenant_id=tenant.id).count(),
         "products": Product.query.filter_by(tenant_id=tenant.id).count(),
         "revenue": float(revenue_total or 0),
+        "last_login_overall": last_login_overall,
+        "last_invoice_date": last_invoice.issue_date if last_invoice else None,
     }
 
     return render_template(
@@ -178,6 +188,39 @@ def empresa_toggle(tenant_id):
     return redirect(url_for("admin.empresa_detail", tenant_id=tenant.id))
 
 
+@admin_bp.route("/empresas/<int:tenant_id>/delete", methods=["POST"])
+@login_required
+@superadmin_required
+def empresa_delete(tenant_id):
+    """
+    Borra una empresa Y todos sus datos en cascada
+    (usuarios, clientes, productos, facturas, suscripción).
+    Acción IRREVERSIBLE — requiere escribir el slug exacto para confirmar.
+    """
+    tenant = db.session.get(Tenant, tenant_id)
+    if tenant is None:
+        abort(404)
+
+    # Protección: no permitir borrar el tenant del equipo Lempis
+    if tenant.slug == "lempis-admin":
+        flash("No puedes borrar el tenant del equipo Lempis.", "danger")
+        return redirect(url_for("admin.empresa_detail", tenant_id=tenant.id))
+
+    confirmation = (request.form.get("confirm_slug") or "").strip()
+    if confirmation != tenant.slug:
+        flash(
+            f"Confirmación incorrecta. Para borrar debes escribir exactamente '{tenant.slug}'.",
+            "danger",
+        )
+        return redirect(url_for("admin.empresa_detail", tenant_id=tenant.id))
+
+    name = tenant.name
+    db.session.delete(tenant)
+    db.session.commit()
+    flash(f"Empresa '{name}' eliminada permanentemente junto con todos sus datos.", "warning")
+    return redirect(url_for("admin.empresas"))
+
+
 # ---------------- USUARIOS CROSS-TENANT ----------------
 
 @admin_bp.route("/usuarios")
@@ -194,8 +237,22 @@ def usuarios():
         ))
     users = query.order_by(User.created_at.desc()).limit(200).all()
 
-    # Adjuntar tenant a cada user para el template
-    return render_template("admin/usuarios.html", users=users, q=q)
+    # Lista de tenants activos para el modal de mover
+    all_tenants = Tenant.query.filter_by(is_active=True).order_by(Tenant.name).all()
+
+    # Calcular días desde último login para cada user
+    now = datetime.utcnow()
+    user_inactivity = {}
+    for u in users:
+        if u.last_login_at:
+            user_inactivity[u.id] = (now - u.last_login_at).days
+        else:
+            user_inactivity[u.id] = None  # nunca
+
+    return render_template(
+        "admin/usuarios.html",
+        users=users, q=q, all_tenants=all_tenants, user_inactivity=user_inactivity,
+    )
 
 
 @admin_bp.route("/usuarios/<int:user_id>/toggle-superadmin", methods=["POST"])
@@ -209,6 +266,79 @@ def toggle_superadmin(user_id):
     db.session.commit()
     estado = "promovido a" if user.is_superadmin else "removido de"
     flash(f"Usuario {user.email} {estado} SuperAdmin.", "success")
+    return redirect(url_for("admin.usuarios"))
+
+
+@admin_bp.route("/usuarios/<int:user_id>/delete", methods=["POST"])
+@login_required
+@superadmin_required
+def usuario_delete(user_id):
+    """Borra un usuario. Protecciones: no borrar a uno mismo ni a owners."""
+    from flask_login import current_user
+    user = db.session.get(User, user_id)
+    if user is None:
+        abort(404)
+
+    if user.id == current_user.id:
+        flash("No puedes borrarte a ti mismo.", "danger")
+        return redirect(url_for("admin.usuarios"))
+    if user.is_owner:
+        flash(
+            f"No puedes borrar a {user.email} porque es el propietario de su empresa. "
+            "Primero traspasa la propiedad o borra la empresa completa.",
+            "danger",
+        )
+        return redirect(url_for("admin.usuarios"))
+
+    email = user.email
+    db.session.delete(user)
+    db.session.commit()
+    flash(f"Usuario {email} eliminado.", "warning")
+    return redirect(url_for("admin.usuarios"))
+
+
+@admin_bp.route("/usuarios/<int:user_id>/move", methods=["POST"])
+@login_required
+@superadmin_required
+def usuario_move(user_id):
+    """Reasigna un usuario a otra empresa (tenant). Limpia sus UserRole."""
+    user = db.session.get(User, user_id)
+    if user is None:
+        abort(404)
+    if user.is_owner:
+        flash(
+            f"No puedes mover a {user.email}: es propietario de su empresa.",
+            "danger",
+        )
+        return redirect(url_for("admin.usuarios"))
+
+    target_tenant_id = request.form.get("target_tenant_id", type=int)
+    if not target_tenant_id:
+        flash("Selecciona una empresa destino.", "warning")
+        return redirect(url_for("admin.usuarios"))
+
+    target = db.session.get(Tenant, target_tenant_id)
+    if target is None:
+        abort(404)
+
+    old_tenant_name = user.tenant.name if user.tenant else "(sin empresa)"
+    # Limpiar roles del tenant anterior
+    UserRole.query.filter_by(user_id=user.id).delete()
+
+    user.tenant_id = target.id
+
+    # Asignar rol por defecto en el nuevo tenant
+    default_role = Role.query.filter_by(code="vendedor").first()
+    if default_role:
+        db.session.add(UserRole(
+            user_id=user.id, role_id=default_role.id, tenant_id=target.id
+        ))
+
+    db.session.commit()
+    flash(
+        f"Usuario {user.email} movido de '{old_tenant_name}' a '{target.name}' (rol: vendedor).",
+        "success",
+    )
     return redirect(url_for("admin.usuarios"))
 
 
@@ -246,3 +376,90 @@ def change_plan(sub_id):
     db.session.commit()
     flash(f"Suscripción de '{sub.tenant.name}' actualizada.", "success")
     return redirect(url_for("admin.suscripciones"))
+
+
+# ---------------- INACTIVIDAD ----------------
+
+@admin_bp.route("/inactividad")
+@login_required
+@superadmin_required
+def inactividad():
+    """
+    Detecta empresas y usuarios inactivos.
+    Filtros: 30/60/90 días sin login, o sin datos cargados.
+    """
+    filtro = request.args.get("filtro", "60")  # default: 60 días
+    now = datetime.utcnow()
+
+    if filtro == "sin_datos":
+        # Empresas que NO tienen clientes, productos ni facturas
+        tenants = Tenant.query.all()
+        empresas_inactivas = []
+        for t in tenants:
+            if t.slug == "lempis-admin":
+                continue
+            stats = _tenant_stats(t.id, now)
+            if stats["customers"] == 0 and stats["products"] == 0 and stats["invoices"] == 0:
+                empresas_inactivas.append({"tenant": t, "stats": stats})
+        empresas_inactivas.sort(key=lambda x: x["tenant"].created_at, reverse=True)
+        criterio = "sin datos cargados (cero clientes, productos y facturas)"
+
+    elif filtro == "nunca":
+        # Empresas donde NINGÚN usuario ha iniciado sesión nunca
+        empresas_inactivas = []
+        for t in Tenant.query.all():
+            if t.slug == "lempis-admin":
+                continue
+            never_logged = all(u.last_login_at is None for u in t.users)
+            if never_logged and t.users:
+                empresas_inactivas.append({"tenant": t, "stats": _tenant_stats(t.id, now)})
+        empresas_inactivas.sort(key=lambda x: x["tenant"].created_at, reverse=True)
+        criterio = "ningún usuario ha iniciado sesión nunca"
+
+    else:
+        # 30/60/90 días sin login
+        days = int(filtro)
+        threshold = now - timedelta(days=days)
+
+        empresas_inactivas = []
+        for t in Tenant.query.all():
+            if t.slug == "lempis-admin":
+                continue
+            # Último login de cualquier usuario del tenant
+            last_login = None
+            for u in t.users:
+                if u.last_login_at and (last_login is None or u.last_login_at > last_login):
+                    last_login = u.last_login_at
+
+            if last_login is None or last_login < threshold:
+                empresas_inactivas.append({
+                    "tenant": t,
+                    "stats": _tenant_stats(t.id, now),
+                    "last_login": last_login,
+                })
+        # Ordenar: más antiguas primero
+        empresas_inactivas.sort(
+            key=lambda x: (x.get("last_login") or datetime(1970, 1, 1))
+        )
+        criterio = f"sin login en los últimos {days} días"
+
+    return render_template(
+        "admin/inactividad.html",
+        empresas_inactivas=empresas_inactivas,
+        filtro=filtro, criterio=criterio,
+    )
+
+
+def _tenant_stats(tenant_id: int, now: datetime) -> dict:
+    """Estadísticas rápidas de uso de un tenant."""
+    last_invoice = (
+        Invoice.query.filter_by(tenant_id=tenant_id)
+        .order_by(Invoice.issue_date.desc()).first()
+    )
+    return {
+        "users": User.query.filter_by(tenant_id=tenant_id).count(),
+        "customers": Customer.query.filter_by(tenant_id=tenant_id).count(),
+        "products": Product.query.filter_by(tenant_id=tenant_id).count(),
+        "invoices": Invoice.query.filter_by(tenant_id=tenant_id).count(),
+        "last_invoice_date": last_invoice.issue_date if last_invoice else None,
+    }

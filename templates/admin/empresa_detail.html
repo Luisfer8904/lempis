@@ -4,12 +4,16 @@
 
 {% block actions %}
 <a href="{{ url_for('admin.empresas') }}" class="text-slate-300 hover:text-white text-sm mr-3">← Volver</a>
-<form method="POST" action="{{ url_for('admin.empresa_toggle', tenant_id=tenant.id) }}"
+<form method="POST" action="{{ url_for('admin.empresa_toggle', tenant_id=tenant.id) }}" class="inline mr-2"
       onsubmit="return confirm('¿{{ 'Suspender' if tenant.is_active else 'Reactivar' }} esta empresa?');">
-  <button class="{% if tenant.is_active %}bg-rose-600 hover:bg-rose-700{% else %}bg-green-600 hover:bg-green-700{% endif %} text-white px-4 py-2 rounded-lg text-sm">
-    {{ 'Suspender' if tenant.is_active else 'Reactivar' }} empresa
+  <button class="{% if tenant.is_active %}bg-amber-600 hover:bg-amber-700{% else %}bg-green-600 hover:bg-green-700{% endif %} text-white px-4 py-2 rounded-lg text-sm">
+    {{ 'Suspender' if tenant.is_active else 'Reactivar' }}
   </button>
 </form>
+<button onclick="document.getElementById('delete-modal').classList.remove('hidden')"
+        class="bg-rose-700 hover:bg-rose-800 text-white px-4 py-2 rounded-lg text-sm">
+  🗑 Eliminar empresa
+</button>
 {% endblock %}
 
 {% block content %}
@@ -33,6 +37,37 @@
   <div class="bg-gradient-to-br from-rose-700 to-pink-800 p-4 rounded-xl border border-rose-600">
     <p class="text-xs text-rose-100/80">Ingresos totales</p>
     <p class="text-2xl font-bold text-white">{{ tenant.currency }} {{ '%.2f'|format(stats.revenue) }}</p>
+  </div>
+</section>
+
+{# Indicadores de actividad #}
+<section class="bg-slate-800 border border-slate-700 p-5 rounded-xl mb-6">
+  <h3 class="text-sm font-semibold text-slate-300 mb-3">📊 Actividad</h3>
+  <div class="grid md:grid-cols-3 gap-4 text-sm">
+    <div>
+      <p class="text-xs text-slate-400">Último login de cualquier usuario</p>
+      {% if stats.last_login_overall %}
+        <p class="font-medium">{{ stats.last_login_overall.strftime('%d/%m/%Y %H:%M') }}</p>
+      {% else %}
+        <p class="text-amber-400 font-medium">⚠️ Ningún usuario ha entrado</p>
+      {% endif %}
+    </div>
+    <div>
+      <p class="text-xs text-slate-400">Última factura emitida</p>
+      {% if stats.last_invoice_date %}
+        <p class="font-medium">{{ stats.last_invoice_date.strftime('%d/%m/%Y') }}</p>
+      {% else %}
+        <p class="text-slate-500">Sin facturas</p>
+      {% endif %}
+    </div>
+    <div>
+      <p class="text-xs text-slate-400">Empresa registrada</p>
+      <p class="font-medium">{{ tenant.created_at.strftime('%d/%m/%Y') }}
+        <span class="text-xs text-slate-500">
+          ({{ ((tenant.created_at and (tenant.created_at).strftime('%Y')) or '') }})
+        </span>
+      </p>
+    </div>
   </div>
 </section>
 
@@ -145,5 +180,46 @@
   {% else %}
     <p class="text-slate-500 text-sm">Sin facturas todavía</p>
   {% endif %}
+</div>
+
+{# ====== MODAL ELIMINAR EMPRESA ====== #}
+<div id="delete-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+  <div class="bg-slate-800 border border-rose-700 rounded-xl max-w-lg w-full p-6">
+    <h3 class="text-xl font-bold text-rose-400 mb-2">⚠️ Eliminar empresa permanentemente</h3>
+    <p class="text-slate-300 text-sm mb-4">
+      Estás a punto de eliminar <strong>{{ tenant.name }}</strong> junto con todos sus datos:
+    </p>
+    <ul class="text-xs text-slate-400 list-disc ml-5 mb-4 space-y-1">
+      <li>{{ stats.users }} usuario(s)</li>
+      <li>{{ stats.customers }} cliente(s)</li>
+      <li>{{ stats.products }} producto(s)</li>
+      <li>{{ stats.invoices }} factura(s)</li>
+      <li>Suscripción, configuración SAR, auditoría</li>
+    </ul>
+    <p class="text-rose-300 text-sm font-medium mb-3">
+      Esta acción NO se puede deshacer.
+    </p>
+    <form method="POST" action="{{ url_for('admin.empresa_delete', tenant_id=tenant.id) }}" class="space-y-3">
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">
+          Escribe el slug exacto para confirmar:
+          <code class="text-rose-400">{{ tenant.slug }}</code>
+        </label>
+        <input name="confirm_slug" required autocomplete="off"
+               class="w-full px-3 py-2 bg-slate-900 border border-rose-700 rounded-lg
+                      focus:ring-2 focus:ring-rose-500 font-mono" />
+      </div>
+      <div class="flex gap-3 justify-end">
+        <button type="button"
+                onclick="document.getElementById('delete-modal').classList.add('hidden')"
+                class="border border-slate-600 text-slate-300 px-4 py-2 rounded-lg hover:bg-slate-700">
+          Cancelar
+        </button>
+        <button class="bg-rose-700 hover:bg-rose-800 text-white px-4 py-2 rounded-lg font-medium">
+          Eliminar permanentemente
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
 {% endblock %}
