@@ -11,6 +11,7 @@ from models.catalog import Product, Category
 from models.country import TaxConfig
 from services.tenant_context import current_tenant
 from services.permissions import tenant_required
+from services.plan_limits import check_can_create_product, PlanLimitError
 
 productos_bp = Blueprint("productos", __name__, url_prefix="/app/productos")
 
@@ -63,6 +64,13 @@ def list():
 @tenant_required
 def new():
     tenant = current_tenant()
+
+    try:
+        check_can_create_product(tenant)
+    except PlanLimitError as e:
+        flash(str(e), "warning")
+        return redirect(url_for("billing.index"))
+
     if request.method == "POST":
         prod = Product(tenant_id=tenant.id)
         _populate_from_form(prod)

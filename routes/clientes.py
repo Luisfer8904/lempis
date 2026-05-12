@@ -10,6 +10,7 @@ from models.catalog import Customer
 from models.country import Country
 from services.tenant_context import current_tenant
 from services.permissions import tenant_required
+from services.plan_limits import check_can_create_customer, PlanLimitError
 
 clientes_bp = Blueprint("clientes", __name__, url_prefix="/app/clientes")
 
@@ -49,6 +50,14 @@ def list():
 @tenant_required
 def new():
     tenant = current_tenant()
+
+    # Validar límite del plan ANTES de procesar el form
+    try:
+        check_can_create_customer(tenant)
+    except PlanLimitError as e:
+        flash(str(e), "warning")
+        return redirect(url_for("billing.index"))
+
     if request.method == "POST":
         cliente = Customer(tenant_id=tenant.id)
         _populate_from_form(cliente)

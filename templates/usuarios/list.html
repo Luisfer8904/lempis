@@ -1,0 +1,80 @@
+{% extends "app/_layout.html" %}
+{% block title %}Usuarios — {{ APP_NAME }}{% endblock %}
+{% block heading %}Equipo / Usuarios{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('usuarios.new') }}"
+   class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
+  + Agregar usuario
+</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+  <table class="saas-table w-full">
+    <thead>
+      <tr>
+        <th>Usuario</th>
+        <th>Email</th>
+        <th>Rol</th>
+        <th>Estado</th>
+        <th>Último acceso</th>
+        <th class="text-right">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr class="hover:bg-slate-50">
+        <td>
+          <div class="flex items-center gap-3">
+            <div class="h-9 w-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-semibold">
+              {{ (u.full_name or u.email)[:1] | upper }}
+            </div>
+            <div>
+              <div class="font-medium">{{ u.full_name or '—' }}</div>
+              {% if u.is_owner %}
+                <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">👑 Propietario</span>
+              {% endif %}
+            </div>
+          </div>
+        </td>
+        <td class="text-sm">{{ u.email }}</td>
+        <td>
+          {% if u.roles %}
+            <span class="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded">
+              {{ u.roles[0].name }}
+            </span>
+          {% else %}
+            <span class="text-xs text-slate-400">Sin rol</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if u.is_active %}
+            <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Activo</span>
+          {% else %}
+            <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">Inactivo</span>
+          {% endif %}
+        </td>
+        <td class="text-sm text-slate-500">
+          {{ u.last_login_at.strftime('%d/%m/%Y %H:%M') if u.last_login_at else 'Nunca' }}
+        </td>
+        <td class="text-right whitespace-nowrap">
+          <a href="{{ url_for('usuarios.edit', user_id=u.id) }}"
+             class="text-indigo-600 hover:underline text-sm">Editar</a>
+          {% if not u.is_owner and u.id != current_user.id %}
+            <form method="POST" action="{{ url_for('usuarios.toggle', user_id=u.id) }}" class="inline ml-2">
+              <button class="text-{% if u.is_active %}rose{% else %}green{% endif %}-600 hover:underline text-sm">
+                {{ 'Desactivar' if u.is_active else 'Activar' }}
+              </button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="text-sm text-slate-500 mt-3">{{ users|length }} usuario(s) en tu empresa.</p>
+{% endblock %}

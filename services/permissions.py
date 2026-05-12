@@ -2,8 +2,8 @@
 Decoradores de autorización: roles + verificación de tenant.
 """
 from functools import wraps
-from flask import abort, redirect, url_for, flash
-from flask_login import current_user
+from flask import abort, redirect, url_for, flash, session
+from flask_login import current_user, logout_user
 
 from services.tenant_context import current_tenant
 
@@ -37,11 +37,20 @@ def admin_required(fn):
 
 
 def tenant_required(fn):
-    """Garantiza que haya un tenant resuelto en el request."""
+    """
+    Garantiza que haya un tenant resuelto en el request.
+    Si hay sesión zombi (logueado pero sin tenant), la limpia para evitar loops.
+    """
     @wraps(fn)
     def wrapper(*args, **kwargs):
         if current_tenant() is None:
-            flash("Empresa no encontrada o sesión inválida.", "warning")
+            # Sesión zombi: usuario "autenticado" pero sin tenant válido.
+            # Limpiamos todo para no entrar en loop de redirects.
+            if current_user.is_authenticated:
+                logout_user()
+            session.pop("tenant_id", None)
+            session.pop("_flashes", None)  # evitar acumular flashes
+            flash("Tu sesión expiró. Por favor inicia sesión nuevamente.", "warning")
             return redirect(url_for("auth.login"))
         return fn(*args, **kwargs)
     return wrapper

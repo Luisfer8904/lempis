@@ -1,0 +1,89 @@
+{% extends "app/_layout.html" %}
+{% block title %}{{ 'Editar' if user else 'Nuevo' }} usuario — {{ APP_NAME }}{% endblock %}
+{% block heading %}{{ 'Editar usuario' if user else 'Nuevo usuario' }}{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('usuarios.list') }}" class="text-slate-600 hover:text-slate-900 text-sm">
+  ← Volver
+</a>
+{% endblock %}
+
+{% block content %}
+<form method="POST" class="bg-white p-6 rounded-xl shadow-sm border max-w-2xl">
+  <div class="grid md:grid-cols-2 gap-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Email *</label>
+      <input type="email" name="email" required
+             value="{{ user.email if user else '' }}"
+             {% if user %}readonly{% endif %}
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500
+                    {% if user %}bg-slate-100 cursor-not-allowed{% endif %}" />
+      {% if user %}
+        <p class="text-xs text-slate-500 mt-1">El email no se puede cambiar</p>
+      {% endif %}
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Nombre completo</label>
+      <input name="full_name" value="{{ user.full_name if user else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">
+        {% if user %}Cambiar contraseña{% else %}Contraseña *{% endif %}
+      </label>
+      <input type="password" name="password"
+             {% if not user %}required minlength="8"{% endif %}
+             placeholder="{% if user %}Dejar en blanco para no cambiar{% else %}Mínimo 8 caracteres{% endif %}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Rol</label>
+      {% if user and user.is_owner %}
+        <input value="Propietario" readonly
+               class="w-full px-3 py-2 border rounded-lg bg-amber-50 text-amber-800 font-medium" />
+        <p class="text-xs text-slate-500 mt-1">El rol de propietario no se puede cambiar</p>
+      {% else %}
+        <select name="role_code"
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+          {% for r in roles %}
+            <option value="{{ r.code }}"
+                    {% if (user and current_role == r.code) or (not user and r.code == 'vendedor') %}selected{% endif %}>
+              {{ r.name }} — {{ r.description }}
+            </option>
+          {% endfor %}
+        </select>
+      {% endif %}
+    </div>
+
+    {% if user %}
+      <div class="md:col-span-2">
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="is_active" {% if user.is_active %}checked{% endif %} />
+          Usuario activo (puede iniciar sesión)
+        </label>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="flex gap-3 mt-6 pt-6 border-t">
+    <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+      {{ 'Guardar cambios' if user else 'Crear usuario' }}
+    </button>
+    <a href="{{ url_for('usuarios.list') }}"
+       class="border px-6 py-2 rounded-lg hover:bg-slate-50">Cancelar</a>
+  </div>
+</form>
+
+{% if not user %}
+  <div class="mt-6 max-w-2xl bg-sky-50 border border-sky-200 p-4 rounded-lg text-sm text-sky-900">
+    <p class="font-medium mb-1">💡 Sobre los roles:</p>
+    <ul class="space-y-1 ml-4 list-disc">
+      <li><strong>Administrador</strong>: acceso total excepto facturación/billing del SaaS</li>
+      <li><strong>Vendedor</strong>: crear/editar clientes, productos y facturas</li>
+      <li><strong>Contador</strong>: ver reportes y exportar, solo lectura en facturas</li>
+      <li><strong>Viewer</strong>: solo lectura general</li>
+    </ul>
+  </div>
+{% endif %}
+{% endblock %}

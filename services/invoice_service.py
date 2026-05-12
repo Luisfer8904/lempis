@@ -22,7 +22,7 @@ class CAIError(Exception):
 
 
 def validate_can_emit(tenant: Tenant) -> None:
-    """Lanza CAIError si el tenant no puede emitir facturas."""
+    """Lanza CAIError si el tenant no puede emitir facturas (SAR o plan)."""
     if not tenant.has_cai_configured():
         raise CAIError(
             "Debes configurar tu CAI en Configuración → Facturación antes de emitir."
@@ -38,6 +38,13 @@ def validate_can_emit(tenant: Tenant) -> None:
             f"Agotaste tu rango de facturas autorizado ({tenant.cai_range_end}). "
             "Solicita un nuevo CAI en el SAR."
         )
+
+    # También verificar límite del plan SaaS
+    from services.plan_limits import check_can_emit_invoice, PlanLimitError
+    try:
+        check_can_emit_invoice(tenant)
+    except PlanLimitError as e:
+        raise CAIError(str(e))
 
 
 def next_invoice_number(tenant: Tenant) -> tuple[int, str]:

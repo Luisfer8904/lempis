@@ -8,10 +8,12 @@
   <p class="text-slate-500">{{ tenant.name }} — {{ tenant.country_code }} ({{ tenant.currency }})</p>
 </section>
 
+{# ========== KPIs ========== #}
 <section class="grid md:grid-cols-4 gap-4 mb-8">
   <div class="bg-white p-5 rounded-xl shadow-sm border">
     <div class="text-slate-500 text-sm">Facturas (total)</div>
     <div class="text-3xl font-bold">{{ invoices_count }}</div>
+    <a href="{{ url_for('facturas.list') }}" class="text-xs text-indigo-600 hover:underline">Ver todas →</a>
   </div>
   <div class="bg-white p-5 rounded-xl shadow-sm border">
     <div class="text-slate-500 text-sm">Clientes</div>
@@ -29,9 +31,117 @@
   </div>
 </section>
 
-<section class="bg-white p-6 rounded-xl shadow-sm border">
+<div class="grid lg:grid-cols-3 gap-6">
+
+  {# ========== Plan + Uso ========== #}
+  <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border">
+    <div class="flex justify-between items-center mb-4">
+      <div>
+        <p class="text-xs text-slate-500 uppercase font-semibold">Tu plan</p>
+        <p class="text-xl font-bold">{{ plan_usage.plan_name }}</p>
+      </div>
+      <a href="{{ url_for('billing.index') }}"
+         class="text-xs bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100">
+        Cambiar plan
+      </a>
+    </div>
+
+    {% macro usage_bar(label, data) %}
+      <div class="mb-4">
+        <div class="flex justify-between text-sm mb-1">
+          <span class="text-slate-600">{{ label }}</span>
+          <span class="font-mono
+                       {% if data.exceeded %}text-rose-600 font-bold
+                       {% elif data.near_limit %}text-amber-600
+                       {% else %}text-slate-700{% endif %}">
+            {{ data.used }}/{{ data.max }}
+          </span>
+        </div>
+        <div class="w-full bg-slate-100 rounded-full h-2">
+          <div class="h-2 rounded-full
+                      {% if data.exceeded %}bg-rose-500
+                      {% elif data.near_limit %}bg-amber-500
+                      {% else %}bg-indigo-500{% endif %}"
+               style="width: {{ data.pct }}%"></div>
+        </div>
+      </div>
+    {% endmacro %}
+
+    {{ usage_bar('Facturas este mes', plan_usage.invoices) }}
+    {{ usage_bar('Clientes', plan_usage.customers) }}
+    {{ usage_bar('Productos', plan_usage.products) }}
+    {{ usage_bar('Usuarios', plan_usage.users) }}
+  </div>
+
+  {# ========== Últimas facturas ========== #}
+  <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-semibold">Últimas facturas</h3>
+      <a href="{{ url_for('facturas.list') }}" class="text-sm text-indigo-600 hover:underline">Ver todas →</a>
+    </div>
+    {% if last_invoices %}
+      <table class="saas-table w-full">
+        <thead>
+          <tr>
+            <th>Número</th>
+            <th>Cliente</th>
+            <th class="text-right">Total</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in last_invoices %}
+          <tr class="hover:bg-slate-50 cursor-pointer"
+              onclick="window.location='{{ url_for('facturas.detail', invoice_id=f.id) }}'">
+            <td class="font-mono text-xs">{{ f.number }}</td>
+            <td class="text-sm">{{ f.receptor_name or 'Consumidor final' }}</td>
+            <td class="text-right font-mono">{{ f.currency }} {{ '%.2f'|format(f.total) }}</td>
+            <td>
+              {% set badges = {
+                'draft': 'bg-slate-200 text-slate-700',
+                'issued': 'bg-sky-100 text-sky-800',
+                'paid': 'bg-green-100 text-green-800',
+                'partially_paid': 'bg-amber-100 text-amber-800',
+                'overdue': 'bg-rose-100 text-rose-800',
+                'void': 'bg-slate-300 text-slate-600',
+              } %}
+              {% set labels = {
+                'draft': 'Borrador', 'issued': 'Emitida', 'paid': 'Pagada',
+                'partially_paid': 'Parcial', 'overdue': 'Vencida', 'void': 'Anulada',
+              } %}
+              <span class="text-xs px-2 py-1 rounded {{ badges.get(f.status, 'bg-slate-100') }}">
+                {{ labels.get(f.status, f.status) }}
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="text-center py-8 text-slate-400">
+        <div class="text-5xl mb-2">🧾</div>
+        <p>Aún no tienes facturas. <a href="{{ url_for('facturas.new') }}" class="text-indigo-600 hover:underline">Crear la primera</a>.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ========== Próximos pasos ========== #}
+<section class="bg-white p-6 rounded-xl shadow-sm border mt-6">
   <h3 class="text-lg font-semibold mb-3">Próximos pasos</h3>
   <ul class="space-y-2 text-slate-600">
+    <li class="flex items-center gap-2">
+      {% if tenant.tax_id %}✅{% else %}⬜{% endif %}
+      <a href="{{ url_for('configuracion.empresa') }}" class="text-indigo-600 hover:underline">
+        Configura tu RTN en Empresa
+      </a>
+    </li>
+    <li class="flex items-center gap-2">
+      {% if tenant.has_cai_configured() %}✅{% else %}⬜{% endif %}
+      <a href="{{ url_for('configuracion.facturacion') }}" class="text-indigo-600 hover:underline">
+        Configura tu CAI / SAR
+      </a>
+    </li>
     <li class="flex items-center gap-2">
       {% if customers_count > 0 %}✅{% else %}⬜{% endif %}
       <a href="{{ url_for('clientes.new') }}" class="text-indigo-600 hover:underline">
@@ -45,10 +155,10 @@
       </a>
     </li>
     <li class="flex items-center gap-2">
-      ⬜ <span class="text-slate-400">Crea tu primera factura (próximamente)</span>
-    </li>
-    <li class="flex items-center gap-2">
-      ⬜ <span class="text-slate-400">Invita a tu equipo (próximamente)</span>
+      {% if invoices_count > 0 %}✅{% else %}⬜{% endif %}
+      <a href="{{ url_for('facturas.new') }}" class="text-indigo-600 hover:underline">
+        Crea tu primera factura
+      </a>
     </li>
   </ul>
 </section>

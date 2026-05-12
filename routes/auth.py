@@ -108,8 +108,15 @@ def signup():
 
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
+    # Si el usuario "autenticado" tiene una sesión zombi (sin tenant válido),
+    # limpiamos todo antes de mostrar el login para evitar loops.
     if current_user.is_authenticated:
-        return redirect(url_for("dashboard.home"))
+        if current_user.tenant is None or not current_user.tenant.is_active:
+            logout_user()
+            session.pop("tenant_id", None)
+            session.pop("_flashes", None)
+        else:
+            return redirect(url_for("dashboard.home"))
 
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()

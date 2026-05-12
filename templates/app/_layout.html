@@ -41,13 +41,12 @@
       {{ navlink('clientes.list',           'Clientes',   '👥') }}
       {{ navlink('productos.list',          'Productos',  '📦') }}
       {{ navlink('categorias.list',         'Categorías', '🏷️') }}
-      <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 cursor-not-allowed"
-         title="Próximamente">
-        <span class="text-lg">📊</span> Reportes
-        <span class="ml-auto text-[10px] bg-slate-200 px-2 py-0.5 rounded">Pronto</span>
-      </a>
+      {{ navlink('reportes.index',          'Reportes',   '📊') }}
 
       <div class="pt-4 mt-4 border-t">
+        {% if current_user.is_admin() %}
+          {{ navlink('usuarios.list',         'Equipo',        '🧑‍🤝‍🧑') }}
+        {% endif %}
         {{ navlink('configuracion.empresa', 'Configuración', '⚙️') }}
         {{ navlink('billing.index',         'Suscripción',   '💳') }}
       </div>
