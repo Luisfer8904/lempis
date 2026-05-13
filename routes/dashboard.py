@@ -13,6 +13,7 @@ from models.catalog import Customer, Product
 from services.tenant_context import current_tenant
 from services.permissions import tenant_required
 from services.plan_limits import limits_with_usage
+from services.inventory import batches_by_status
 
 dashboard_bp = Blueprint("dashboard", __name__, url_prefix="/app")
 
@@ -50,6 +51,9 @@ def home():
         .all()
     )
 
+    # Vencimientos de lotes
+    lotes_status = batches_by_status(tenant.id, days_ahead=30)
+
     return render_template(
         "dashboard/home.html",
         tenant=tenant,
@@ -60,4 +64,5 @@ def home():
         revenue_30d=revenue_30d,
         plan_usage=plan_usage,
         last_invoices=last_invoices,
+        lotes_status=lotes_status,
     )

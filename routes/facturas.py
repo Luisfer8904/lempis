@@ -177,10 +177,10 @@ def mark_paid(invoice_id):
 @login_required
 @tenant_required
 def void(invoice_id):
+    from services.invoice_service import void_invoice_and_restore_stock
     inv = _get_or_404(invoice_id)
-    inv.status = "void"
-    db.session.commit()
-    flash(f"Factura {inv.number} anulada.", "warning")
+    void_invoice_and_restore_stock(inv)
+    flash(f"Factura {inv.number} anulada. El stock de los lotes fue restituido.", "warning")
     return redirect(url_for("facturas.detail", invoice_id=inv.id))
 
 
@@ -196,6 +196,33 @@ def delete(invoice_id):
     db.session.commit()
     flash("Borrador eliminado.", "info")
     return redirect(url_for("facturas.list"))
+
+
+# ---------------- AJAX: lotes de un producto ----------------
+
+@facturas_bp.route("/api/productos/<int:product_id>/lotes")
+@login_required
+@tenant_required
+def api_lotes_de_producto(product_id):
+    """Devuelve JSON con los lotes disponibles de un producto (para el form de facturas)."""
+    from flask import jsonify
+    from models.catalog import Product, ProductBatch
+
+    tenant = current_tenant()
+    p = Product.query.filter_by(id=product_id, tenant_id=tenant.id).first()
+    if p is None or not p.track_batches:
+        return jsonify({"lotes": []})
+
+    actives = p.active_batches()
+    return jsonify({
+        "lotes": [{
+            "id": b.id,
+            "batch_number": b.batch_number,
+            "expiration": b.expiration_date.strftime("%d/%m/%Y") if b.expiration_date else None,
+            "remaining": float(b.remaining_quantity or 0),
+            "status": b.status_label(),
+        } for b in actives],
+    })
 
 
 # ---------------- PDF ----------------
@@ -219,6 +246,7 @@ def _parse_items() -> list[dict]:
     items = []
     descriptions = request.form.getlist("item_description[]")
     products = request.form.getlist("item_product_id[]")
+    batches = request.form.getlist("item_batch_id[]")
     quantities = request.form.getlist("item_quantity[]")
     prices = request.form.getlist("item_unit_price[]")
     taxes = request.form.getlist("item_tax_rate[]")
@@ -229,6 +257,7 @@ def _parse_items() -> list[dict]:
             continue
         items.append({
             "product_id": int(products[i]) if (i < len(products) and products[i]) else None,
+            "batch_id": int(batches[i]) if (i < len(batches) and batches[i]) else None,
             "description": desc,
             "quantity": quantities[i] if i < len(quantities) else 1,
             "unit_price": prices[i] if i < len(prices) else 0,

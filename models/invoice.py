@@ -104,6 +104,7 @@ class InvoiceItem(db.Model, TimestampMixin):
     tenant_id = tenant_fk()
     invoice_id = Column(Integer, ForeignKey("lempis_facturas.id", ondelete="CASCADE"), nullable=False, index=True)
     product_id = Column(Integer, ForeignKey("lempis_productos.id", ondelete="SET NULL"))
+    batch_id = Column(Integer, ForeignKey("lempis_lotes.id", ondelete="SET NULL"), index=True)
 
     description = Column(String(255), nullable=False)
     quantity = Column(Numeric(12, 2), default=1, nullable=False)
@@ -117,6 +118,7 @@ class InvoiceItem(db.Model, TimestampMixin):
 
     invoice = relationship("Invoice", back_populates="items")
     product = relationship("Product", back_populates="invoice_items")
+    batch = relationship("ProductBatch", back_populates="invoice_items")
 
     def recalc(self) -> None:
         """Recalcula el subtotal y los impuestos de la línea."""

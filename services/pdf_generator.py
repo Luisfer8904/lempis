@@ -150,9 +150,18 @@ def generate_invoice_pdf(invoice, tenant) -> BytesIO:
     # ====== LÍNEAS ======
     items_data = [["#", "Descripción", "Cant.", "Precio", "ISV%", "Subtotal"]]
     for i, item in enumerate(invoice.items, start=1):
+        desc = item.description or ""
+        # Agregar info de lote/vencimiento si existe
+        if item.batch_id and item.batch is not None:
+            b = item.batch
+            extra_parts = [f"Lote: {b.batch_number}"]
+            if b.expiration_date:
+                extra_parts.append(f"Vence: {b.expiration_date.strftime('%m/%Y')}")
+            desc = f"{desc}<br/><font size='7' color='#64748b'>{' · '.join(extra_parts)}</font>"
+
         items_data.append([
             str(i),
-            item.description or "",
+            Paragraph(desc, body),
             f"{Decimal(item.quantity):.2f}",
             f"{Decimal(item.unit_price):.2f}",
             f"{Decimal(item.tax_rate):.2f}%",

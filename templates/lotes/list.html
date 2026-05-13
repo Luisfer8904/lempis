@@ -1,0 +1,115 @@
+{% extends "app/_layout.html" %}
+{% block title %}Lotes de {{ producto.name }} — {{ APP_NAME }}{% endblock %}
+{% block heading %}Lotes · {{ producto.name }}{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('productos.list') }}" class="text-slate-600 hover:text-slate-900 text-sm mr-3">
+  ← Volver a productos
+</a>
+<a href="{{ url_for('lotes.new', product_id=producto.id) }}"
+   class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
+  + Nuevo lote
+</a>
+{% endblock %}
+
+{% block content %}
+
+<section class="grid md:grid-cols-3 gap-4 mb-6">
+  <div class="bg-white p-4 rounded-xl shadow-sm border">
+    <p class="text-xs text-slate-500">Producto</p>
+    <p class="font-medium">{{ producto.name }}</p>
+    <p class="text-xs text-slate-500 font-mono">{{ producto.sku }}</p>
+  </div>
+  <div class="bg-white p-4 rounded-xl shadow-sm border">
+    <p class="text-xs text-slate-500">Stock total (todos los lotes)</p>
+    <p class="text-2xl font-bold">{{ producto.total_stock_from_batches()|int }}</p>
+  </div>
+  <div class="bg-white p-4 rounded-xl shadow-sm border">
+    <p class="text-xs text-slate-500">Lotes registrados</p>
+    <p class="text-2xl font-bold">{{ lotes|length }}</p>
+  </div>
+</section>
+
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+  {% if lotes %}
+    <table class="saas-table w-full">
+      <thead>
+        <tr>
+          <th>Lote</th>
+          <th>Fabricación</th>
+          <th>Vencimiento</th>
+          <th class="text-right">Inicial</th>
+          <th class="text-right">Disponible</th>
+          <th class="text-right">Costo</th>
+          <th>Proveedor</th>
+          <th>Estado</th>
+          <th class="text-right">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for l in lotes %}
+        <tr class="hover:bg-slate-50">
+          <td>
+            <div class="font-mono font-medium">{{ l.batch_number }}</div>
+            {% if l.notes %}<div class="text-xs text-slate-500 truncate max-w-xs">{{ l.notes }}</div>{% endif %}
+          </td>
+          <td class="text-sm">{{ l.manufacturing_date.strftime('%d/%m/%Y') if l.manufacturing_date else '—' }}</td>
+          <td class="text-sm">
+            {% if l.expiration_date %}
+              {{ l.expiration_date.strftime('%d/%m/%Y') }}
+              {% set d = l.days_until_expiry %}
+              {% if d is not none %}
+                <div class="text-xs
+                            {% if d < 0 %}text-rose-600 font-medium
+                            {% elif d <= 30 %}text-amber-600
+                            {% else %}text-slate-400{% endif %}">
+                  {% if d < 0 %}vencido hace {{ -d }}d
+                  {% elif d == 0 %}vence hoy
+                  {% else %}en {{ d }}d{% endif %}
+                </div>
+              {% endif %}
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-right font-mono">{{ '%.0f'|format(l.initial_quantity) }}</td>
+          <td class="text-right font-mono font-semibold">
+            {{ '%.0f'|format(l.remaining_quantity) }}
+          </td>
+          <td class="text-right font-mono">{{ '%.2f'|format(l.cost) }}</td>
+          <td class="text-sm">{{ l.supplier or '—' }}</td>
+          <td>
+            {% set st = l.status_label() %}
+            {% if st == 'vencido' %}
+              <span class="text-xs bg-rose-100 text-rose-700 px-2 py-1 rounded">Vencido</span>
+            {% elif st == 'agotado' %}
+              <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">Agotado</span>
+            {% elif st == 'por_vencer' %}
+              <span class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">Por vencer</span>
+            {% else %}
+              <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Vigente</span>
+            {% endif %}
+          </td>
+          <td class="text-right whitespace-nowrap">
+            <a href="{{ url_for('lotes.edit', product_id=producto.id, batch_id=l.id) }}"
+               class="text-indigo-600 hover:underline text-sm">Editar</a>
+            <form method="POST" action="{{ url_for('lotes.delete', product_id=producto.id, batch_id=l.id) }}"
+                  class="inline ml-2"
+                  onsubmit="return confirm('¿Eliminar lote {{ l.batch_number }}? Solo se pueden borrar lotes sin facturas asociadas.');">
+              <button class="text-rose-600 hover:underline text-sm">Eliminar</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="text-center py-16">
+      <div class="text-6xl mb-3">📦</div>
+      <p class="text-slate-500 mb-4">Aún no hay lotes registrados para este producto.</p>
+      <a href="{{ url_for('lotes.new', product_id=producto.id) }}"
+         class="inline-block bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+        Registrar primer lote
+      </a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

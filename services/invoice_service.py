@@ -13,8 +13,9 @@ from typing import Optional
 from models import db
 from models.tenant import Tenant
 from models.invoice import Invoice, InvoiceItem
-from models.catalog import Customer, Product
+from models.catalog import Customer, Product, ProductBatch
 from models.country import TaxConfig
+from services.inventory import consume_from_batch, restore_to_batch, recompute_product_stock
 
 
 class CAIError(Exception):
@@ -109,17 +110,30 @@ def issue_invoice(
 
     # Líneas
     for data in items_data:
+        product_id = data.get("product_id")
+        batch_id = data.get("batch_id")
+        qty = Decimal(str(data.get("quantity") or 1))
+
+        # Resolver lote: si no se mandó, usar FIFO del producto
+        batch = _resolve_batch(tenant.id, product_id, batch_id, qty, status)
+
         item = InvoiceItem(
             tenant_id=tenant.id,
-            product_id=data.get("product_id"),
+            product_id=product_id,
+            batch_id=batch.id if batch else None,
             description=data.get("description") or "",
-            quantity=Decimal(str(data.get("quantity") or 1)),
+            quantity=qty,
             unit_price=Decimal(str(data.get("unit_price") or 0)),
             tax_rate=Decimal(str(data.get("tax_rate") or 0)),
             discount_amount=Decimal(str(data.get("discount_amount") or 0)),
         )
         item.recalc()
         inv.items.append(item)
+
+        # Si emitimos, descontar del lote y actualizar stock del producto
+        if status != "draft" and batch is not None:
+            consume_from_batch(batch, qty)
+            recompute_product_stock(batch.product)
 
     inv.recalc_totals()
 
@@ -131,6 +145,27 @@ def issue_invoice(
 
     db.session.commit()
     return inv
+
+
+def _resolve_batch(tenant_id: int, product_id, batch_id, qty: Decimal, status: str):
+    """
+    Resuelve qué lote usar para una línea:
+      - Si batch_id fue enviado, lo usa (validando que pertenezca al tenant/producto).
+      - Si no, busca el próximo a vencer con stock suficiente (FIFO).
+    Retorna ProductBatch o None (si el producto no maneja lotes).
+    """
+    if not product_id:
+        return None
+    product = db.session.get(Product, int(product_id))
+    if product is None or product.tenant_id != tenant_id or not product.track_batches:
+        return None
+
+    if batch_id:
+        b = db.session.get(ProductBatch, int(batch_id))
+        if b and b.tenant_id == tenant_id and b.product_id == product.id:
+            return b
+        # batch_id inválido → caer a FIFO
+    return product.next_batch_to_consume()
 
 
 def update_invoice(
@@ -157,7 +192,8 @@ def update_invoice(
     if status is not None:
         invoice.status = status
 
-    # Reemplazar líneas (más simple que diff)
+    # Reemplazar líneas (más simple que diff). Como solo se editan drafts
+    # y los drafts NO descuentan stock, no hay que devolver al lote.
     for old_item in list(invoice.items):
         db.session.delete(old_item)
     invoice.items = []
@@ -166,6 +202,7 @@ def update_invoice(
         item = InvoiceItem(
             tenant_id=invoice.tenant_id,
             product_id=data.get("product_id"),
+            batch_id=data.get("batch_id") or None,
             description=data.get("description") or "",
             quantity=Decimal(str(data.get("quantity") or 1)),
             unit_price=Decimal(str(data.get("unit_price") or 0)),
@@ -178,3 +215,18 @@ def update_invoice(
     invoice.recalc_totals()
     db.session.commit()
     return invoice
+
+
+def void_invoice_and_restore_stock(invoice: Invoice) -> None:
+    """Anula la factura y devuelve el stock a los lotes correspondientes."""
+    if invoice.status == "void":
+        return
+    for it in invoice.items:
+        if it.batch_id:
+            b = db.session.get(ProductBatch, it.batch_id)
+            if b is not None:
+                restore_to_batch(b, it.quantity)
+                if b.product:
+                    recompute_product_stock(b.product)
+    invoice.status = "void"
+    db.session.commit()

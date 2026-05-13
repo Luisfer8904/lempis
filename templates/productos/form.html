@@ -88,11 +88,16 @@
              value="{{ producto.stock if producto else '0' }}"
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right" />
     </div>
-    <div class="flex items-end gap-4">
+    <div class="md:col-span-2 flex flex-wrap items-end gap-4">
       <label class="flex items-center gap-2 text-sm">
         <input type="checkbox" name="track_stock"
                {% if not producto or producto.track_stock %}checked{% endif %} />
         Controlar stock
+      </label>
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="track_batches"
+               {% if not producto or producto.track_batches %}checked{% endif %} />
+        Manejar lotes con vencimiento
       </label>
       <label class="flex items-center gap-2 text-sm">
         <input type="checkbox" name="is_active"

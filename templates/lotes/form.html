@@ -1,0 +1,78 @@
+{% extends "app/_layout.html" %}
+{% block title %}{{ 'Editar' if lote else 'Nuevo' }} lote — {{ APP_NAME }}{% endblock %}
+{% block heading %}{{ 'Editar lote' if lote else 'Nuevo lote' }} · {{ producto.name }}{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('lotes.list', product_id=producto.id) }}" class="text-slate-600 hover:text-slate-900 text-sm">
+  ← Volver
+</a>
+{% endblock %}
+
+{% block content %}
+<form method="POST" class="bg-white p-6 rounded-xl shadow-sm border max-w-2xl">
+  <div class="grid md:grid-cols-2 gap-4">
+
+    <div class="md:col-span-2">
+      <label class="block text-sm font-medium mb-1">Número de lote *</label>
+      <input name="batch_number" required
+             value="{{ lote.batch_number if lote else '' }}"
+             placeholder="LOTE-2026-001"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono" />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">Fecha de fabricación</label>
+      <input type="date" name="manufacturing_date"
+             value="{{ lote.manufacturing_date.strftime('%Y-%m-%d') if (lote and lote.manufacturing_date) else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Fecha de vencimiento</label>
+      <input type="date" name="expiration_date"
+             value="{{ lote.expiration_date.strftime('%Y-%m-%d') if (lote and lote.expiration_date) else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">Cantidad {% if not lote %}inicial *{% endif %}</label>
+      <input type="number" step="0.01" min="0" name="initial_quantity" required
+             value="{{ '%.0f'|format(lote.initial_quantity) if lote else '0' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right" />
+      {% if lote %}
+        <p class="text-xs text-slate-500 mt-1">
+          Disponibles ahora: <strong>{{ '%.0f'|format(lote.remaining_quantity) }}</strong>
+          (se ajusta automáticamente)
+        </p>
+      {% endif %}
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Costo unitario</label>
+      <input type="number" step="0.01" min="0" name="cost"
+             value="{{ '%.2f'|format(lote.cost) if lote else '0.00' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right" />
+    </div>
+
+    <div class="md:col-span-2">
+      <label class="block text-sm font-medium mb-1">Proveedor</label>
+      <input name="supplier" value="{{ lote.supplier if (lote and lote.supplier) else '' }}"
+             placeholder="Nombre del proveedor o factura de compra"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+
+    <div class="md:col-span-2">
+      <label class="block text-sm font-medium mb-1">Notas</label>
+      <textarea name="notes" rows="2"
+                placeholder="Información interna del lote..."
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">{{ lote.notes if (lote and lote.notes) else '' }}</textarea>
+    </div>
+  </div>
+
+  <div class="flex gap-3 mt-6 pt-6 border-t">
+    <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+      {{ 'Guardar cambios' if lote else 'Registrar lote' }}
+    </button>
+    <a href="{{ url_for('lotes.list', product_id=producto.id) }}"
+       class="border px-6 py-2 rounded-lg hover:bg-slate-50">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

@@ -127,6 +127,59 @@
 </div>
 
 {# ========== Próximos pasos ========== #}
+{# ========== Vencimientos de lotes ========== #}
+{% if lotes_status.expired_count or lotes_status.expiring_count %}
+<section class="grid md:grid-cols-2 gap-4 mt-6">
+  {% if lotes_status.expired_count %}
+    <div class="bg-rose-50 border border-rose-200 p-5 rounded-xl">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-base font-semibold text-rose-900">⚠️ Lotes vencidos con stock</h3>
+        <span class="text-2xl font-bold text-rose-600">{{ lotes_status.expired_count }}</span>
+      </div>
+      <ul class="text-sm space-y-1.5">
+        {% for l in lotes_status.expired[:5] %}
+          <li class="flex justify-between">
+            <a href="{{ url_for('lotes.list', product_id=l.product_id) }}" class="text-rose-700 hover:underline">
+              {{ l.product.name }} · <span class="font-mono text-xs">{{ l.batch_number }}</span>
+            </a>
+            <span class="text-rose-600 text-xs">
+              venció {{ l.expiration_date.strftime('%d/%m/%Y') }} · {{ l.remaining_quantity|int }} und
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+      {% if lotes_status.expired_count > 5 %}
+        <p class="text-xs text-rose-600 mt-2">y {{ lotes_status.expired_count - 5 }} más...</p>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {% if lotes_status.expiring_count %}
+    <div class="bg-amber-50 border border-amber-200 p-5 rounded-xl">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-base font-semibold text-amber-900">🕒 Por vencer en 30 días</h3>
+        <span class="text-2xl font-bold text-amber-600">{{ lotes_status.expiring_count }}</span>
+      </div>
+      <ul class="text-sm space-y-1.5">
+        {% for l in lotes_status.expiring[:5] %}
+          <li class="flex justify-between">
+            <a href="{{ url_for('lotes.list', product_id=l.product_id) }}" class="text-amber-800 hover:underline">
+              {{ l.product.name }} · <span class="font-mono text-xs">{{ l.batch_number }}</span>
+            </a>
+            <span class="text-amber-700 text-xs">
+              vence {{ l.expiration_date.strftime('%d/%m/%Y') }} · en {{ l.days_until_expiry }}d
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+      {% if lotes_status.expiring_count > 5 %}
+        <p class="text-xs text-amber-700 mt-2">y {{ lotes_status.expiring_count - 5 }} más...</p>
+      {% endif %}
+    </div>
+  {% endif %}
+</section>
+{% endif %}
+
 <section class="bg-white p-6 rounded-xl shadow-sm border mt-6">
   <h3 class="text-lg font-semibold mb-3">Próximos pasos</h3>
   <ul class="space-y-2 text-slate-600">

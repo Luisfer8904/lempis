@@ -71,8 +71,12 @@
             {% endif %}
           </td>
           <td class="text-right whitespace-nowrap">
+            {% if p.track_batches %}
+              <a href="{{ url_for('lotes.list', product_id=p.id) }}"
+                 class="text-emerald-600 hover:underline text-sm">📦 Lotes</a>
+            {% endif %}
             <a href="{{ url_for('productos.edit', product_id=p.id) }}"
-               class="text-indigo-600 hover:underline text-sm">Editar</a>
+               class="text-indigo-600 hover:underline text-sm ml-2">Editar</a>
             <form method="POST" action="{{ url_for('productos.delete', product_id=p.id) }}"
                   class="inline ml-2"
                   onsubmit="return confirm('¿Eliminar producto {{ p.name }}?');">

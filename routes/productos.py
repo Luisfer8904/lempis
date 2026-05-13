@@ -128,6 +128,7 @@ def _populate_from_form(prod: Product) -> None:
     prod.cost = _safe_decimal(request.form.get("cost"))
     prod.stock = int(request.form.get("stock") or 0)
     prod.track_stock = bool(request.form.get("track_stock"))
+    prod.track_batches = bool(request.form.get("track_batches"))
     prod.is_active = bool(request.form.get("is_active"))
 
     cat = request.form.get("category_id")

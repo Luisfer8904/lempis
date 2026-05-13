@@ -8,6 +8,7 @@
                 data-name="{{ p.name }}"
                 data-price="{{ p.price }}"
                 data-tax="{{ (p.tax_config.rate if p.tax_config else 15) }}"
+                data-batches="{{ '1' if p.track_batches else '0' }}"
                 {% if item.product_id == p.id %}selected{% endif %}>
           {{ p.sku }} — {{ p.name }}
         </option>
@@ -16,6 +17,19 @@
     <input type="text" name="item_description[]" class="item-desc w-full px-2 py-1 border rounded text-sm mt-1"
            value="{{ item.description }}" oninput="recalc()" />
     <input type="hidden" name="item_product_id[]" class="item-product-id" value="{{ item.product_id or '' }}" />
+    <select name="item_batch_id[]" class="item-batch w-full px-2 py-1 border rounded text-xs mt-1
+                  {% if not (item.product and item.product.track_batches) %}hidden{% endif %} bg-emerald-50">
+      <option value="">— Automático (FIFO) —</option>
+      {% if item.product and item.product.track_batches %}
+        {% for b in item.product.batches %}
+          {% if (b.remaining_quantity or 0) > 0 or b.id == item.batch_id %}
+            <option value="{{ b.id }}" {% if b.id == item.batch_id %}selected{% endif %}>
+              {{ b.batch_number }} · {{ 'vence ' ~ b.expiration_date.strftime('%d/%m/%Y') if b.expiration_date else 'sin venc.' }} · disp: {{ b.remaining_quantity|int }}
+            </option>
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+    </select>
   </td>
   <td class="px-2 py-2 w-24">
     <input type="number" step="0.01" min="0.01" name="item_quantity[]"
