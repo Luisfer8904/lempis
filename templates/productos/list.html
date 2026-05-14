@@ -3,6 +3,10 @@
 {% block heading %}Productos{% endblock %}
 
 {% block actions %}
+<a href="{{ url_for('facturas.new') }}"
+   class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 text-sm font-medium mr-2">
+  💰 Nueva venta
+</a>
 <a href="{{ url_for('productos.new') }}"
    class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
   + Nuevo producto
@@ -10,29 +14,136 @@
 {% endblock %}
 
 {% block content %}
-<form method="GET" class="mb-4 flex gap-2">
-  <input type="search" name="q" value="{{ q }}" placeholder="Buscar por nombre, SKU o descripción..."
-         class="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white" />
-  <select name="category_id" class="px-4 py-2 border rounded-lg bg-white">
-    <option value="">Todas las categorías</option>
-    {% for cat in categorias %}
-      <option value="{{ cat.id }}" {% if selected_category == cat.id %}selected{% endif %}>
-        {{ cat.name }}
-      </option>
-    {% endfor %}
-  </select>
-  <button class="bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-800 text-sm">Buscar</button>
-  {% if q or selected_category %}
-    <a href="{{ url_for('productos.list') }}"
-       class="border px-4 py-2 rounded-lg hover:bg-slate-50 text-sm">Limpiar</a>
-  {% endif %}
-</form>
 
+{# ===== Búsqueda + toggle de vista ===== #}
+<div class="flex flex-col md:flex-row gap-3 mb-4">
+  <form method="GET" class="flex gap-2 flex-1">
+    <input type="search" name="q" value="{{ q }}"
+           placeholder="Buscar producto, SKU o descripción..."
+           class="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white" />
+    {% if selected_category %}
+      <input type="hidden" name="category_id" value="{{ selected_category }}" />
+    {% endif %}
+    <input type="hidden" name="view" value="{{ view }}" />
+    <button class="bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-800 text-sm">Buscar</button>
+  </form>
+
+  <div class="flex gap-1 bg-white border rounded-lg p-1">
+    <a href="{{ url_for('productos.list', q=q, category_id=selected_category, view='grid') }}"
+       class="px-3 py-1.5 rounded-md text-sm
+              {% if view == 'grid' %}bg-indigo-600 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}"
+       title="Vista de tarjetas">🗂️ Tarjetas</a>
+    <a href="{{ url_for('productos.list', q=q, category_id=selected_category, view='table') }}"
+       class="px-3 py-1.5 rounded-md text-sm
+              {% if view == 'table' %}bg-indigo-600 text-white{% else %}text-slate-600 hover:bg-slate-100{% endif %}"
+       title="Vista de tabla">📋 Tabla</a>
+  </div>
+</div>
+
+{# ===== Tabs de categorías (estilo Treinta) ===== #}
+{% if categorias %}
+<div class="flex flex-wrap gap-2 mb-6 overflow-x-auto pb-2">
+  <a href="{{ url_for('productos.list', q=q, view=view) }}"
+     class="px-4 py-1.5 rounded-full text-sm whitespace-nowrap
+            {% if not selected_category %}
+              bg-amber-400 text-slate-900 font-medium
+            {% else %}
+              bg-white border text-slate-600 hover:bg-slate-50
+            {% endif %}">
+    Todos
+  </a>
+  {% for c in categorias %}
+    <a href="{{ url_for('productos.list', q=q, category_id=c.id, view=view) }}"
+       class="px-4 py-1.5 rounded-full text-sm whitespace-nowrap flex items-center gap-2
+              {% if selected_category == c.id %}
+                bg-amber-400 text-slate-900 font-medium
+              {% else %}
+                bg-white border text-slate-600 hover:bg-slate-50
+              {% endif %}">
+      {% if c.color %}
+        <span class="inline-block w-2 h-2 rounded-full" style="background: {{ c.color }}"></span>
+      {% endif %}
+      {{ c.name }}
+    </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# ===== Vista de tarjetas (grid) ===== #}
+{% if view == 'grid' %}
+  {% if productos %}
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      {% for p in productos %}
+        <div class="bg-white rounded-xl border shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+          {# Imagen #}
+          <div class="aspect-square bg-slate-50 flex items-center justify-center overflow-hidden">
+            {% if p.image_url %}
+              <img src="{{ p.image_url }}" alt="{{ p.name }}" class="w-full h-full object-cover" />
+            {% else %}
+              <span class="text-6xl text-slate-300">
+                {% if p.kind == 'service' %}🛎️{% else %}📦{% endif %}
+              </span>
+            {% endif %}
+          </div>
+
+          {# Contenido #}
+          <div class="p-3 flex-1 flex flex-col">
+            <p class="font-medium text-sm line-clamp-2 leading-tight">{{ p.name }}</p>
+            <p class="text-xs text-slate-500 font-mono">{{ p.sku }}</p>
+            {% if p.category %}
+              <p class="text-xs text-slate-400">{{ p.category.name }}</p>
+            {% endif %}
+
+            <div class="mt-2 flex items-center justify-between">
+              <span class="text-lg font-bold text-slate-900">$ {{ '%.2f'|format(p.price) }}</span>
+              {% if p.track_stock %}
+                {% if p.stock <= 0 %}
+                  <span class="text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded">Agotado</span>
+                {% elif p.stock <= 5 %}
+                  <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">{{ p.stock }} und</span>
+                {% else %}
+                  <span class="text-xs text-slate-500">{{ p.stock }} disp.</span>
+                {% endif %}
+              {% endif %}
+            </div>
+
+            {% if not p.is_active %}
+              <span class="mt-1 text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded self-start">Inactivo</span>
+            {% endif %}
+          </div>
+
+          {# Acciones #}
+          <div class="border-t bg-slate-50 px-3 py-2 flex items-center justify-between text-xs">
+            {% if p.track_batches %}
+              <a href="{{ url_for('lotes.list', product_id=p.id) }}"
+                 class="text-emerald-600 hover:underline">📦 Lotes</a>
+            {% else %}
+              <span></span>
+            {% endif %}
+            <div class="flex gap-2">
+              <a href="{{ url_for('productos.edit', product_id=p.id) }}"
+                 class="text-indigo-600 hover:underline">Editar</a>
+              <form method="POST" action="{{ url_for('productos.delete', product_id=p.id) }}" class="inline"
+                    onsubmit="return confirm('¿Eliminar producto {{ p.name }}?');">
+                <button class="text-rose-600 hover:underline">Eliminar</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    {% include 'productos/_empty.html' %}
+  {% endif %}
+
+{# ===== Vista de tabla ===== #}
+{% else %}
 <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
   {% if productos %}
     <table class="saas-table w-full">
       <thead>
         <tr>
+          <th>Img</th>
           <th>SKU</th>
           <th>Nombre</th>
           <th>Categoría</th>
@@ -46,6 +157,15 @@
       <tbody>
         {% for p in productos %}
         <tr class="hover:bg-slate-50">
+          <td>
+            {% if p.image_url %}
+              <img src="{{ p.image_url }}" class="h-10 w-10 rounded object-cover border" />
+            {% else %}
+              <div class="h-10 w-10 rounded bg-slate-100 flex items-center justify-center text-slate-400">
+                📦
+              </div>
+            {% endif %}
+          </td>
           <td class="font-mono text-sm">{{ p.sku }}</td>
           <td>
             <div class="font-medium">{{ p.name }}</div>
@@ -88,22 +208,10 @@
       </tbody>
     </table>
   {% else %}
-    <div class="text-center py-16">
-      <div class="text-6xl mb-3">📦</div>
-      <p class="text-slate-500 mb-4">
-        {% if q or selected_category %}
-          No encontramos productos con esos filtros.
-        {% else %}
-          Aún no tienes productos registrados.
-        {% endif %}
-      </p>
-      <a href="{{ url_for('productos.new') }}"
-         class="inline-block bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
-        Crear el primer producto
-      </a>
-    </div>
+    {% include 'productos/_empty.html' %}
   {% endif %}
 </div>
+{% endif %}
 
 {% if productos %}
   <p class="text-sm text-slate-500 mt-3">{{ productos|length }} producto(s)</p>

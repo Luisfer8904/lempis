@@ -1,0 +1,18 @@
+{# Empty state compartido por la vista de tarjetas y la tabla #}
+<div class="text-center py-16 bg-white rounded-xl border">
+  <div class="text-6xl mb-3">📦</div>
+  <p class="text-slate-700 font-medium mb-1">
+    {% if q or selected_category %}
+      No encontramos productos con esos filtros.
+    {% else %}
+      Aún no tienes productos registrados.
+    {% endif %}
+  </p>
+  <p class="text-sm text-slate-500 mb-4">
+    Los productos aparecerán aquí con imagen, precio y stock.
+  </p>
+  <a href="{{ url_for('productos.new') }}"
+     class="inline-block bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+    Crear el primer producto
+  </a>
+</div>

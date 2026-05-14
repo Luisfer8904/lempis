@@ -36,6 +36,14 @@
         </a>
       {% endmacro %}
 
+      {# Botón destacado de Nueva Venta (estilo Treinta) #}
+      <a href="{{ url_for('pos.index') }}"
+         class="flex items-center justify-center gap-2 px-3 py-3 mb-3
+                bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl
+                font-semibold shadow hover:shadow-md hover:from-emerald-600 hover:to-green-700">
+        💰 Nueva venta
+      </a>
+
       {{ navlink('dashboard.home',          'Dashboard',  '🏠') }}
       {{ navlink('facturas.list',           'Facturas',   '🧾') }}
       {{ navlink('clientes.list',           'Clientes',   '👥') }}

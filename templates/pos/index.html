@@ -1,0 +1,320 @@
+{% extends "app/_layout.html" %}
+{% block title %}Nueva venta — {{ APP_NAME }}{% endblock %}
+{% block heading %}Nueva venta{% endblock %}
+
+{% block actions %}
+<div class="flex items-center gap-3 text-sm">
+  <span class="text-slate-500">Próxima factura:</span>
+  <span class="font-mono font-bold text-indigo-600">{{ next_number }}</span>
+</div>
+{% endblock %}
+
+{% block content %}
+
+{% if not can_emit %}
+  <div class="mb-6 px-4 py-3 rounded-lg bg-rose-50 border border-rose-200">
+    <p class="font-medium text-rose-900">No puedes emitir todavía</p>
+    <p class="text-sm text-rose-700">{{ reason }}</p>
+    <a href="{{ url_for('configuracion.facturacion') }}"
+       class="inline-block mt-2 bg-rose-600 text-white px-4 py-2 rounded-lg hover:bg-rose-700 text-sm">
+      Ir a configuración
+    </a>
+  </div>
+{% endif %}
+
+<div class="grid lg:grid-cols-5 gap-6">
+
+  {# ============================ LADO IZQUIERDO: productos ============================ #}
+  <div class="lg:col-span-3 flex flex-col gap-4">
+
+    <form method="GET" class="flex gap-2">
+      <input type="search" name="q" value="{{ q }}"
+             placeholder="🔍 Buscar producto por nombre o SKU..."
+             class="flex-1 px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white" />
+      {% if selected_category %}
+        <input type="hidden" name="category_id" value="{{ selected_category }}" />
+      {% endif %}
+      <button class="bg-slate-700 text-white px-5 py-2 rounded-xl hover:bg-slate-800">Buscar</button>
+    </form>
+
+    {# Tabs de categorías estilo Treinta #}
+    {% if categorias %}
+    <div class="flex flex-wrap gap-2 overflow-x-auto pb-1">
+      <a href="{{ url_for('pos.index', q=q) }}"
+         class="px-4 py-1.5 rounded-full text-sm whitespace-nowrap
+                {% if not selected_category %}
+                  bg-amber-400 text-slate-900 font-medium
+                {% else %}
+                  bg-white border text-slate-600 hover:bg-slate-50
+                {% endif %}">
+        Todos
+      </a>
+      {% for c in categorias %}
+        <a href="{{ url_for('pos.index', q=q, category_id=c.id) }}"
+           class="px-4 py-1.5 rounded-full text-sm whitespace-nowrap flex items-center gap-2
+                  {% if selected_category == c.id %}
+                    bg-amber-400 text-slate-900 font-medium
+                  {% else %}
+                    bg-white border text-slate-600 hover:bg-slate-50
+                  {% endif %}">
+          {% if c.color %}
+            <span class="inline-block w-2 h-2 rounded-full" style="background: {{ c.color }}"></span>
+          {% endif %}
+          {{ c.name }}
+        </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {# Grid de productos #}
+    {% if productos %}
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {% for p in productos %}
+          <button type="button"
+                  data-id="{{ p.id }}"
+                  data-name="{{ p.name }}"
+                  data-sku="{{ p.sku }}"
+                  data-price="{{ p.price }}"
+                  data-tax="{{ (p.tax_config.rate if p.tax_config else 15) }}"
+                  data-image="{{ p.image_url or '' }}"
+                  data-stock="{{ p.stock if p.track_stock else '' }}"
+                  onclick="addToCart(this)"
+                  class="bg-white rounded-xl border hover:border-indigo-400 hover:shadow-md transition
+                         text-left overflow-hidden flex flex-col cursor-pointer"
+                  {% if p.track_stock and p.stock <= 0 %}disabled{% endif %}>
+            <div class="aspect-square bg-slate-50 flex items-center justify-center overflow-hidden">
+              {% if p.image_url %}
+                <img src="{{ p.image_url }}" class="w-full h-full object-cover" />
+              {% else %}
+                <span class="text-5xl text-slate-300">
+                  {% if p.kind == 'service' %}🛎️{% else %}📦{% endif %}
+                </span>
+              {% endif %}
+            </div>
+            <div class="p-2.5">
+              <p class="font-medium text-sm leading-tight line-clamp-2">{{ p.name }}</p>
+              <p class="text-base font-bold mt-1">$ {{ '%.2f'|format(p.price) }}</p>
+              {% if p.track_stock %}
+                {% if p.stock <= 0 %}
+                  <p class="text-xs text-rose-600 mt-0.5">Agotado</p>
+                {% elif p.stock <= 5 %}
+                  <p class="text-xs text-amber-600 mt-0.5">{{ p.stock }} disponibles</p>
+                {% else %}
+                  <p class="text-xs text-slate-500 mt-0.5">{{ p.stock }} disp.</p>
+                {% endif %}
+              {% endif %}
+            </div>
+          </button>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="bg-white rounded-xl border p-12 text-center">
+        <div class="text-5xl mb-3">📦</div>
+        <p class="text-slate-600 mb-3">No hay productos para mostrar.</p>
+        <a href="{{ url_for('productos.new') }}"
+           class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700 text-sm">
+          + Crear producto
+        </a>
+      </div>
+    {% endif %}
+  </div>
+
+  {# ============================ LADO DERECHO: carrito ============================ #}
+  <div class="lg:col-span-2 bg-white rounded-xl border shadow-sm flex flex-col sticky top-4 self-start"
+       style="max-height: calc(100vh - 6rem);">
+    <div class="p-4 border-b flex items-center justify-between">
+      <h2 class="font-bold text-lg">Carrito</h2>
+      <button type="button" onclick="clearCart()"
+              class="text-xs text-rose-600 hover:underline">Vaciar</button>
+    </div>
+
+    <form method="POST" action="{{ url_for('pos.cobrar') }}" id="checkout-form"
+          class="flex-1 flex flex-col">
+
+      {# Líneas del carrito #}
+      <div id="cart-items" class="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+        <div id="cart-empty" class="text-center py-12 text-slate-400">
+          <div class="text-4xl mb-2">🛒</div>
+          <p class="text-sm">Carrito vacío</p>
+          <p class="text-xs">Toca un producto para agregarlo</p>
+        </div>
+      </div>
+
+      {# Cliente + método #}
+      <div class="border-t p-4 space-y-3 bg-slate-50">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Cliente</label>
+          <select name="customer_id"
+                  class="w-full px-3 py-2 text-sm border rounded-lg bg-white">
+            <option value="">— Consumidor final —</option>
+            {% for c in clientes %}
+              <option value="{{ c.id }}">{{ c.name }}{% if c.tax_id %} — {{ c.tax_id }}{% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Método de pago</label>
+          <select name="payment_method" id="payment-method"
+                  class="w-full px-3 py-2 text-sm border rounded-lg bg-white">
+            <option value="efectivo">💵 Efectivo</option>
+            <option value="transferencia">🏦 Transferencia</option>
+            <option value="tarjeta">💳 Tarjeta</option>
+            <option value="credito">📋 Crédito</option>
+          </select>
+        </div>
+        <div id="terms-row" style="display:none">
+          <label class="block text-xs font-medium text-slate-600 mb-1">Días de crédito</label>
+          <select name="payment_terms_days"
+                  class="w-full px-3 py-2 text-sm border rounded-lg bg-white">
+            <option value="15">15 días</option>
+            <option value="30" selected>30 días</option>
+            <option value="45">45 días</option>
+            <option value="60">60 días</option>
+          </select>
+        </div>
+      </div>
+
+      {# Totales + cobrar #}
+      <div class="border-t p-4 bg-white">
+        <div class="flex justify-between text-sm mb-1">
+          <span class="text-slate-500">Subtotal</span>
+          <span class="font-mono" id="sum-sub">{{ tenant.currency }} 0.00</span>
+        </div>
+        <div class="flex justify-between text-sm mb-2">
+          <span class="text-slate-500">ISV</span>
+          <span class="font-mono" id="sum-tax">{{ tenant.currency }} 0.00</span>
+        </div>
+        <div class="flex justify-between text-lg font-bold border-t pt-2 mb-3">
+          <span>Total</span>
+          <span class="font-mono text-indigo-600" id="sum-total">{{ tenant.currency }} 0.00</span>
+        </div>
+        <button id="checkout-btn" type="submit" disabled
+                {% if not can_emit %}disabled title="{{ reason }}"{% endif %}
+                class="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold
+                       hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed">
+          Cobrar
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const TENANT_CURRENCY = "{{ tenant.currency }}";
+const cart = new Map();  // product_id -> {id, name, sku, price, tax, qty, image}
+
+function fmt(n) { return TENANT_CURRENCY + " " + Number(n).toFixed(2); }
+
+function addToCart(btn) {
+  const id = btn.dataset.id;
+  const existing = cart.get(id);
+  if (existing) {
+    existing.qty += 1;
+  } else {
+    cart.set(id, {
+      id,
+      name: btn.dataset.name,
+      sku: btn.dataset.sku,
+      price: parseFloat(btn.dataset.price),
+      tax: parseFloat(btn.dataset.tax) || 15,
+      image: btn.dataset.image,
+      qty: 1,
+    });
+  }
+  renderCart();
+}
+
+function changeQty(id, delta) {
+  const item = cart.get(id);
+  if (!item) return;
+  item.qty = Math.max(0, item.qty + delta);
+  if (item.qty === 0) cart.delete(id);
+  renderCart();
+}
+
+function setQty(id, value) {
+  const item = cart.get(id);
+  if (!item) return;
+  const v = parseFloat(value);
+  if (isNaN(v) || v <= 0) { cart.delete(id); }
+  else { item.qty = v; }
+  renderCart();
+}
+
+function clearCart() {
+  if (!confirm('¿Vaciar el carrito?')) return;
+  cart.clear();
+  renderCart();
+}
+
+function renderCart() {
+  const container = document.getElementById('cart-items');
+  const empty = document.getElementById('cart-empty');
+  const checkoutBtn = document.getElementById('checkout-btn');
+
+  // Limpiar pero conservar el empty state
+  Array.from(container.children).forEach(c => {
+    if (c.id !== 'cart-empty') c.remove();
+  });
+
+  if (cart.size === 0) {
+    empty.style.display = 'block';
+    document.getElementById('sum-sub').textContent = fmt(0);
+    document.getElementById('sum-tax').textContent = fmt(0);
+    document.getElementById('sum-total').textContent = fmt(0);
+    checkoutBtn.disabled = true;
+    return;
+  }
+
+  empty.style.display = 'none';
+  let subtotal = 0, taxTotal = 0;
+
+  for (const item of cart.values()) {
+    const lineSub = item.price * item.qty;
+    const lineTax = lineSub * (item.tax / 100);
+    subtotal += lineSub;
+    taxTotal += lineTax;
+
+    const row = document.createElement('div');
+    row.className = 'flex gap-2 items-center bg-slate-50 rounded-lg p-2';
+    row.innerHTML = `
+      <div class="h-10 w-10 rounded bg-white border flex items-center justify-center overflow-hidden flex-shrink-0">
+        ${item.image ? `<img src="${item.image}" class="w-full h-full object-cover">` : '<span class="text-xl">📦</span>'}
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium truncate">${item.name}</p>
+        <p class="text-xs text-slate-500">${fmt(item.price)} c/u</p>
+      </div>
+      <div class="flex items-center gap-1">
+        <button type="button" onclick="changeQty('${item.id}', -1)"
+                class="w-7 h-7 bg-white border rounded hover:bg-slate-100">−</button>
+        <input type="number" min="0" step="0.01" value="${item.qty}"
+               onchange="setQty('${item.id}', this.value)"
+               class="w-12 text-center text-sm border rounded py-1" />
+        <button type="button" onclick="changeQty('${item.id}', 1)"
+                class="w-7 h-7 bg-white border rounded hover:bg-slate-100">+</button>
+      </div>
+      <input type="hidden" name="cart_product_id[]" value="${item.id}" />
+      <input type="hidden" name="cart_name[]" value="${item.name}" />
+      <input type="hidden" name="cart_unit_price[]" value="${item.price}" />
+      <input type="hidden" name="cart_tax_rate[]" value="${item.tax}" />
+      <input type="hidden" name="cart_quantity[]" value="${item.qty}" />
+    `;
+    container.appendChild(row);
+  }
+
+  document.getElementById('sum-sub').textContent = fmt(subtotal);
+  document.getElementById('sum-tax').textContent = fmt(taxTotal);
+  document.getElementById('sum-total').textContent = fmt(subtotal + taxTotal);
+  checkoutBtn.disabled = false;
+}
+
+// Toggle plazo crédito
+document.getElementById('payment-method').addEventListener('change', e => {
+  document.getElementById('terms-row').style.display =
+    e.target.value === 'credito' ? 'block' : 'none';
+});
+
+renderCart();
+</script>
+{% endblock %}

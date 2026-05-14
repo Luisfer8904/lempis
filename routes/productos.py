@@ -12,6 +12,7 @@ from models.country import TaxConfig
 from services.tenant_context import current_tenant
 from services.permissions import tenant_required
 from services.plan_limits import check_can_create_product, PlanLimitError
+from services.uploads import save_product_image, delete_product_image
 
 productos_bp = Blueprint("productos", __name__, url_prefix="/app/productos")
 
@@ -38,6 +39,7 @@ def list():
     tenant = current_tenant()
     q = (request.args.get("q") or "").strip()
     category_id = request.args.get("category_id", type=int)
+    view = request.args.get("view", "grid")  # grid | table
 
     query = Product.query.filter_by(tenant_id=tenant.id)
     if q:
@@ -55,7 +57,7 @@ def list():
     return render_template(
         "productos/list.html",
         productos=productos, categorias=categorias,
-        q=q, selected_category=category_id,
+        q=q, selected_category=category_id, view=view,
     )
 
 
@@ -75,6 +77,15 @@ def new():
         prod = Product(tenant_id=tenant.id)
         _populate_from_form(prod)
         db.session.add(prod)
+        db.session.flush()  # para tener prod.id antes de guardar la imagen
+
+        # Imagen: subida desde archivo > URL manual
+        file = request.files.get("image_file")
+        if file and file.filename:
+            url = save_product_image(file, tenant.id, prod.id)
+            if url:
+                prod.image_url = url
+
         db.session.commit()
         flash(f"Producto '{prod.name}' creado correctamente.", "success")
         return redirect(url_for("productos.list"))
@@ -92,13 +103,31 @@ def new():
 @tenant_required
 def edit(product_id):
     prod = _get_or_404(product_id)
+    tenant = current_tenant()
+
     if request.method == "POST":
         _populate_from_form(prod)
+
+        # Si subieron nueva imagen, reemplazar
+        file = request.files.get("image_file")
+        if file and file.filename:
+            old_url = prod.image_url
+            new_url = save_product_image(file, tenant.id, prod.id)
+            if new_url:
+                # Borrar archivo viejo solo si estaba en nuestra carpeta y cambió
+                if old_url and old_url != new_url:
+                    delete_product_image(old_url)
+                prod.image_url = new_url
+
+        # Si marcó "quitar imagen"
+        if request.form.get("remove_image"):
+            delete_product_image(prod.image_url)
+            prod.image_url = None
+
         db.session.commit()
         flash(f"Producto '{prod.name}' actualizado.", "success")
         return redirect(url_for("productos.list"))
 
-    tenant = current_tenant()
     categorias = Category.query.filter_by(tenant_id=tenant.id).order_by(Category.name).all()
     impuestos = TaxConfig.query.filter_by(country_code=tenant.country_code, is_active=True).all()
     return render_template(
@@ -113,6 +142,8 @@ def edit(product_id):
 def delete(product_id):
     prod = _get_or_404(product_id)
     name = prod.name
+    # Borrar imagen del disco si está en nuestra carpeta
+    delete_product_image(prod.image_url)
     db.session.delete(prod)
     db.session.commit()
     flash(f"Producto '{name}' eliminado.", "info")
