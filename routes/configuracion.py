@@ -50,8 +50,52 @@ def empresa():
 @admin_required
 @tenant_required
 def facturacion():
-    """Configuración SAR Honduras (CAI, rangos, EST/PV/TD)."""
+    """Configuración del modo de facturación (Simple / SAR / etc.)."""
+    from services.invoice_mode import available_modes
     tenant = current_tenant()
+
+    if request.method == "POST":
+        new_mode = (request.form.get("invoice_mode") or "simple").strip()
+        # Solo permitimos cambiar de modo si no hay facturas emitidas todavía
+        if new_mode != (tenant.invoice_mode or "simple") and tenant.invoices:
+            flash(
+                "No puedes cambiar el modo de facturación porque ya hay facturas emitidas. "
+                "Para cambiarlo, anula primero las facturas o contacta soporte.",
+                "warning",
+            )
+            return redirect(url_for("configuracion.facturacion"))
+
+        tenant.invoice_mode = new_mode
+
+        # Campos modo SIMPLE
+        if new_mode == "simple":
+            tenant.invoice_prefix = (request.form.get("invoice_prefix") or "").strip()[:20]
+            next_num = request.form.get("next_invoice_number_simple")
+            if next_num and not tenant.invoices:
+                tenant.next_invoice_number = max(int(next_num), 1)
+
+        db.session.commit()
+        flash("Modo de facturación actualizado.", "success")
+        return redirect(url_for("configuracion.facturacion"))
+
+    return render_template(
+        "configuracion/facturacion.html",
+        tenant=tenant,
+        modes=available_modes(),
+    )
+
+
+@configuracion_bp.route("/sar", methods=["GET", "POST"])
+@login_required
+@admin_required
+@tenant_required
+def sar():
+    """Configuración específica SAR Honduras (solo aplica si modo=sar_hn)."""
+    tenant = current_tenant()
+
+    if (tenant.invoice_mode or "simple") != "sar_hn":
+        flash("Esta sección solo aplica al modo SAR Honduras. Cambia el modo primero.", "warning")
+        return redirect(url_for("configuracion.facturacion"))
 
     if request.method == "POST":
         tenant.cai_code = (request.form.get("cai_code") or "").strip().upper() or None
@@ -68,15 +112,15 @@ def facturacion():
         tenant.punto_emision = (request.form.get("punto_emision") or "001").strip().zfill(3)[:3]
         tenant.tipo_documento = (request.form.get("tipo_documento") or "01").strip().zfill(2)[:2]
 
-        # Solo permitir cambiar el correlativo si no hay facturas aún (evitar inconsistencias)
+        # Solo permitir cambiar el correlativo si no hay facturas aún
         next_num = request.form.get("next_invoice_number")
         if next_num and not tenant.invoices:
-            tenant.next_invoice_number = max(int(next_num), tenant.cai_range_start)
+            tenant.next_invoice_number = max(int(next_num), tenant.cai_range_start or 1)
         elif not tenant.invoices:
-            tenant.next_invoice_number = tenant.cai_range_start
+            tenant.next_invoice_number = tenant.cai_range_start or 1
 
         db.session.commit()
         flash("Configuración SAR actualizada correctamente.", "success")
-        return redirect(url_for("configuracion.facturacion"))
+        return redirect(url_for("configuracion.sar"))
 
-    return render_template("configuracion/facturacion.html", tenant=tenant)
+    return render_template("configuracion/sar.html", tenant=tenant)

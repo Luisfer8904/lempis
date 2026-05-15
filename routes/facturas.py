@@ -59,10 +59,18 @@ def list():
         query = query.filter_by(status=status)
 
     facturas = query.order_by(Invoice.issue_date.desc()).all()
+
+    # ¿Puede emitir según su modo? (CAI para SAR, plan limits para simple)
+    can_emit_now = True
+    try:
+        validate_can_emit(tenant)
+    except CAIError:
+        can_emit_now = False
+
     return render_template(
         "facturas/list.html",
         facturas=facturas, q=q, status=status,
-        cai_ok=tenant.has_cai_configured(),
+        cai_ok=can_emit_now,
     )
 
 
@@ -231,10 +239,12 @@ def api_lotes_de_producto(product_id):
 @login_required
 @tenant_required
 def pdf(invoice_id):
-    from services.pdf_generator import generate_invoice_pdf
+    from services.invoice_mode import get_provider
     inv = _get_or_404(invoice_id)
-    buffer = generate_invoice_pdf(inv, current_tenant())
-    filename = f"factura_{inv.number.replace('-', '_')}.pdf"
+    tenant = current_tenant()
+    buffer = get_provider(tenant).generate_pdf(inv, tenant)
+    safe_num = inv.number.replace("/", "_").replace("-", "_").replace(" ", "_")
+    filename = f"factura_{safe_num}.pdf"
     return send_file(buffer, mimetype="application/pdf",
                      as_attachment=True, download_name=filename)
 

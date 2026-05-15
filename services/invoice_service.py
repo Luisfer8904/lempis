@@ -19,42 +19,29 @@ from services.inventory import consume_from_batch, restore_to_batch, recompute_p
 
 
 class CAIError(Exception):
-    """El tenant no puede emitir facturas por falta o vencimiento de CAI."""
+    """Error de emisión (mantenido por compatibilidad con código existente).
+
+    Internamente delega a InvoiceProviderError pero conserva el nombre
+    para no romper imports en routes/facturas.py y routes/pos.py.
+    """
 
 
 def validate_can_emit(tenant: Tenant) -> None:
-    """Lanza CAIError si el tenant no puede emitir facturas (SAR o plan)."""
-    if not tenant.has_cai_configured():
-        raise CAIError(
-            "Debes configurar tu CAI en Configuración → Facturación antes de emitir."
-        )
-    now = datetime.utcnow()
-    if tenant.cai_valid_until and tenant.cai_valid_until < now:
-        raise CAIError(
-            f"Tu CAI venció el {tenant.cai_valid_until.strftime('%d/%m/%Y')}. "
-            "Solicita uno nuevo en el SAR."
-        )
-    if tenant.next_invoice_number > tenant.cai_range_end:
-        raise CAIError(
-            f"Agotaste tu rango de facturas autorizado ({tenant.cai_range_end}). "
-            "Solicita un nuevo CAI en el SAR."
-        )
-
-    # También verificar límite del plan SaaS
-    from services.plan_limits import check_can_emit_invoice, PlanLimitError
+    """Valida si el tenant puede emitir según su modo de facturación."""
+    from services.invoice_mode import get_provider, InvoiceProviderError
     try:
-        check_can_emit_invoice(tenant)
-    except PlanLimitError as e:
+        get_provider(tenant).validate_can_emit(tenant)
+    except InvoiceProviderError as e:
         raise CAIError(str(e))
 
 
 def next_invoice_number(tenant: Tenant) -> tuple[int, str]:
     """
     Devuelve (correlativo, número_formateado) para la próxima factura.
-    NO incrementa el contador — solo lo lee.
+    NO incrementa el contador — solo lo lee. Delega al provider del tenant.
     """
-    correlativo = tenant.next_invoice_number or tenant.cai_range_start or 1
-    return correlativo, tenant.format_invoice_number(correlativo)
+    from services.invoice_mode import get_provider
+    return get_provider(tenant).next_number(tenant)
 
 
 def issue_invoice(
@@ -90,19 +77,14 @@ def issue_invoice(
         payment_method=payment_method,
         payment_terms_days=int(payment_terms_days or 0),
         notes=notes or None,
-        # Congelar datos SAR
-        cai_code=tenant.cai_code,
-        cai_range_start=tenant.cai_range_start,
-        cai_range_end=tenant.cai_range_end,
-        cai_valid_until=tenant.cai_valid_until,
-        # Congelar emisor
-        emisor_name=tenant.legal_name or tenant.name,
-        emisor_tax_id=tenant.tax_id,
-        emisor_address=tenant.address,
-        # Congelar receptor
+        # Congelar receptor (común a todos los modos)
         receptor_name=customer.name if customer else None,
         receptor_tax_id=customer.tax_id if customer else None,
     )
+
+    # Congelar datos específicos del modo (CAI, RTN, etc.)
+    from services.invoice_mode import get_provider
+    get_provider(tenant).freeze_invoice(tenant, inv)
 
     # Fecha de vencimiento si es crédito
     if payment_method == "credito" and payment_terms_days:

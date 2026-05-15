@@ -3,9 +3,13 @@
 {% block heading %}Facturas{% endblock %}
 
 {% block actions %}
+<a href="{{ url_for('pos.index') }}"
+   class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 text-sm font-medium mr-2">
+  💰 Nueva venta
+</a>
 <a href="{{ url_for('facturas.new') }}"
-   class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
-  + Nueva factura
+   class="border border-indigo-600 text-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-50 text-sm font-medium">
+  + Factura detallada
 </a>
 {% endblock %}
 
@@ -15,8 +19,8 @@
   <div class="mb-6 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 flex items-center gap-3">
     <span class="text-2xl">⚠️</span>
     <div class="flex-1">
-      <p class="font-medium text-amber-900">Falta configurar tu CAI</p>
-      <p class="text-sm text-amber-700">No puedes emitir facturas válidas sin tu Código CAI del SAR.</p>
+      <p class="font-medium text-amber-900">Configuración pendiente</p>
+      <p class="text-sm text-amber-700">Aún no puedes emitir. Revisa el modo de facturación.</p>
     </div>
     <a href="{{ url_for('configuracion.facturacion') }}"
        class="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 text-sm">
@@ -25,53 +29,74 @@
   </div>
 {% endif %}
 
-<form method="GET" class="mb-4 flex gap-2">
-  <input type="search" name="q" value="{{ q }}" placeholder="Buscar por número, cliente o RTN..."
-         class="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white" />
-  <select name="status" class="px-4 py-2 border rounded-lg bg-white">
-    <option value="">Todos los estados</option>
-    <option value="draft"           {% if status == 'draft' %}selected{% endif %}>Borrador</option>
-    <option value="issued"          {% if status == 'issued' %}selected{% endif %}>Emitida</option>
-    <option value="paid"            {% if status == 'paid' %}selected{% endif %}>Pagada</option>
-    <option value="partially_paid"  {% if status == 'partially_paid' %}selected{% endif %}>Pago parcial</option>
-    <option value="overdue"         {% if status == 'overdue' %}selected{% endif %}>Vencida</option>
-    <option value="void"            {% if status == 'void' %}selected{% endif %}>Anulada</option>
-  </select>
-  <button class="bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-800 text-sm">Buscar</button>
+{# ===== Búsqueda + filtros pills ===== #}
+<form method="GET" class="mb-4">
+  <div class="flex gap-2 mb-3">
+    <input type="search" name="q" value="{{ q }}"
+           placeholder="🔍 Buscar por número, cliente o RTN..."
+           class="flex-1 px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white" />
+    <input type="hidden" name="status" value="{{ status or '' }}" />
+    <button class="bg-slate-700 text-white px-5 py-2 rounded-xl hover:bg-slate-800">Buscar</button>
+  </div>
 </form>
 
-<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
-  {% if facturas %}
-    <table class="saas-table w-full">
-      <thead>
-        <tr>
-          <th>Número</th>
-          <th>Fecha</th>
-          <th>Cliente</th>
-          <th>Método</th>
-          <th class="text-right">Total</th>
-          <th>Estado</th>
-          <th class="text-right">Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for f in facturas %}
-        <tr class="hover:bg-slate-50">
-          <td class="font-mono text-sm">{{ f.number }}</td>
-          <td class="text-sm">{{ f.issue_date.strftime('%d/%m/%Y') }}</td>
-          <td>
-            <div class="font-medium">{{ f.receptor_name or f.customer.name if f.customer else 'Consumidor final' }}</div>
-            {% if f.receptor_tax_id %}<div class="text-xs text-slate-500 font-mono">{{ f.receptor_tax_id }}</div>{% endif %}
-          </td>
-          <td>
-            {% set methods = {'efectivo': 'Efectivo', 'transferencia': 'Transferencia', 'tarjeta': 'Tarjeta', 'credito': 'Crédito'} %}
-            <span class="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded">
-              {{ methods.get(f.payment_method, f.payment_method) }}
-              {% if f.payment_method == 'credito' and f.payment_terms_days %}({{ f.payment_terms_days }}d){% endif %}
-            </span>
-          </td>
-          <td class="text-right font-semibold">{{ f.currency }} {{ '%.2f'|format(f.total) }}</td>
-          <td>
+{# Pills de filtro por estado (estilo Treinta) #}
+<div class="flex flex-wrap gap-2 mb-6 overflow-x-auto pb-1">
+  {% set filters = [
+    ('',               'Todas',        'bg-slate-700'),
+    ('draft',          'Borradores',   'bg-slate-500'),
+    ('issued',         'Emitidas',     'bg-sky-600'),
+    ('paid',           'Pagadas',      'bg-green-600'),
+    ('partially_paid', 'Pago parcial', 'bg-amber-600'),
+    ('overdue',        'Vencidas',     'bg-rose-600'),
+    ('void',           'Anuladas',     'bg-slate-400'),
+  ] %}
+  {% for code, label, color in filters %}
+    <a href="{{ url_for('facturas.list', q=q, status=code) }}"
+       class="px-4 py-1.5 rounded-full text-sm whitespace-nowrap
+              {% if (status or '') == code %}
+                {{ color }} text-white font-medium
+              {% else %}
+                bg-white border text-slate-600 hover:bg-slate-50
+              {% endif %}">
+      {{ label }}
+    </a>
+  {% endfor %}
+</div>
+
+{# ===== Lista de facturas ===== #}
+{% if facturas %}
+  <div class="space-y-2">
+    {% for f in facturas %}
+      <a href="{{ url_for('facturas.detail', invoice_id=f.id) }}"
+         class="block bg-white rounded-xl border hover:border-indigo-300 hover:shadow-sm transition p-4">
+        <div class="flex items-center gap-4">
+
+          {# Número + fecha #}
+          <div class="flex-shrink-0 w-44">
+            <p class="font-mono font-semibold text-sm">{{ f.number }}</p>
+            <p class="text-xs text-slate-500">{{ f.issue_date.strftime('%d/%m/%Y · %H:%M') }}</p>
+          </div>
+
+          {# Cliente #}
+          <div class="flex-1 min-w-0">
+            <p class="font-medium truncate">{{ f.receptor_name or (f.customer.name if f.customer else 'Consumidor final') }}</p>
+            {% if f.receptor_tax_id %}
+              <p class="text-xs text-slate-500 font-mono">{{ f.receptor_tax_id }}</p>
+            {% endif %}
+          </div>
+
+          {# Método de pago #}
+          <div class="hidden md:block text-xs text-slate-600 w-32">
+            {% set methods = {'efectivo': '💵 Efectivo', 'transferencia': '🏦 Transferencia', 'tarjeta': '💳 Tarjeta', 'credito': '📋 Crédito'} %}
+            {{ methods.get(f.payment_method, f.payment_method) }}
+            {% if f.payment_method == 'credito' and f.payment_terms_days %}
+              <span class="text-slate-400">({{ f.payment_terms_days }}d)</span>
+            {% endif %}
+          </div>
+
+          {# Estado #}
+          <div class="flex-shrink-0 w-28 text-center">
             {% set badges = {
               'draft': 'bg-slate-200 text-slate-700',
               'issued': 'bg-sky-100 text-sky-800',
@@ -84,41 +109,50 @@
               'draft': 'Borrador', 'issued': 'Emitida', 'paid': 'Pagada',
               'partially_paid': 'Parcial', 'overdue': 'Vencida', 'void': 'Anulada',
             } %}
-            <span class="text-xs px-2 py-1 rounded {{ badges.get(f.status, 'bg-slate-100 text-slate-700') }}">
+            <span class="inline-block text-xs px-3 py-1 rounded-full {{ badges.get(f.status, 'bg-slate-100') }}">
               {{ labels.get(f.status, f.status) }}
             </span>
-          </td>
-          <td class="text-right whitespace-nowrap">
-            <a href="{{ url_for('facturas.detail', invoice_id=f.id) }}"
-               class="text-indigo-600 hover:underline text-sm">Ver</a>
-            {% if f.status != 'void' %}
-              <a href="{{ url_for('facturas.pdf', invoice_id=f.id) }}"
-                 class="text-slate-600 hover:underline text-sm ml-2">PDF</a>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  {% else %}
-    <div class="text-center py-16">
-      <div class="text-6xl mb-3">🧾</div>
-      <p class="text-slate-500 mb-4">
-        {% if q or status %}
-          No se encontraron facturas con esos filtros.
-        {% else %}
-          Aún no has emitido facturas.
-        {% endif %}
-      </p>
+          </div>
+
+          {# Total #}
+          <div class="flex-shrink-0 text-right w-32">
+            <p class="text-lg font-bold text-slate-900">{{ '%.2f'|format(f.total) }}</p>
+            <p class="text-xs text-slate-500">{{ f.currency }}</p>
+          </div>
+
+          <span class="text-slate-300 text-xl">›</span>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+
+  <p class="text-sm text-slate-500 mt-4 text-center">
+    {{ facturas|length }} factura(s) mostrada(s)
+  </p>
+
+{% else %}
+  <div class="text-center py-20 bg-white rounded-xl border">
+    <div class="text-6xl mb-3">🧾</div>
+    <p class="text-lg text-slate-700 font-medium mb-1">
+      {% if q or status %}
+        No encontramos facturas con esos filtros
+      {% else %}
+        Aún no has emitido facturas
+      {% endif %}
+    </p>
+    <p class="text-sm text-slate-500 mb-5">
+      Empieza con una venta rápida desde el POS o crea una factura detallada.
+    </p>
+    <div class="flex gap-3 justify-center">
+      <a href="{{ url_for('pos.index') }}"
+         class="bg-emerald-600 text-white px-6 py-2.5 rounded-lg hover:bg-emerald-700 font-medium">
+        💰 Nueva venta
+      </a>
       <a href="{{ url_for('facturas.new') }}"
-         class="inline-block bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
-        Crear la primera factura
+         class="border border-slate-300 text-slate-700 px-6 py-2.5 rounded-lg hover:bg-slate-50">
+        + Factura detallada
       </a>
     </div>
-  {% endif %}
-</div>
-
-{% if facturas %}
-  <p class="text-sm text-slate-500 mt-3">{{ facturas|length }} factura(s)</p>
+  </div>
 {% endif %}
 {% endblock %}

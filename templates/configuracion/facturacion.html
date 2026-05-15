@@ -1,126 +1,125 @@
 {% extends "app/_layout.html" %}
-{% block title %}Configuración — Facturación SAR{% endblock %}
+{% block title %}Configuración — Facturación{% endblock %}
 {% block heading %}Configuración{% endblock %}
 
 {% block content %}
 {% include "configuracion/_tabs.html" %}
 
-{# Estado del CAI #}
-{% if tenant.has_cai_configured() %}
-  <div class="mb-6 px-4 py-3 rounded-lg bg-green-50 border border-green-200 flex items-center gap-3">
-    <span class="text-2xl">✅</span>
-    <div>
-      <p class="font-medium text-green-900">CAI configurado correctamente</p>
-      <p class="text-sm text-green-700">
-        Próxima factura: <strong>{{ tenant.format_invoice_number(tenant.next_invoice_number) }}</strong>
-        — Vence: <strong>{{ tenant.cai_valid_until.strftime('%d/%m/%Y') if tenant.cai_valid_until else 'N/A' }}</strong>
-      </p>
-    </div>
-  </div>
-{% else %}
-  <div class="mb-6 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 flex items-center gap-3">
-    <span class="text-2xl">⚠️</span>
-    <div>
-      <p class="font-medium text-amber-900">Falta configurar tu CAI</p>
-      <p class="text-sm text-amber-700">Necesitas tu RTN + Código CAI + rango autorizado para poder emitir facturas válidas en Honduras.</p>
-    </div>
-  </div>
-{% endif %}
+<form method="POST" class="space-y-6 max-w-3xl">
 
-<form method="POST" class="bg-white p-6 rounded-xl shadow-sm border max-w-3xl">
-  <h2 class="text-lg font-semibold mb-1">Código CAI (SAR Honduras)</h2>
-  <p class="text-sm text-slate-500 mb-6">
-    El CAI te lo asigna el SAR cuando solicitas autorización para emitir facturas.
-  </p>
+  {# ============== SELECCIÓN DE MODO ============== #}
+  <div class="bg-white p-6 rounded-xl shadow-sm border">
+    <h2 class="text-lg font-semibold mb-1">Modo de facturación</h2>
+    <p class="text-sm text-slate-500 mb-5">
+      Cada empresa elige cómo quiere generar sus facturas. Una vez emitas la primera, el modo se bloquea.
+    </p>
 
-  <div class="space-y-4">
-    <div>
-      <label class="block text-sm font-medium mb-1">Código CAI *</label>
-      <input name="cai_code" value="{{ tenant.cai_code or '' }}"
-             placeholder="ABC123-DEF456-GHI789-JKL012-MN3456-78"
-             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono uppercase" />
-      <p class="text-xs text-slate-500 mt-1">32 caracteres alfanuméricos separados por guiones</p>
+    {% if tenant.invoices %}
+      <div class="mb-4 px-4 py-3 rounded-lg bg-slate-50 border text-sm text-slate-700">
+        🔒 Ya tienes facturas emitidas. El modo está bloqueado en
+        <strong>{{ tenant.invoice_mode }}</strong> para mantener consistencia.
+      </div>
+    {% endif %}
+
+    <div class="space-y-3">
+      {% for mode in modes %}
+        {% set selected = (tenant.invoice_mode or 'simple') == mode.code %}
+        <label class="flex gap-3 p-4 border rounded-lg cursor-pointer
+                      {% if selected %}border-indigo-500 bg-indigo-50/40{% else %}hover:bg-slate-50{% endif %}
+                      {% if tenant.invoices and not selected %}opacity-50 cursor-not-allowed{% endif %}">
+          <input type="radio" name="invoice_mode" value="{{ mode.code }}"
+                 {% if selected %}checked{% endif %}
+                 {% if tenant.invoices %}disabled{% endif %}
+                 class="mt-1 accent-indigo-600" />
+          <div class="flex-1">
+            <p class="font-medium">{{ mode.label }}</p>
+            <p class="text-xs text-slate-600 mt-0.5">{{ mode.description }}</p>
+          </div>
+        </label>
+      {% endfor %}
     </div>
+
+    <p class="text-xs text-slate-500 mt-4">
+      Próximamente: Guatemala FEL, México CFDI, El Salvador DTE, Costa Rica Hacienda.
+    </p>
+  </div>
+
+  {# ============== OPCIONES MODO SIMPLE ============== #}
+  <div class="bg-white p-6 rounded-xl shadow-sm border"
+       id="panel-simple"
+       style="{% if (tenant.invoice_mode or 'simple') != 'simple' %}display:none{% endif %}">
+    <h2 class="text-lg font-semibold mb-1">Opciones — Factura simple</h2>
+    <p class="text-sm text-slate-500 mb-5">
+      Numeración correlativa libre. Útil para recibos, uso interno, o países sin facturación electrónica obligatoria.
+    </p>
 
     <div class="grid md:grid-cols-2 gap-4">
       <div>
-        <label class="block text-sm font-medium mb-1">Vigente desde *</label>
-        <input type="date" name="cai_valid_from"
-               value="{{ tenant.cai_valid_from.strftime('%Y-%m-%d') if tenant.cai_valid_from else '' }}"
-               class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+        <label class="block text-sm font-medium mb-1">Prefijo (opcional)</label>
+        <input name="invoice_prefix" maxlength="20"
+               value="{{ tenant.invoice_prefix or '' }}"
+               placeholder="FAC-"
+               class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono" />
+        <p class="text-xs text-slate-500 mt-1">Ej: "FAC-", "INV-", "REC-"...</p>
       </div>
       <div>
-        <label class="block text-sm font-medium mb-1">Vence *</label>
-        <input type="date" name="cai_valid_until"
-               value="{{ tenant.cai_valid_until.strftime('%Y-%m-%d') if tenant.cai_valid_until else '' }}"
-               class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+        <label class="block text-sm font-medium mb-1">Próximo correlativo</label>
+        <input type="number" name="next_invoice_number_simple" min="1"
+               value="{{ tenant.next_invoice_number or 1 }}"
+               {% if tenant.invoices %}readonly{% endif %}
+               class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right
+                      {% if tenant.invoices %}bg-slate-100 cursor-not-allowed{% endif %}" />
       </div>
     </div>
 
-    <div class="grid md:grid-cols-2 gap-4">
-      <div>
-        <label class="block text-sm font-medium mb-1">Rango: desde *</label>
-        <input type="number" name="cai_range_start" min="1"
-               value="{{ tenant.cai_range_start or 1 }}"
-               class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right" />
-      </div>
-      <div>
-        <label class="block text-sm font-medium mb-1">Rango: hasta *</label>
-        <input type="number" name="cai_range_end" min="1"
-               value="{{ tenant.cai_range_end or 99999999 }}"
-               class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right" />
-      </div>
-    </div>
+    <p class="text-sm text-slate-600 mt-4">
+      Vista previa:
+      <strong class="font-mono text-indigo-600" id="preview-simple">
+        {{ (tenant.invoice_prefix or '') }}{{ '%06d' | format(tenant.next_invoice_number or 1) }}
+      </strong>
+    </p>
   </div>
 
-  <h2 class="text-lg font-semibold mt-8 mb-1">Punto de emisión</h2>
-  <p class="text-sm text-slate-500 mb-4">
-    Identifica dónde se emite la factura. Formato SAR: <code>EST-PV-TD-CORRELATIVO</code>
-  </p>
-
-  <div class="grid md:grid-cols-4 gap-4">
-    <div>
-      <label class="block text-sm font-medium mb-1">Establecimiento *</label>
-      <input name="establecimiento" maxlength="3" value="{{ tenant.establecimiento or '001' }}"
-             placeholder="001"
-             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-center" />
-    </div>
-    <div>
-      <label class="block text-sm font-medium mb-1">Punto emisión *</label>
-      <input name="punto_emision" maxlength="3" value="{{ tenant.punto_emision or '001' }}"
-             placeholder="001"
-             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-center" />
-    </div>
-    <div>
-      <label class="block text-sm font-medium mb-1">Tipo documento *</label>
-      <select name="tipo_documento"
-              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono">
-        <option value="01" {% if tenant.tipo_documento == '01' %}selected{% endif %}>01 — Factura</option>
-        <option value="02" {% if tenant.tipo_documento == '02' %}selected{% endif %}>02 — Nota de Crédito</option>
-        <option value="03" {% if tenant.tipo_documento == '03' %}selected{% endif %}>03 — Nota de Débito</option>
-      </select>
-    </div>
-    <div>
-      <label class="block text-sm font-medium mb-1">Próximo correlativo</label>
-      <input type="number" name="next_invoice_number" min="1"
-             value="{{ tenant.next_invoice_number or 1 }}"
-             {% if tenant.invoices %}readonly title="No puedes cambiarlo: ya emitiste facturas"{% endif %}
-             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right
-                    {% if tenant.invoices %}bg-slate-100 cursor-not-allowed{% endif %}" />
-    </div>
+  {# ============== INDICACIÓN MODO SAR ============== #}
+  <div class="bg-amber-50 border border-amber-200 p-6 rounded-xl"
+       id="panel-sar-hint"
+       style="{% if (tenant.invoice_mode or 'simple') != 'sar_hn' %}display:none{% endif %}">
+    <p class="font-medium text-amber-900">📋 Configuración SAR pendiente</p>
+    <p class="text-sm text-amber-800 mt-1">
+      Elegiste el modo Honduras SAR. Te aparecerá una nueva pestaña <strong>SAR Honduras</strong>
+      donde configuras tu CAI, rango autorizado y punto de emisión.
+    </p>
   </div>
 
-  <p class="text-sm text-slate-600 mt-4">
-    Vista previa del próximo número:
-    <strong class="font-mono text-indigo-600">
-      {{ tenant.format_invoice_number(tenant.next_invoice_number or 1) }}
-    </strong>
-  </p>
-
-  <div class="flex gap-3 mt-6 pt-6 border-t">
+  <div class="flex gap-3">
     <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
-      Guardar configuración SAR
+      Guardar configuración
     </button>
   </div>
 </form>
+
+<script>
+// Toggle paneles según el modo elegido
+document.querySelectorAll('input[name="invoice_mode"]').forEach(r => {
+  r.addEventListener('change', e => {
+    const v = e.target.value;
+    document.getElementById('panel-simple').style.display = v === 'simple' ? 'block' : 'none';
+    document.getElementById('panel-sar-hint').style.display = v === 'sar_hn' ? 'block' : 'none';
+  });
+});
+
+// Preview en vivo del modo simple
+const prefixInput = document.querySelector('[name="invoice_prefix"]');
+const numInput = document.querySelector('[name="next_invoice_number_simple"]');
+function updatePreview() {
+  if (!prefixInput || !numInput) return;
+  const p = prefixInput.value || '';
+  const n = parseInt(numInput.value || '1', 10);
+  const padded = String(n).padStart(6, '0');
+  const el = document.getElementById('preview-simple');
+  if (el) el.textContent = p + padded;
+}
+prefixInput && prefixInput.addEventListener('input', updatePreview);
+numInput && numInput.addEventListener('input', updatePreview);
+</script>
 {% endblock %}

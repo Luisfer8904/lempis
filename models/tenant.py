@@ -44,7 +44,20 @@ class Tenant(db.Model, TimestampMixin):
     trial_ends_at = Column(DateTime)
     onboarding_completed = Column(Boolean, default=False)
 
-    # ===== Configuración SAR Honduras (facturación fiscal) =====
+    # ===== Modo de facturación =====
+    # 'simple'  : número correlativo simple, sin requisitos fiscales (default)
+    # 'sar_hn'  : Honduras SAR — usa CAI y formato EST-PV-TD-CORRELATIVO
+    # (futuro) 'fel_gt' Guatemala, 'cfdi_mx' México, 'dte_sv' El Salvador, etc.
+    invoice_mode = Column(String(30), default="simple", nullable=False)
+
+    # Próximo correlativo a asignar (compartido por todos los modos)
+    next_invoice_number = Column(Integer, default=1)
+
+    # ===== Modo SIMPLE =====
+    # Prefijo opcional: "FAC-" → "FAC-000001"
+    invoice_prefix = Column(String(20), default="")
+
+    # ===== Modo SAR Honduras =====
     # CAI: Código de Autorización de Impresión
     cai_code = Column(String(40))                  # ej. "ABC123-DEF456-...-78"
     cai_valid_from = Column(DateTime)              # inicio vigencia CAI
@@ -52,16 +65,13 @@ class Tenant(db.Model, TimestampMixin):
     cai_range_start = Column(Integer, default=1)   # primer correlativo autorizado
     cai_range_end = Column(Integer, default=99999999)  # último correlativo
 
-    # Identificación del punto de emisión
+    # Identificación del punto de emisión SAR
     establecimiento = Column(String(3), default="001")    # 3 dígitos
     punto_emision = Column(String(3), default="001")      # 3 dígitos
     tipo_documento = Column(String(2), default="01")      # 01 = Factura
 
-    # Próximo correlativo a asignar (se incrementa al emitir)
-    next_invoice_number = Column(Integer, default=1)
-
     def has_cai_configured(self) -> bool:
-        """¿El tenant ya configuró su CAI y puede emitir facturas?"""
+        """¿El tenant ya configuró su CAI y puede emitir facturas SAR?"""
         return bool(
             self.cai_code
             and self.cai_valid_from
@@ -70,7 +80,12 @@ class Tenant(db.Model, TimestampMixin):
         )
 
     def format_invoice_number(self, correlativo: int) -> str:
-        """Devuelve el número formateado tipo SAR: 001-001-01-00000001"""
+        """Número formateado según el modo del tenant."""
+        from services.invoice_mode import get_provider
+        return get_provider(self).format_number(self, correlativo)
+
+    def format_invoice_number_sar(self, correlativo: int) -> str:
+        """Formato SAR Honduras explícito: 001-001-01-00000001"""
         return f"{self.establecimiento}-{self.punto_emision}-{self.tipo_documento}-{correlativo:08d}"
 
     # Relaciones

@@ -260,6 +260,177 @@ def _footer(canvas, doc):
     canvas.restoreState()
 
 
+# ============================================================
+#  PDF MODO SIMPLE (sin CAI, sin leyenda SAR)
+# ============================================================
+
+def generate_simple_invoice_pdf(invoice, tenant) -> BytesIO:
+    """
+    PDF de factura modo 'simple': encabezado limpio sin elementos fiscales.
+    Apto para recibos de venta, uso interno, o países sin facturación electrónica.
+    """
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=letter,
+        leftMargin=15 * mm, rightMargin=15 * mm,
+        topMargin=15 * mm, bottomMargin=15 * mm,
+        title=f"Factura {invoice.number}",
+        author=tenant.name,
+    )
+
+    styles = getSampleStyleSheet()
+    body = ParagraphStyle("body", parent=styles["Normal"], fontSize=9, leading=11)
+    small = ParagraphStyle("small", parent=body, fontSize=7.5, leading=9, textColor=SLATE_500)
+
+    story = []
+
+    # Cabecera
+    emisor_name = invoice.emisor_name or tenant.legal_name or tenant.name
+    emisor_lines = [f"<b>{emisor_name}</b>"]
+    if invoice.emisor_tax_id or tenant.tax_id:
+        emisor_lines.append(f"<font size='8' color='#64748b'>ID: {invoice.emisor_tax_id or tenant.tax_id}</font>")
+    addr = invoice.emisor_address or tenant.address
+    if addr:
+        emisor_lines.append(f"<font size='8'>{addr.replace(chr(10), '<br/>')}</font>")
+    contact = []
+    if tenant.phone: contact.append(tenant.phone)
+    if tenant.email: contact.append(tenant.email)
+    if contact:
+        emisor_lines.append(f"<font size='8'>{' • '.join(contact)}</font>")
+
+    emisor_block = Paragraph("<br/>".join(emisor_lines), body)
+
+    issue_date = invoice.issue_date.strftime("%d/%m/%Y") if invoice.issue_date else ""
+    doc_block = Paragraph(
+        f"<b><font size='14' color='#4f46e5'>FACTURA</font></b><br/>"
+        f"<font size='12' name='Courier'><b>{invoice.number}</b></font><br/>"
+        f"<font size='8' color='#64748b'>Fecha:</font> <font size='9'>{issue_date}</font>",
+        body,
+    )
+
+    header_table = Table([[emisor_block, doc_block]], colWidths=[100 * mm, 80 * mm])
+    header_table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+    ]))
+    story.append(header_table)
+    story.append(Spacer(1, 8 * mm))
+
+    # Cliente + Pago
+    cliente_name = invoice.receptor_name or "Consumidor final"
+    cliente_block = Paragraph(
+        f"<font size='7' color='#64748b'><b>CLIENTE</b></font><br/>"
+        f"<b>{cliente_name}</b>" +
+        (f"<br/><font size='8' color='#64748b'>ID: {invoice.receptor_tax_id}</font>" if invoice.receptor_tax_id else ""),
+        body,
+    )
+
+    metodos = {"efectivo": "Efectivo", "transferencia": "Transferencia", "tarjeta": "Tarjeta", "credito": "Crédito"}
+    metodo = metodos.get(invoice.payment_method, invoice.payment_method)
+    extra = ""
+    if invoice.payment_method == "credito":
+        extra = f"<br/><font size='8'>Plazo: {invoice.payment_terms_days} días"
+        if invoice.due_date:
+            extra += f"<br/>Vence: {invoice.due_date.strftime('%d/%m/%Y')}"
+        extra += "</font>"
+    pago_block = Paragraph(
+        f"<font size='7' color='#64748b'><b>FORMA DE PAGO</b></font><br/><b>{metodo}</b>{extra}",
+        body,
+    )
+
+    info_table = Table([[cliente_block, pago_block]], colWidths=[110 * mm, 70 * mm])
+    info_table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    story.append(info_table)
+    story.append(Spacer(1, 6 * mm))
+
+    # Líneas
+    items_data = [["#", "Descripción", "Cant.", "Precio", "Impto.%", "Subtotal"]]
+    for i, item in enumerate(invoice.items, start=1):
+        desc = item.description or ""
+        if item.batch_id and item.batch is not None:
+            b = item.batch
+            parts = [f"Lote: {b.batch_number}"]
+            if b.expiration_date:
+                parts.append(f"Vence: {b.expiration_date.strftime('%m/%Y')}")
+            desc = f"{desc}<br/><font size='7' color='#64748b'>{' · '.join(parts)}</font>"
+        items_data.append([
+            str(i),
+            Paragraph(desc, body),
+            f"{Decimal(item.quantity):.2f}",
+            f"{Decimal(item.unit_price):.2f}",
+            f"{Decimal(item.tax_rate):.2f}%",
+            f"{Decimal(item.subtotal):.2f}",
+        ])
+
+    items_table = Table(
+        items_data,
+        colWidths=[10 * mm, 90 * mm, 20 * mm, 22 * mm, 18 * mm, 20 * mm],
+        repeatRows=1,
+    )
+    items_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), INDIGO),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (0, 0), (0, -1), "CENTER"),
+        ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, SLATE_50]),
+        ("BOX", (0, 0), (-1, -1), 0.5, SLATE_200),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(items_table)
+    story.append(Spacer(1, 5 * mm))
+
+    # Totales
+    cur = invoice.currency
+    totals = [
+        ["Subtotal:", f"{cur} {Decimal(invoice.subtotal):.2f}"],
+        ["Descuento:", f"{cur} {Decimal(invoice.discount_total):.2f}"],
+        ["Impuestos:", f"{cur} {Decimal(invoice.tax_total):.2f}"],
+        ["TOTAL:", f"{cur} {Decimal(invoice.total):.2f}"],
+    ]
+    totals_table = Table(totals, colWidths=[40 * mm, 40 * mm], hAlign="RIGHT")
+    totals_table.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("BACKGROUND", (0, -1), (-1, -1), INDIGO),
+        ("TEXTCOLOR", (0, -1), (-1, -1), colors.white),
+        ("FONTSIZE", (0, -1), (-1, -1), 12),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(totals_table)
+    story.append(Spacer(1, 8 * mm))
+
+    # Notas
+    if invoice.notes:
+        story.append(Paragraph("<b>Notas:</b>", small))
+        story.append(Paragraph(invoice.notes.replace("\n", "<br/>"), body))
+        story.append(Spacer(1, 4 * mm))
+
+    if invoice.status == "void":
+        story.append(Paragraph(
+            "<b>*** DOCUMENTO ANULADO ***</b>",
+            ParagraphStyle("v", parent=body, fontSize=12, textColor=colors.HexColor("#dc2626"), alignment=1),
+        ))
+    else:
+        story.append(Paragraph(
+            f"Gracias por su preferencia — {tenant.name}",
+            small,
+        ))
+
+    doc.build(story, onFirstPage=_footer, onLaterPages=_footer)
+    buffer.seek(0)
+    return buffer
+
+
 # ===== Helper: número a letras (Honduras) =====
 
 _UNIDADES = ("", "UN", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE", "OCHO", "NUEVE",
