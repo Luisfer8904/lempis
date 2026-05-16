@@ -150,6 +150,18 @@ def delete(product_id):
     return redirect(url_for("productos.list"))
 
 
+@productos_bp.route("/recompute-stocks", methods=["POST"])
+@login_required
+@tenant_required
+def recompute_stocks():
+    """Recalcula el stock de todos los productos del tenant sumando sus lotes."""
+    from services.inventory import recompute_all_stocks
+    tenant = current_tenant()
+    n = recompute_all_stocks(tenant.id)
+    flash(f"Stock recalculado para {n} producto(s) según sus lotes.", "success")
+    return redirect(url_for("productos.list"))
+
+
 def _populate_from_form(prod: Product) -> None:
     prod.sku = (request.form.get("sku") or "").strip()
     prod.name = (request.form.get("name") or "").strip()

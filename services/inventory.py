@@ -62,5 +62,32 @@ def restore_to_batch(batch: ProductBatch, qty) -> None:
 
 
 def recompute_product_stock(product: Product) -> None:
-    """Refresca product.stock con la suma de sus lotes."""
-    product.stock = product.total_stock_from_batches()
+    """
+    Refresca product.stock con la suma real de sus lotes.
+    Consulta directo a la DB para evitar problemas con relationships en caché.
+    """
+    from sqlalchemy import func
+    total = (
+        db.session.query(func.coalesce(func.sum(ProductBatch.remaining_quantity), 0))
+        .filter(
+            ProductBatch.product_id == product.id,
+            ProductBatch.tenant_id == product.tenant_id,
+        )
+        .scalar()
+    )
+    product.stock = int(total or 0)
+
+
+def recompute_all_stocks(tenant_id: int) -> int:
+    """
+    Recalcula el stock de TODOS los productos del tenant en base a sus lotes.
+    Útil para arreglar datos viejos donde el stock quedó desincronizado.
+    Retorna cuántos productos se actualizaron.
+    """
+    products = Product.query.filter_by(tenant_id=tenant_id, track_batches=True).all()
+    count = 0
+    for p in products:
+        recompute_product_stock(p)
+        count += 1
+    db.session.commit()
+    return count

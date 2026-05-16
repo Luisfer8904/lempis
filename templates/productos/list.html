@@ -3,6 +3,13 @@
 {% block heading %}Productos{% endblock %}
 
 {% block actions %}
+<form method="POST" action="{{ url_for('productos.recompute_stocks') }}" class="inline mr-2"
+      onsubmit="return confirm('¿Recalcular el stock de todos los productos sumando sus lotes? Es seguro.');">
+  <button class="border border-slate-300 text-slate-700 px-3 py-2 rounded-lg hover:bg-slate-50 text-sm"
+          title="Sincroniza el stock con la suma de lotes (útil si compraste antes del fix)">
+    🔄 Recalcular stock
+  </button>
+</form>
 <a href="{{ url_for('facturas.new') }}"
    class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 text-sm font-medium mr-2">
   💰 Nueva venta

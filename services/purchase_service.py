@@ -209,12 +209,13 @@ def finalize_purchase(purchase: Purchase) -> Purchase:
 def _get_or_create_batch(product: Product, item: PurchaseItem) -> ProductBatch:
     """Si ya existe un lote con el mismo número en este producto, lo reusa.
     Si no, crea uno nuevo. Inicializa con quantity=0 (luego sumamos en finalize)."""
-    existing = next(
-        (b for b in product.batches if b.batch_number == item.batch_number),
-        None,
-    )
+    # Buscar lote existente directamente en DB para no depender del caché de la relación
+    existing = ProductBatch.query.filter_by(
+        tenant_id=product.tenant_id,
+        product_id=product.id,
+        batch_number=item.batch_number,
+    ).first()
     if existing:
-        # Actualizar fechas si cambiaron
         if item.manufacturing_date:
             existing.manufacturing_date = item.manufacturing_date
         if item.expiration_date:
@@ -231,7 +232,9 @@ def _get_or_create_batch(product: Product, item: PurchaseItem) -> ProductBatch:
         remaining_quantity=Decimal(0),
         cost=item.unit_cost or Decimal(0),
     )
-    db.session.add(new_batch)
+    # Agregar A LA RELACIÓN del producto (no solo a la sesión) para que
+    # product.batches refleje el nuevo lote inmediatamente.
+    product.batches.append(new_batch)
     db.session.flush()
     return new_batch
 
