@@ -1,0 +1,127 @@
+{% extends "app/_layout.html" %}
+{% block title %}{{ 'Editar' if proveedor else 'Nuevo' }} proveedor — {{ APP_NAME }}{% endblock %}
+{% block heading %}{{ 'Editar proveedor' if proveedor else 'Nuevo proveedor' }}{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('proveedores.list') }}" class="text-slate-600 hover:text-slate-900 text-sm">
+  ← Volver
+</a>
+{% endblock %}
+
+{% block content %}
+<form method="POST" class="bg-white p-6 rounded-xl shadow-sm border max-w-3xl">
+
+  <h3 class="font-semibold text-slate-700 mb-3">Datos básicos</h3>
+  <div class="grid md:grid-cols-2 gap-4 mb-6">
+    <div class="md:col-span-2">
+      <label class="block text-sm font-medium mb-1">Nombre comercial *</label>
+      <input name="name" required value="{{ proveedor.name if proveedor else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <div class="md:col-span-2">
+      <label class="block text-sm font-medium mb-1">Razón social</label>
+      <input name="legal_name" value="{{ proveedor.legal_name if proveedor else '' }}"
+             placeholder="Ej. Distribuidora El Sol, S.A. de C.V."
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">RTN / ID Fiscal</label>
+      <input name="tax_id" value="{{ proveedor.tax_id if proveedor else '' }}"
+             placeholder="08011990123456"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Persona de contacto</label>
+      <input name="contact_name" value="{{ proveedor.contact_name if proveedor else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+  </div>
+
+  <h3 class="font-semibold text-slate-700 mb-3">Contacto</h3>
+  <div class="grid md:grid-cols-2 gap-4 mb-6">
+    <div>
+      <label class="block text-sm font-medium mb-1">Email</label>
+      <input type="email" name="email" value="{{ proveedor.email if proveedor else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Teléfono</label>
+      <input name="phone" value="{{ proveedor.phone if proveedor else '' }}"
+             placeholder="+504 9999-9999"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <div class="md:col-span-2">
+      <label class="block text-sm font-medium mb-1">Dirección</label>
+      <textarea name="address" rows="2"
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">{{ proveedor.address if proveedor else '' }}</textarea>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Ciudad</label>
+      <input name="city" value="{{ proveedor.city if proveedor else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">País</label>
+      <select name="country_code"
+              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+        <option value="">— Seleccionar —</option>
+        {% for c in countries %}
+          <option value="{{ c.code }}"
+                  {% if (proveedor and proveedor.country_code == c.code) or
+                        (not proveedor and default_country == c.code) %}selected{% endif %}>
+            {{ c.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <h3 class="font-semibold text-slate-700 mb-3">Condiciones comerciales</h3>
+  <div class="grid md:grid-cols-2 gap-4 mb-6">
+    <div>
+      <label class="block text-sm font-medium mb-1">Términos de pago</label>
+      <select name="payment_terms_days"
+              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+        {% set t = proveedor.payment_terms_days if proveedor else 0 %}
+        <option value="0"  {% if t == 0  %}selected{% endif %}>Contado</option>
+        <option value="15" {% if t == 15 %}selected{% endif %}>Crédito 15 días</option>
+        <option value="30" {% if t == 30 %}selected{% endif %}>Crédito 30 días</option>
+        <option value="45" {% if t == 45 %}selected{% endif %}>Crédito 45 días</option>
+        <option value="60" {% if t == 60 %}selected{% endif %}>Crédito 60 días</option>
+        <option value="90" {% if t == 90 %}selected{% endif %}>Crédito 90 días</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Límite de crédito (opcional)</label>
+      <input type="number" step="0.01" min="0" name="credit_limit"
+             value="{{ '%.2f'|format(proveedor.credit_limit) if proveedor else '0.00' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right" />
+    </div>
+    <div class="md:col-span-2 flex items-center gap-6">
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="price_includes_tax"
+               {% if proveedor and proveedor.price_includes_tax %}checked{% endif %} />
+        Sus precios incluyen impuesto
+      </label>
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="is_active"
+               {% if not proveedor or proveedor.is_active %}checked{% endif %} />
+        Proveedor activo
+      </label>
+    </div>
+    <div class="md:col-span-2">
+      <label class="block text-sm font-medium mb-1">Notas internas</label>
+      <textarea name="notes" rows="2"
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">{{ proveedor.notes if (proveedor and proveedor.notes) else '' }}</textarea>
+    </div>
+  </div>
+
+  <div class="flex gap-3 pt-6 border-t">
+    <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+      {{ 'Guardar cambios' if proveedor else 'Crear proveedor' }}
+    </button>
+    <a href="{{ url_for('proveedores.list') }}"
+       class="border px-6 py-2 rounded-lg hover:bg-slate-50">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

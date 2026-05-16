@@ -49,6 +49,13 @@
       {{ navlink('clientes.list',           'Clientes',   '👥') }}
       {{ navlink('productos.list',          'Productos',  '📦') }}
       {{ navlink('categorias.list',         'Categorías', '🏷️') }}
+
+      <div class="pt-3 mt-2 border-t">
+        <p class="px-3 text-[10px] text-slate-400 uppercase font-semibold mb-1">Inventario / compras</p>
+        {{ navlink('proveedores.list',      'Proveedores', '🚚') }}
+        {{ navlink('compras.list',          'Compras',     '🛒') }}
+      </div>
+
       {{ navlink('reportes.index',          'Reportes',   '📊') }}
 
       <div class="pt-4 mt-4 border-t">

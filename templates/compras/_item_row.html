@@ -1,0 +1,60 @@
+{# Fila de detalle de compra pre-rellenada al editar #}
+<tr class="border-b item-row align-top">
+  <td class="px-2 py-2">
+    <select class="item-product w-full px-2 py-1 border rounded text-sm" onchange="onProductChange(this)">
+      <option value="">— Manual —</option>
+      {% for p in productos %}
+        <option value="{{ p.id }}"
+                data-name="{{ p.name }}"
+                data-price="{{ p.price }}"
+                data-cost="{{ p.cost or 0 }}"
+                data-tax="{{ (p.tax_config.rate if p.tax_config else 15) }}"
+                data-batches="{{ '1' if p.track_batches else '0' }}"
+                {% if item.product_id == p.id %}selected{% endif %}>
+          {{ p.sku }} — {{ p.name }}
+        </option>
+      {% endfor %}
+    </select>
+    <input type="text" name="item_description[]" class="item-desc w-full px-2 py-1 border rounded text-sm mt-1"
+           value="{{ item.description }}" />
+    <input type="hidden" name="item_product_id[]" class="item-product-id" value="{{ item.product_id or '' }}" />
+  </td>
+  <td class="px-2 py-2">
+    <input type="number" step="0.01" min="0.01" name="item_quantity[]"
+           value="{{ '%.2f'|format(item.quantity) }}"
+           class="item-qty w-full px-2 py-1 border rounded text-sm text-right" oninput="recalc()" />
+  </td>
+  <td class="px-2 py-2">
+    <input type="number" step="0.01" min="0" name="item_unit_cost[]"
+           value="{{ '%.2f'|format(item.unit_cost) }}"
+           class="item-cost w-full px-2 py-1 border rounded text-sm text-right" oninput="recalc()" />
+  </td>
+  <td class="px-2 py-2">
+    <input type="number" step="0.01" min="0" name="item_tax_rate[]"
+           value="{{ '%.2f'|format(item.tax_rate) }}"
+           class="item-tax w-full px-2 py-1 border rounded text-sm text-right" oninput="recalc()" />
+  </td>
+  <td class="px-2 py-2">
+    <input type="text" name="item_batch_number[]"
+           value="{{ item.batch_number or '' }}"
+           class="item-batch w-full px-2 py-1 border rounded text-sm"
+           placeholder="Nº lote" />
+  </td>
+  <td class="px-2 py-2">
+    <input type="date" name="item_exp_date[]"
+           value="{{ item.expiration_date.strftime('%Y-%m-%d') if item.expiration_date else '' }}"
+           class="w-full px-2 py-1 border rounded text-xs" />
+    <input type="hidden" name="item_mfg_date[]"
+           value="{{ item.manufacturing_date.strftime('%Y-%m-%d') if item.manufacturing_date else '' }}" />
+  </td>
+  <td class="px-2 py-2">
+    <input type="number" step="0.01" min="0" name="item_new_sale_price[]"
+           value="{{ '%.2f'|format(item.new_sale_price) if item.new_sale_price else '' }}"
+           placeholder="opcional"
+           class="w-full px-2 py-1 border rounded text-sm text-right bg-amber-50" />
+  </td>
+  <td class="px-2 py-2 text-right font-mono item-subtotal text-sm">{{ '%.2f'|format(item.subtotal) }}</td>
+  <td class="px-2 py-2">
+    <button type="button" onclick="removeLine(this)" class="text-rose-500 hover:text-rose-700">✕</button>
+  </td>
+</tr>

@@ -1,0 +1,101 @@
+{% extends "app/_layout.html" %}
+{% block title %}Proveedores — {{ APP_NAME }}{% endblock %}
+{% block heading %}Proveedores{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('compras.new') }}"
+   class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 text-sm font-medium mr-2">
+  🛒 Nueva compra
+</a>
+<a href="{{ url_for('proveedores.new') }}"
+   class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
+  + Nuevo proveedor
+</a>
+{% endblock %}
+
+{% block content %}
+<form method="GET" class="mb-4">
+  <div class="flex gap-2">
+    <input type="search" name="q" value="{{ q }}"
+           placeholder="🔍 Buscar por nombre, RTN, código, email o teléfono..."
+           class="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white" />
+    <button class="bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-800 text-sm">Buscar</button>
+  </div>
+</form>
+
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+  {% if proveedores %}
+    <table class="saas-table w-full">
+      <thead>
+        <tr>
+          <th>Código</th>
+          <th>Proveedor</th>
+          <th>RTN / ID Fiscal</th>
+          <th>Contacto</th>
+          <th>Términos</th>
+          <th>Compras</th>
+          <th>Estado</th>
+          <th class="text-right">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in proveedores %}
+        <tr class="hover:bg-slate-50">
+          <td class="font-mono text-xs">{{ p.code or '—' }}</td>
+          <td>
+            <div class="font-medium">{{ p.name }}</div>
+            {% if p.legal_name %}<div class="text-xs text-slate-500">{{ p.legal_name }}</div>{% endif %}
+          </td>
+          <td class="font-mono text-sm">{{ p.tax_id or '—' }}</td>
+          <td class="text-sm">
+            {% if p.contact_name %}<div>{{ p.contact_name }}</div>{% endif %}
+            {% if p.phone %}<div class="text-xs text-slate-500">{{ p.phone }}</div>{% endif %}
+            {% if p.email %}<div class="text-xs text-slate-500">{{ p.email }}</div>{% endif %}
+          </td>
+          <td class="text-sm">
+            {% if p.payment_terms_days == 0 %}
+              <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Contado</span>
+            {% else %}
+              <span class="text-xs bg-sky-100 text-sky-700 px-2 py-1 rounded">{{ p.payment_terms_days }} días</span>
+            {% endif %}
+          </td>
+          <td class="text-sm">{{ p.purchases.count() }}</td>
+          <td>
+            {% if p.is_active %}
+              <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Activo</span>
+            {% else %}
+              <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">Inactivo</span>
+            {% endif %}
+          </td>
+          <td class="text-right whitespace-nowrap">
+            <a href="{{ url_for('proveedores.edit', supplier_id=p.id) }}"
+               class="text-indigo-600 hover:underline text-sm">Editar</a>
+            <form method="POST" action="{{ url_for('proveedores.delete', supplier_id=p.id) }}"
+                  class="inline ml-2"
+                  onsubmit="return confirm('¿Eliminar proveedor {{ p.name }}? Solo se puede si no tiene compras.');">
+              <button class="text-rose-600 hover:underline text-sm">Eliminar</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="text-center py-16">
+      <div class="text-6xl mb-3">🚚</div>
+      <p class="text-slate-500 mb-4">
+        {% if q %}No encontramos proveedores con "{{ q }}".
+        {% else %}Aún no tienes proveedores registrados.{% endif %}
+      </p>
+      <a href="{{ url_for('proveedores.new') }}"
+         class="inline-block bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+        Crear el primer proveedor
+      </a>
+    </div>
+  {% endif %}
+</div>
+
+{% if proveedores %}
+  <p class="text-sm text-slate-500 mt-3">{{ proveedores|length }} proveedor(es)</p>
+{% endif %}
+{% endblock %}
