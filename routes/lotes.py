@@ -65,7 +65,10 @@ def list(product_id):
     lotes = (
         ProductBatch.query
         .filter_by(tenant_id=current_tenant().id, product_id=producto.id)
-        .order_by(ProductBatch.expiration_date.asc().nullslast(), ProductBatch.created_at.desc())
+        # NULLs al final cross-DB (MySQL no soporta NULLS LAST nativo)
+        .order_by(ProductBatch.expiration_date.is_(None).asc(),
+                  ProductBatch.expiration_date.asc(),
+                  ProductBatch.created_at.desc())
         .all()
     )
     return render_template("lotes/list.html", producto=producto, lotes=lotes)

@@ -54,7 +54,9 @@ def cliente(customer_id):
             Invoice.customer_id == customer.id,
             Invoice.payment_method == "credito",
         )
-        .order_by(Invoice.due_date.asc().nullslast(), Invoice.issue_date.desc())
+        # NULLs al final (cross-DB MySQL/Postgres/SQLite):
+        # is_(None) devuelve 0 para no nulos, 1 para nulos → ordenamos por eso primero
+        .order_by(Invoice.due_date.is_(None).asc(), Invoice.due_date.asc(), Invoice.issue_date.desc())
         .all()
     )
     pendientes = [f for f in facturas if f.amount_due > 0]
