@@ -1,0 +1,183 @@
+{% extends "app/_layout.html" %}
+{% block title %}{{ customer.name }} — Cuentas por cobrar{% endblock %}
+{% block heading %}{{ customer.name }}{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('cobros.index') }}" class="text-slate-600 hover:text-slate-900 text-sm">
+  ← Volver
+</a>
+{% endblock %}
+
+{% block content %}
+
+{# Cabecera #}
+<div class="bg-white p-6 rounded-xl shadow-sm border mb-6 grid md:grid-cols-3 gap-4">
+  <div>
+    <p class="text-xs text-slate-500 uppercase">Cliente</p>
+    <p class="font-semibold text-lg">{{ customer.name }}</p>
+    {% if customer.tax_id %}<p class="text-sm text-slate-500 font-mono">RTN: {{ customer.tax_id }}</p>{% endif %}
+    {% if customer.phone %}<p class="text-sm text-slate-600">📞 {{ customer.phone }}</p>{% endif %}
+    {% if customer.email %}<p class="text-sm text-slate-600">✉️ {{ customer.email }}</p>{% endif %}
+  </div>
+  <div>
+    <p class="text-xs text-slate-500 uppercase">Saldo total</p>
+    <p class="font-bold text-2xl text-rose-700 mt-1">
+      {{ tenant.currency }} {{ '%.2f'|format(aging.total) }}
+    </p>
+    {% if aging.overdue_total > 0 %}
+      <p class="text-sm text-rose-600 mt-1">
+        Vencido: {{ tenant.currency }} {{ '%.2f'|format(aging.overdue_total) }}
+      </p>
+    {% endif %}
+  </div>
+  <div>
+    <p class="text-xs text-slate-500 uppercase">Aging</p>
+    <div class="text-xs space-y-0.5 mt-1">
+      <div class="flex justify-between"><span class="text-green-700">Vigente:</span><span class="font-mono">{{ '%.2f'|format(aging.current) }}</span></div>
+      <div class="flex justify-between"><span class="text-amber-700">1-30 días:</span><span class="font-mono">{{ '%.2f'|format(aging['0_30']) }}</span></div>
+      <div class="flex justify-between"><span class="text-orange-700">31-60 días:</span><span class="font-mono">{{ '%.2f'|format(aging['31_60']) }}</span></div>
+      <div class="flex justify-between"><span class="text-orange-700">61-90 días:</span><span class="font-mono">{{ '%.2f'|format(aging['61_90']) }}</span></div>
+      <div class="flex justify-between"><span class="text-rose-700">90+ días:</span><span class="font-mono">{{ '%.2f'|format(aging['90_plus']) }}</span></div>
+    </div>
+  </div>
+</div>
+
+{# Facturas pendientes #}
+<h3 class="text-lg font-semibold mb-3">Facturas pendientes ({{ pendientes|length }})</h3>
+{% if pendientes %}
+  <div class="space-y-3 mb-6">
+    {% for f in pendientes %}
+      <div class="bg-white rounded-xl border p-4">
+        <div class="flex items-center gap-4 flex-wrap">
+          <div class="flex-1 min-w-0">
+            <a href="{{ url_for('facturas.detail', invoice_id=f.id) }}"
+               class="font-mono font-semibold text-indigo-600 hover:underline">{{ f.number }}</a>
+            <p class="text-xs text-slate-500">
+              Emitida {{ f.issue_date.strftime('%d/%m/%Y') }} ·
+              Vence {{ f.due_date.strftime('%d/%m/%Y') if f.due_date else '—' }}
+              {% if f.is_overdue %}
+                <span class="text-rose-600 font-medium">· vencida hace {{ f.days_overdue() }} días</span>
+              {% endif %}
+            </p>
+          </div>
+          <div class="text-right">
+            <p class="text-xs text-slate-500">Total</p>
+            <p class="font-mono">{{ '%.2f'|format(f.total) }}</p>
+          </div>
+          <div class="text-right">
+            <p class="text-xs text-slate-500">Pagado</p>
+            <p class="font-mono text-green-700">{{ '%.2f'|format(f.amount_paid) }}</p>
+          </div>
+          <div class="text-right">
+            <p class="text-xs text-slate-500">Saldo</p>
+            <p class="font-mono font-bold text-rose-700">{{ '%.2f'|format(f.amount_due) }}</p>
+          </div>
+          <button type="button" onclick="openAbonoModal({{ f.id }}, '{{ f.number }}', {{ f.amount_due }})"
+                  class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 text-sm font-medium">
+            + Abonar
+          </button>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="text-center py-10 bg-white rounded-xl border mb-6">
+    <p class="text-slate-500">Sin facturas pendientes para este cliente. ✅</p>
+  </div>
+{% endif %}
+
+{# Historial #}
+{% set pagadas = facturas | rejectattr('amount_due', 'gt', 0) | list %}
+{% if pagadas %}
+<details class="bg-white rounded-xl border p-4">
+  <summary class="cursor-pointer font-medium text-slate-700">
+    Historial de facturas pagadas ({{ pagadas|length }})
+  </summary>
+  <table class="saas-table w-full mt-3">
+    <thead>
+      <tr>
+        <th>Número</th>
+        <th>Emitida</th>
+        <th class="text-right">Total</th>
+        <th>Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in pagadas %}
+      <tr>
+        <td class="font-mono text-sm">
+          <a href="{{ url_for('facturas.detail', invoice_id=f.id) }}" class="text-indigo-600 hover:underline">
+            {{ f.number }}
+          </a>
+        </td>
+        <td class="text-sm">{{ f.issue_date.strftime('%d/%m/%Y') }}</td>
+        <td class="text-right font-mono">{{ '%.2f'|format(f.total) }}</td>
+        <td>
+          <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">{{ f.status }}</span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</details>
+{% endif %}
+
+{# Modal Abono #}
+<div id="abono-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl max-w-md w-full p-6">
+    <h3 class="text-lg font-semibold mb-1">Registrar abono</h3>
+    <p class="text-sm text-slate-500 mb-4">Factura <span id="abono-number" class="font-mono"></span></p>
+
+    <form method="POST" id="abono-form" class="space-y-3">
+      <input type="hidden" name="back" value="cliente" />
+      <div>
+        <label class="block text-sm font-medium mb-1">Monto a abonar *</label>
+        <input type="number" step="0.01" min="0.01" id="abono-amount" name="amount" required
+               class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right text-lg font-mono" />
+        <p class="text-xs text-slate-500 mt-1">Saldo pendiente: <strong id="abono-saldo"></strong></p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Método de pago</label>
+        <select name="payment_method" class="w-full px-3 py-2 border rounded-lg">
+          <option value="efectivo">💵 Efectivo</option>
+          <option value="transferencia">🏦 Transferencia</option>
+          <option value="tarjeta">💳 Tarjeta</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Referencia (opcional)</label>
+        <input name="reference" placeholder="Nº cheque, transferencia, recibo..."
+               class="w-full px-3 py-2 border rounded-lg" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Notas (opcional)</label>
+        <textarea name="notes" rows="2"
+                  class="w-full px-3 py-2 border rounded-lg"></textarea>
+      </div>
+      <div class="flex gap-3 justify-end pt-2">
+        <button type="button" onclick="closeAbonoModal()"
+                class="border px-4 py-2 rounded-lg hover:bg-slate-50">Cancelar</button>
+        <button class="bg-emerald-600 text-white px-5 py-2 rounded-lg hover:bg-emerald-700 font-medium">
+          Registrar abono
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const CURRENCY = "{{ tenant.currency }}";
+function openAbonoModal(invoiceId, number, saldo) {
+  document.getElementById('abono-form').action = `/app/cobros/factura/${invoiceId}/abono`;
+  document.getElementById('abono-number').textContent = number;
+  document.getElementById('abono-saldo').textContent = CURRENCY + ' ' + parseFloat(saldo).toFixed(2);
+  document.getElementById('abono-amount').max = saldo;
+  document.getElementById('abono-amount').value = parseFloat(saldo).toFixed(2);
+  document.getElementById('abono-modal').classList.remove('hidden');
+}
+function closeAbonoModal() {
+  document.getElementById('abono-modal').classList.add('hidden');
+}
+</script>
+{% endblock %}

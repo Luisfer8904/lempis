@@ -154,6 +154,73 @@
       </div>
     </div>
 
+    {# ===== Cuenta por cobrar (solo crédito) ===== #}
+    {% if factura.is_credit and factura.status not in ['draft', 'void'] %}
+      <div class="bg-white p-6 rounded-xl shadow-sm border">
+        <h3 class="text-lg font-semibold mb-3">💰 Cuenta por cobrar</h3>
+        <div class="space-y-2 text-sm mb-3">
+          <div class="flex justify-between"><span class="text-slate-500">Total</span>
+            <span class="font-mono">{{ '%.2f'|format(factura.total) }}</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Pagado</span>
+            <span class="font-mono text-green-700">{{ '%.2f'|format(factura.amount_paid) }}</span></div>
+          <div class="flex justify-between text-lg font-bold border-t pt-2">
+            <span>Saldo</span>
+            <span class="font-mono {% if factura.amount_due > 0 %}text-rose-700{% else %}text-green-700{% endif %}">
+              {{ '%.2f'|format(factura.amount_due) }}
+            </span>
+          </div>
+          {% if factura.is_overdue %}
+            <p class="text-xs text-rose-600 text-center pt-1">⚠️ Vencida hace {{ factura.days_overdue() }} días</p>
+          {% endif %}
+        </div>
+
+        {% if factura.amount_due > 0 %}
+          <form method="POST" action="{{ url_for('cobros.abonar', invoice_id=factura.id) }}" class="space-y-2">
+            <input type="hidden" name="back" value="factura" />
+            <input type="number" step="0.01" min="0.01" max="{{ factura.amount_due }}" name="amount"
+                   value="{{ '%.2f'|format(factura.amount_due) }}"
+                   class="w-full px-3 py-2 border rounded-lg text-right font-mono"
+                   placeholder="Monto" required />
+            <select name="payment_method" class="w-full px-3 py-2 border rounded-lg text-sm">
+              <option value="efectivo">💵 Efectivo</option>
+              <option value="transferencia">🏦 Transferencia</option>
+              <option value="tarjeta">💳 Tarjeta</option>
+              <option value="otro">Otro</option>
+            </select>
+            <input name="reference" placeholder="Nº referencia (opcional)"
+                   class="w-full px-3 py-2 border rounded-lg text-sm" />
+            <button class="w-full bg-emerald-600 text-white py-2 rounded-lg hover:bg-emerald-700 text-sm font-medium">
+              + Registrar abono
+            </button>
+          </form>
+        {% endif %}
+
+        {% if factura.payments %}
+          <details class="mt-4 pt-3 border-t">
+            <summary class="cursor-pointer text-sm font-medium text-slate-700">
+              Historial de pagos ({{ factura.payments|length }})
+            </summary>
+            <div class="mt-2 space-y-2">
+              {% for p in factura.payments %}
+                <div class="text-xs bg-slate-50 p-2 rounded flex justify-between gap-2">
+                  <div>
+                    <p class="font-mono text-green-700 font-semibold">+ {{ '%.2f'|format(p.amount) }}</p>
+                    <p class="text-slate-500">{{ p.paid_at.strftime('%d/%m/%Y %H:%M') }} · {{ p.payment_method }}</p>
+                    {% if p.reference %}<p class="text-slate-400">Ref: {{ p.reference }}</p>{% endif %}
+                  </div>
+                  <form method="POST" action="{{ url_for('cobros.revertir', payment_id=p.id) }}"
+                        onsubmit="return confirm('¿Revertir este pago?');">
+                    <input type="hidden" name="back" value="factura" />
+                    <button class="text-rose-500 hover:text-rose-700">✕</button>
+                  </form>
+                </div>
+              {% endfor %}
+            </div>
+          </details>
+        {% endif %}
+      </div>
+    {% endif %}
+
     {% if factura.cai_code %}
       <div class="bg-white p-6 rounded-xl shadow-sm border">
         <h3 class="text-lg font-semibold mb-3">Datos SAR</h3>

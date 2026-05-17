@@ -50,6 +50,9 @@ class Invoice(db.Model, TimestampMixin):
     # Para crédito: días de plazo (ej. 15, 30, 60)
     payment_terms_days = Column(Integer, default=0)
 
+    # Cuentas por cobrar — total abonado a esta factura
+    amount_paid = Column(Numeric(12, 2), default=0, nullable=False)
+
     # ===== Datos SAR "congelados" al momento de emitir =====
     # Se copian del Tenant al emitir para no perderlos si cambia el CAI después
     cai_code = Column(String(40))
@@ -77,6 +80,33 @@ class Invoice(db.Model, TimestampMixin):
         cascade="all, delete-orphan",
         order_by="InvoiceItem.id",
     )
+    payments = relationship(
+        "InvoicePayment",
+        back_populates="invoice",
+        cascade="all, delete-orphan",
+        order_by="InvoicePayment.paid_at.desc()",
+    )
+
+    # ---------- helpers cuentas por cobrar ----------
+    @property
+    def amount_due(self):
+        """Saldo pendiente de cobro."""
+        return Decimal(self.total or 0) - Decimal(self.amount_paid or 0)
+
+    @property
+    def is_credit(self) -> bool:
+        return self.payment_method == "credito"
+
+    @property
+    def is_overdue(self) -> bool:
+        if not self.due_date or self.status in ("paid", "void", "draft"):
+            return False
+        return self.due_date < datetime.utcnow() and self.amount_due > 0
+
+    def days_overdue(self):
+        if not self.is_overdue:
+            return 0
+        return (datetime.utcnow() - self.due_date).days
 
     def recalc_totals(self) -> None:
         """Recalcula subtotal, impuestos y total a partir de las líneas."""
@@ -127,3 +157,40 @@ class InvoiceItem(db.Model, TimestampMixin):
         rate = Decimal(self.tax_rate or 0)
         self.subtotal = qty * price
         self.tax_amount = (self.subtotal * rate / Decimal("100")).quantize(Decimal("0.01"))
+
+
+# ============================================================
+#  Pagos / Abonos a facturas (cuentas por cobrar)
+# ============================================================
+
+class InvoicePayment(db.Model, TimestampMixin):
+    """
+    Pago o abono registrado contra una factura.
+    Una factura puede tener N pagos (parciales) hasta cubrir el total.
+    """
+    __tablename__ = "lempis_pagos_facturas"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = tenant_fk()
+    invoice_id = Column(
+        Integer,
+        ForeignKey("lempis_facturas.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    received_by_user_id = Column(Integer, ForeignKey("lempis_usuarios.id", ondelete="SET NULL"))
+
+    amount = Column(Numeric(12, 2), nullable=False)
+    payment_method = Column(
+        Enum("efectivo", "transferencia", "tarjeta", "credito", "otro",
+             name="invoice_payment_method"),
+        default="efectivo",
+        nullable=False,
+    )
+    reference = Column(String(80))         # nro de cheque, transferencia, etc.
+    notes = Column(Text)
+    paid_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    invoice = relationship("Invoice", back_populates="payments")
+
+    def __repr__(self):
+        return f"<InvoicePayment {self.amount} inv={self.invoice_id}>"

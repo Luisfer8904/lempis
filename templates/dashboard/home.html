@@ -9,7 +9,7 @@
 </section>
 
 {# ========== KPIs ========== #}
-<section class="grid md:grid-cols-4 gap-4 mb-8">
+<section class="grid md:grid-cols-4 gap-4 mb-4">
   <div class="bg-white p-5 rounded-xl shadow-sm border">
     <div class="text-slate-500 text-sm">Facturas (total)</div>
     <div class="text-3xl font-bold">{{ invoices_count }}</div>
@@ -30,6 +30,36 @@
     <div class="text-3xl font-bold">{{ tenant.currency }} {{ '%.2f'|format(revenue_30d) }}</div>
   </div>
 </section>
+
+{# ===== Cuentas por cobrar (solo si hay saldo) ===== #}
+{% if receivables.total_due > 0 %}
+<section class="grid md:grid-cols-3 gap-4 mb-8">
+  <div class="bg-gradient-to-br from-indigo-50 to-white p-5 rounded-xl border border-indigo-200">
+    <p class="text-xs text-indigo-700 uppercase font-semibold">💰 Por cobrar</p>
+    <p class="text-3xl font-bold text-indigo-700 mt-1">
+      {{ tenant.currency }} {{ '%.2f'|format(receivables.total_due) }}
+    </p>
+    <a href="{{ url_for('cobros.index') }}" class="text-xs text-indigo-600 hover:underline">Ver detalle →</a>
+  </div>
+  {% if receivables.overdue_count > 0 %}
+    <div class="bg-rose-50 p-5 rounded-xl border border-rose-200 md:col-span-2 flex items-center gap-4">
+      <span class="text-4xl">⚠️</span>
+      <div class="flex-1">
+        <p class="font-semibold text-rose-900">
+          {{ receivables.overdue_count }} factura(s) vencida(s) con saldo
+        </p>
+        <p class="text-sm text-rose-700">
+          Monto vencido: <strong>{{ tenant.currency }} {{ '%.2f'|format(receivables.overdue_amount) }}</strong>
+        </p>
+      </div>
+      <a href="{{ url_for('cobros.index') }}"
+         class="bg-rose-600 text-white px-4 py-2 rounded-lg hover:bg-rose-700 text-sm">
+        Gestionar
+      </a>
+    </div>
+  {% endif %}
+</section>
+{% endif %}
 
 <div class="grid lg:grid-cols-3 gap-6">
 

@@ -1,0 +1,92 @@
+{% extends "app/_layout.html" %}
+{% block title %}Cuentas por cobrar — {{ APP_NAME }}{% endblock %}
+{% block heading %}💰 Cuentas por cobrar{% endblock %}
+
+{% block content %}
+
+{# ===== Resumen aging ===== #}
+<section class="grid md:grid-cols-5 gap-3 mb-6">
+  <div class="bg-white p-4 rounded-xl shadow-sm border">
+    <p class="text-xs text-slate-500 uppercase">Total por cobrar</p>
+    <p class="text-2xl font-bold text-indigo-600 mt-1">
+      {{ tenant.currency }} {{ '%.2f'|format(aging.total) }}
+    </p>
+  </div>
+  <div class="bg-green-50 border border-green-200 p-4 rounded-xl">
+    <p class="text-xs text-green-700 uppercase">Vigente</p>
+    <p class="text-xl font-bold text-green-700 mt-1">{{ '%.2f'|format(aging.current) }}</p>
+    <p class="text-xs text-green-600 mt-1">no vencido</p>
+  </div>
+  <div class="bg-amber-50 border border-amber-200 p-4 rounded-xl">
+    <p class="text-xs text-amber-700 uppercase">1-30 días</p>
+    <p class="text-xl font-bold text-amber-700 mt-1">{{ '%.2f'|format(aging['0_30']) }}</p>
+    <p class="text-xs text-amber-600 mt-1">vencido</p>
+  </div>
+  <div class="bg-orange-50 border border-orange-300 p-4 rounded-xl">
+    <p class="text-xs text-orange-700 uppercase">31-60 / 61-90</p>
+    <p class="text-xl font-bold text-orange-700 mt-1">
+      {{ '%.2f'|format(aging['31_60'] + aging['61_90']) }}
+    </p>
+    <p class="text-xs text-orange-600 mt-1">{{ '%.2f'|format(aging['31_60']) }} + {{ '%.2f'|format(aging['61_90']) }}</p>
+  </div>
+  <div class="bg-rose-50 border border-rose-300 p-4 rounded-xl">
+    <p class="text-xs text-rose-700 uppercase">90+ días</p>
+    <p class="text-xl font-bold text-rose-700 mt-1">{{ '%.2f'|format(aging['90_plus']) }}</p>
+    <p class="text-xs text-rose-600 mt-1">crítico</p>
+  </div>
+</section>
+
+{# ===== Lista de clientes con saldo ===== #}
+{% if balances %}
+  <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+    <table class="saas-table w-full">
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th class="text-right">Facturas pendientes</th>
+          <th>Factura más antigua</th>
+          <th class="text-right">Saldo total</th>
+          <th class="text-right">Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in balances %}
+          {% set c = row[0] %}
+          {% set count = row[1] %}
+          {% set total_due = row[2] %}
+          {% set oldest = row[3] %}
+        <tr class="hover:bg-slate-50">
+          <td>
+            <div class="font-medium">{{ c.name }}</div>
+            {% if c.tax_id %}<div class="text-xs text-slate-500 font-mono">{{ c.tax_id }}</div>{% endif %}
+          </td>
+          <td class="text-right">{{ count }}</td>
+          <td class="text-sm">
+            {% if oldest %}
+              {{ oldest.strftime('%d/%m/%Y') }}
+              {% set days_since = ((now if now is defined else None)) %}
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-right font-mono font-semibold text-rose-700">
+            {{ tenant.currency }} {{ '%.2f'|format(total_due) }}
+          </td>
+          <td class="text-right">
+            <a href="{{ url_for('cobros.cliente', customer_id=c.id) }}"
+               class="text-indigo-600 hover:underline text-sm">
+              Ver detalle →
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="text-sm text-slate-500 mt-3">{{ balances|length }} cliente(s) con saldo</p>
+{% else %}
+  <div class="text-center py-20 bg-white rounded-xl border">
+    <div class="text-6xl mb-3">🎉</div>
+    <p class="text-lg text-slate-700 font-medium mb-1">No hay saldos pendientes</p>
+    <p class="text-sm text-slate-500">Cuando emitas facturas a crédito, aparecerán aquí.</p>
+  </div>
+{% endif %}
+{% endblock %}

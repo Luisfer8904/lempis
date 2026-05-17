@@ -37,6 +37,7 @@ def create_app(config_name: str | None = None) -> Flask:
     from routes.pos import pos_bp
     from routes.proveedores import proveedores_bp
     from routes.compras import compras_bp
+    from routes.cobros import cobros_bp
 
     app.register_blueprint(landing_bp)
     app.register_blueprint(auth_bp)
@@ -54,6 +55,7 @@ def create_app(config_name: str | None = None) -> Flask:
     app.register_blueprint(pos_bp)
     app.register_blueprint(proveedores_bp)
     app.register_blueprint(compras_bp)
+    app.register_blueprint(cobros_bp)
 
     # Middleware: resolver tenant en cada request
     @app.before_request

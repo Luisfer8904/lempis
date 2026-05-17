@@ -14,6 +14,7 @@ from services.tenant_context import current_tenant
 from services.permissions import tenant_required
 from services.plan_limits import limits_with_usage
 from services.inventory import batches_by_status
+from services.receivables import receivables_summary
 
 dashboard_bp = Blueprint("dashboard", __name__, url_prefix="/app")
 
@@ -54,6 +55,9 @@ def home():
     # Vencimientos de lotes
     lotes_status = batches_by_status(tenant.id, days_ahead=30)
 
+    # Cuentas por cobrar
+    receivables = receivables_summary(tenant.id)
+
     return render_template(
         "dashboard/home.html",
         tenant=tenant,
@@ -65,4 +69,5 @@ def home():
         plan_usage=plan_usage,
         last_invoices=last_invoices,
         lotes_status=lotes_status,
+        receivables=receivables,
     )
