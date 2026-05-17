@@ -82,8 +82,9 @@
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
       {% for p in productos %}
         <div class="bg-white rounded-xl border shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col">
-          {# Imagen #}
-          <div class="aspect-square bg-slate-50 flex items-center justify-center overflow-hidden">
+          {# Imagen — click va al detalle #}
+          <a href="{{ url_for('productos.detail', product_id=p.id) }}"
+             class="aspect-square bg-slate-50 flex items-center justify-center overflow-hidden">
             {% if p.image_url %}
               <img src="{{ p.image_url }}" alt="{{ p.name }}" class="w-full h-full object-cover" />
             {% else %}
@@ -91,11 +92,13 @@
                 {% if p.kind == 'service' %}🛎️{% else %}📦{% endif %}
               </span>
             {% endif %}
-          </div>
+          </a>
 
           {# Contenido #}
           <div class="p-3 flex-1 flex flex-col">
-            <p class="font-medium text-sm line-clamp-2 leading-tight">{{ p.name }}</p>
+            <a href="{{ url_for('productos.detail', product_id=p.id) }}" class="hover:text-indigo-600">
+              <p class="font-medium text-sm line-clamp-2 leading-tight">{{ p.name }}</p>
+            </a>
             <p class="text-xs text-slate-500 font-mono">{{ p.sku }}</p>
             {% if p.category %}
               <p class="text-xs text-slate-400">{{ p.category.name }}</p>
@@ -121,13 +124,13 @@
 
           {# Acciones #}
           <div class="border-t bg-slate-50 px-3 py-2 flex items-center justify-between text-xs">
-            {% if p.track_batches %}
-              <a href="{{ url_for('lotes.list', product_id=p.id) }}"
-                 class="text-emerald-600 hover:underline">📦 Lotes</a>
-            {% else %}
-              <span></span>
-            {% endif %}
+            <a href="{{ url_for('productos.detail', product_id=p.id) }}"
+               class="text-slate-600 hover:text-indigo-600">👁 Ver</a>
             <div class="flex gap-2">
+              {% if p.track_batches %}
+                <a href="{{ url_for('lotes.list', product_id=p.id) }}"
+                   class="text-emerald-600 hover:underline">📦 Lotes</a>
+              {% endif %}
               <a href="{{ url_for('productos.edit', product_id=p.id) }}"
                  class="text-indigo-600 hover:underline">Editar</a>
               <form method="POST" action="{{ url_for('productos.delete', product_id=p.id) }}" class="inline"
@@ -175,7 +178,9 @@
           </td>
           <td class="font-mono text-sm">{{ p.sku }}</td>
           <td>
-            <div class="font-medium">{{ p.name }}</div>
+            <a href="{{ url_for('productos.detail', product_id=p.id) }}" class="hover:text-indigo-600">
+              <div class="font-medium">{{ p.name }}</div>
+            </a>
             {% if p.description %}<div class="text-xs text-slate-500 truncate max-w-xs">{{ p.description }}</div>{% endif %}
           </td>
           <td class="text-sm">{{ p.category.name if p.category else '—' }}</td>
@@ -198,9 +203,11 @@
             {% endif %}
           </td>
           <td class="text-right whitespace-nowrap">
+            <a href="{{ url_for('productos.detail', product_id=p.id) }}"
+               class="text-slate-600 hover:underline text-sm">👁 Ver</a>
             {% if p.track_batches %}
               <a href="{{ url_for('lotes.list', product_id=p.id) }}"
-                 class="text-emerald-600 hover:underline text-sm">📦 Lotes</a>
+                 class="text-emerald-600 hover:underline text-sm ml-2">📦</a>
             {% endif %}
             <a href="{{ url_for('productos.edit', product_id=p.id) }}"
                class="text-indigo-600 hover:underline text-sm ml-2">Editar</a>

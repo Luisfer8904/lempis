@@ -2,6 +2,13 @@
 {% block title %}Cuentas por cobrar — {{ APP_NAME }}{% endblock %}
 {% block heading %}💰 Cuentas por cobrar{% endblock %}
 
+{% block actions %}
+<a href="{{ url_for('cobros.export_aging') }}"
+   class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm font-medium">
+  📊 Exportar a Excel
+</a>
+{% endblock %}
+
 {% block content %}
 
 {# ===== Resumen aging ===== #}

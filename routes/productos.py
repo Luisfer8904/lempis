@@ -98,6 +98,88 @@ def new():
     )
 
 
+@productos_bp.route("/<int:product_id>")
+@login_required
+@tenant_required
+def detail(product_id):
+    """Vista detalle del producto: info, lotes, últimas compras y ventas."""
+    from models.invoice import Invoice, InvoiceItem
+    from models.purchases import Purchase, PurchaseItem
+    from models.catalog import ProductBatch
+    from sqlalchemy import func
+
+    prod = _get_or_404(product_id)
+    tenant = current_tenant()
+
+    # Lotes ordenados por vencimiento (más próximos primero, nulos al final)
+    lotes = (
+        ProductBatch.query
+        .filter_by(tenant_id=tenant.id, product_id=prod.id)
+        .order_by(
+            ProductBatch.expiration_date.is_(None).asc(),
+            ProductBatch.expiration_date.asc(),
+            ProductBatch.created_at.desc(),
+        )
+        .all()
+    )
+
+    # Últimas 10 compras del producto
+    ultimas_compras = (
+        db.session.query(Purchase, PurchaseItem)
+        .join(PurchaseItem, PurchaseItem.purchase_id == Purchase.id)
+        .filter(
+            PurchaseItem.product_id == prod.id,
+            PurchaseItem.tenant_id == tenant.id,
+        )
+        .order_by(Purchase.issue_date.desc())
+        .limit(10).all()
+    )
+
+    # Últimas 10 ventas del producto
+    ultimas_ventas = (
+        db.session.query(Invoice, InvoiceItem)
+        .join(InvoiceItem, InvoiceItem.invoice_id == Invoice.id)
+        .filter(
+            InvoiceItem.product_id == prod.id,
+            InvoiceItem.tenant_id == tenant.id,
+            Invoice.status != "draft",
+        )
+        .order_by(Invoice.issue_date.desc())
+        .limit(10).all()
+    )
+
+    # Resumen
+    total_vendido = (
+        db.session.query(func.coalesce(func.sum(InvoiceItem.quantity), 0))
+        .join(Invoice, Invoice.id == InvoiceItem.invoice_id)
+        .filter(
+            InvoiceItem.product_id == prod.id,
+            InvoiceItem.tenant_id == tenant.id,
+            Invoice.status.in_(["issued", "paid", "partially_paid", "overdue"]),
+        ).scalar() or 0
+    )
+    total_comprado = (
+        db.session.query(func.coalesce(func.sum(PurchaseItem.quantity), 0))
+        .join(Purchase, Purchase.id == PurchaseItem.purchase_id)
+        .filter(
+            PurchaseItem.product_id == prod.id,
+            PurchaseItem.tenant_id == tenant.id,
+            Purchase.status == "received",
+        ).scalar() or 0
+    )
+
+    return render_template(
+        "productos/detail.html",
+        producto=prod,
+        lotes=lotes,
+        ultimas_compras=ultimas_compras,
+        ultimas_ventas=ultimas_ventas,
+        total_vendido=float(total_vendido),
+        total_comprado=float(total_comprado),
+        tenant=tenant,
+    )
+
+
 @productos_bp.route("/<int:product_id>/edit", methods=["GET", "POST"])
 @login_required
 @tenant_required
