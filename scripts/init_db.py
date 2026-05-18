@@ -61,7 +61,7 @@ PLANS = [
     {
         "code": "pro", "name": "Pro",
         "description": "Para PYMEs en crecimiento.",
-        "price_monthly": 19, "price_yearly": 190, "currency": "USD",
+        "price_monthly": 25, "price_yearly": 250, "currency": "USD",
         "max_users": 5, "max_invoices_per_month": 500, "max_products": 1000, "max_customers": 2000,
         "can_export_pdf": True, "can_export_excel": True,
         "can_use_api": True, "can_custom_branding": False,
@@ -69,7 +69,7 @@ PLANS = [
     {
         "code": "business", "name": "Business",
         "description": "Para empresas que necesitan más usuarios y branding.",
-        "price_monthly": 49, "price_yearly": 490, "currency": "USD",
+        "price_monthly": 55, "price_yearly": 550, "currency": "USD",
         "max_users": 25, "max_invoices_per_month": 5000, "max_products": 10000, "max_customers": 20000,
         "can_export_pdf": True, "can_export_excel": True,
         "can_use_api": True, "can_custom_branding": True,
@@ -114,7 +114,11 @@ def seed_roles():
 def seed_plans():
     print("→ Seedeando planes...")
     for p in PLANS:
-        if not Plan.query.filter_by(code=p["code"]).first():
+        existing = Plan.query.filter_by(code=p["code"]).first()
+        if existing:
+            for key, value in p.items():
+                setattr(existing, key, value)
+        else:
             db.session.add(Plan(**p))
 
 

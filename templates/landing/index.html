@@ -2,44 +2,302 @@
 {% block title %}{{ APP_NAME }} — Facturación en la nube{% endblock %}
 
 {% block content %}
-<section class="text-center py-16">
-  <h1 class="text-5xl font-extrabold text-slate-900 mb-4">
-    Facturación profesional para tu empresa,
-    <span class="text-indigo-600">sin complicaciones.</span>
-  </h1>
-  <p class="text-xl text-slate-600 max-w-2xl mx-auto mb-8">
-    Cada empresa tiene su propio espacio seguro: tus clientes, productos y facturas
-    nunca se mezclan con los de nadie más. Multi-país (LatAm), multi-usuario, listo
-    para crecer contigo.
-  </p>
-  <div class="flex justify-center gap-4">
-    <a href="{{ url_for('auth.signup') }}"
-       class="bg-indigo-600 text-white px-8 py-3 rounded-lg text-lg hover:bg-indigo-700">
-      Comenzar prueba gratis
-    </a>
-    <a href="{{ url_for('landing.pricing') }}"
-       class="border border-slate-300 px-8 py-3 rounded-lg text-lg hover:bg-slate-100">
-      Ver planes
-    </a>
+{% set pro_plan = plans | selectattr('code', 'equalto', 'pro') | list | first %}
+{% set business_plan = plans | selectattr('code', 'equalto', 'business') | list | first %}
+
+<section class="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(79,70,229,0.16),_transparent_28%),radial-gradient(circle_at_80%_20%,_rgba(16,185,129,0.14),_transparent_24%),linear-gradient(180deg,_#ffffff_0%,_#f8fafc_100%)] px-6 py-10 md:px-10 md:py-14">
+  <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-300 to-transparent"></div>
+  <div class="grid items-center gap-10 lg:grid-cols-[1.2fr_0.8fr]">
+    <div class="relative z-10">
+      <span class="inline-flex items-center rounded-full border border-indigo-200 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-indigo-700 shadow-sm">
+        SaaS de facturación para PYMEs de LatAm
+      </span>
+      <h1 class="mt-6 max-w-4xl text-4xl font-black leading-tight text-slate-950 sm:text-5xl lg:text-6xl">
+        La forma más seria de
+        <span class="bg-gradient-to-r from-indigo-600 via-violet-500 to-emerald-500 bg-clip-text text-transparent">
+          cobrar, facturar y crecer
+        </span>
+        sin enredar tu operación.
+      </h1>
+      <p class="mt-6 max-w-2xl text-lg leading-8 text-slate-600 sm:text-xl">
+        {{ APP_NAME }} reúne clientes, productos, facturas y control por empresa en una sola plataforma.
+        Hecha para equipos que quieren orden comercial, visibilidad y una imagen más profesional frente al cliente.
+      </p>
+
+      <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+        <a href="{{ url_for('auth.signup') }}"
+           class="inline-flex items-center justify-center rounded-xl bg-slate-950 px-7 py-3.5 text-base font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-slate-800">
+          Comenzar prueba gratis
+        </a>
+        <a href="{{ url_for('landing.pricing') }}"
+           class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-7 py-3.5 text-base font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-50">
+          Ver planes
+        </a>
+      </div>
+
+      <div class="mt-8 grid gap-4 sm:grid-cols-3">
+        <div class="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur">
+          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Implementación</p>
+          <p class="mt-2 text-2xl font-black text-slate-900">14 días</p>
+          <p class="mt-1 text-sm text-slate-500">de prueba sin tarjeta para validar tu operación.</p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur">
+          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Plan Pro</p>
+          <p class="mt-2 text-2xl font-black text-slate-900">
+            {% if pro_plan %}${{ pro_plan.price_monthly }}{% else %}$25{% endif %}
+          </p>
+          <p class="mt-1 text-sm text-slate-500">para equipos pequeños que ya necesitan control real.</p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur">
+          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Plan Business</p>
+          <p class="mt-2 text-2xl font-black text-slate-900">
+            {% if business_plan %}${{ business_plan.price_monthly }}{% else %}$55{% endif %}
+          </p>
+          <p class="mt-1 text-sm text-slate-500">para empresas con más usuarios, más volumen y más marca.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="relative z-10">
+      <div class="relative mx-auto max-w-md">
+        <div class="absolute -left-6 top-8 h-24 w-24 rounded-full bg-emerald-200/60 blur-3xl"></div>
+        <div class="absolute -right-4 top-0 h-28 w-28 rounded-full bg-indigo-200/70 blur-3xl"></div>
+
+        <div class="relative rounded-[2rem] border border-slate-200 bg-white/90 p-5 shadow-2xl shadow-slate-900/10 backdrop-blur">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Vista ejecutiva</p>
+              <h2 class="mt-2 text-xl font-bold text-slate-900">Negocio ordenado, listo para cobrar</h2>
+            </div>
+            <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Activo</span>
+          </div>
+
+          <div class="mt-5 rounded-2xl bg-slate-950 p-4 text-white">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Facturación mensual</p>
+                <p class="mt-2 text-3xl font-black">$48,920</p>
+              </div>
+              <div class="rounded-2xl bg-white/10 px-3 py-2 text-right">
+                <p class="text-xs text-slate-300">Cobrado</p>
+                <p class="text-lg font-bold">87%</p>
+              </div>
+            </div>
+            <div class="mt-4 h-2 rounded-full bg-white/10">
+              <div class="h-2 w-[78%] rounded-full bg-gradient-to-r from-emerald-400 via-cyan-300 to-indigo-400"></div>
+            </div>
+          </div>
+
+          <div class="mt-5 grid gap-3 sm:grid-cols-2">
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Clientes</p>
+              <p class="mt-2 text-2xl font-black text-slate-900">246</p>
+              <p class="mt-1 text-sm text-slate-500">historial limpio y segmentado por empresa.</p>
+            </div>
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Facturas</p>
+              <p class="mt-2 text-2xl font-black text-slate-900">1,284</p>
+              <p class="mt-1 text-sm text-slate-500">emitidas con control y consistencia comercial.</p>
+            </div>
+          </div>
+
+          <div class="mt-5 rounded-[1.5rem] border border-slate-200 bg-gradient-to-br from-emerald-50 via-white to-indigo-50 p-4">
+            <div class="flex items-center gap-4">
+              <img
+                src="{{ url_for('static', filename='img/lempis-logo.png') }}"
+                alt="Mascota de {{ APP_NAME }}"
+                class="h-20 w-20 rounded-2xl object-contain"
+              />
+              <div>
+                <p class="text-sm font-semibold text-slate-900">Más control, mejor presentación</p>
+                <p class="mt-1 text-sm leading-6 text-slate-600">
+                  Desde el primer contacto hasta el cobro final, tu empresa se ve más organizada y más confiable.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
-  <p class="mt-3 text-sm text-slate-500">14 días de prueba — sin tarjeta de crédito.</p>
 </section>
 
-<section class="grid md:grid-cols-3 gap-8 py-12">
-  <div class="bg-white p-6 rounded-xl shadow-sm">
-    <div class="text-3xl mb-2">🔒</div>
-    <h3 class="font-semibold text-lg">Tus datos, solo tuyos</h3>
-    <p class="text-slate-600">Aislamiento total por empresa. Ningún otro usuario ve tu información.</p>
+<section class="py-16">
+  <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <div>
+      <p class="text-sm font-semibold uppercase tracking-[0.22em] text-indigo-600">Por qué se siente más profesional</p>
+      <h2 class="mt-3 text-3xl font-black text-slate-950 sm:text-4xl">No es solo facturar: es ordenar todo tu frente comercial.</h2>
+    </div>
+    <p class="max-w-2xl text-base leading-7 text-slate-600">
+      La plataforma está pensada para que ventas, cobranza y administración compartan la misma información sin duplicar trabajo ni perder contexto.
+    </p>
   </div>
-  <div class="bg-white p-6 rounded-xl shadow-sm">
-    <div class="text-3xl mb-2">🌎</div>
-    <h3 class="font-semibold text-lg">Multi-país LatAm</h3>
-    <p class="text-slate-600">ISV/IVA/IGV configurados para Honduras, México, Perú, Colombia y más.</p>
+
+  <div class="mt-10 grid gap-6 md:grid-cols-3">
+    <article class="rounded-[1.75rem] border border-slate-200 bg-white p-7 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+      <div class="inline-flex rounded-2xl bg-emerald-50 p-3 text-emerald-700">
+        <span class="text-xl font-bold">01</span>
+      </div>
+      <h3 class="mt-5 text-xl font-bold text-slate-900">Datos aislados por empresa</h3>
+      <p class="mt-3 text-base leading-7 text-slate-600">
+        Clientes, productos, usuarios y facturas viven en su propio espacio. Menos riesgo, menos desorden, mejor control.
+      </p>
+    </article>
+
+    <article class="rounded-[1.75rem] border border-slate-200 bg-white p-7 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+      <div class="inline-flex rounded-2xl bg-indigo-50 p-3 text-indigo-700">
+        <span class="text-xl font-bold">02</span>
+      </div>
+      <h3 class="mt-5 text-xl font-bold text-slate-900">Operación lista para crecer</h3>
+      <p class="mt-3 text-base leading-7 text-slate-600">
+        Roles, permisos, reportes y seguimiento de facturas para que pases de operar “a mano” a operar con criterio.
+      </p>
+    </article>
+
+    <article class="rounded-[1.75rem] border border-slate-200 bg-white p-7 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+      <div class="inline-flex rounded-2xl bg-amber-50 p-3 text-amber-700">
+        <span class="text-xl font-bold">03</span>
+      </div>
+      <h3 class="mt-5 text-xl font-bold text-slate-900">Preparado para LatAm</h3>
+      <p class="mt-3 text-base leading-7 text-slate-600">
+        Impuestos, monedas y contexto regional para que la experiencia no se sienta importada ni genérica.
+      </p>
+    </article>
   </div>
-  <div class="bg-white p-6 rounded-xl shadow-sm">
-    <div class="text-3xl mb-2">⚡</div>
-    <h3 class="font-semibold text-lg">Roles y permisos</h3>
-    <p class="text-slate-600">Invita a tu equipo: vendedores, contadores, administradores.</p>
+</section>
+
+<section class="grid gap-6 py-4 lg:grid-cols-[0.9fr_1.1fr]">
+  <div class="rounded-[2rem] border border-slate-200 bg-slate-950 p-8 text-white">
+    <p class="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-300">Diseñado para equipos reales</p>
+    <h2 class="mt-4 text-3xl font-black leading-tight">Desde la primera factura hasta la operación completa.</h2>
+    <p class="mt-4 text-base leading-7 text-slate-300">
+      {{ APP_NAME }} funciona bien para un fundador que empieza solo y también para un negocio que necesita separar ventas, administración y supervisión.
+    </p>
+
+    <div class="mt-8 grid gap-4 sm:grid-cols-2">
+      <div class="rounded-2xl bg-white/5 p-4">
+        <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Cobranza</p>
+        <p class="mt-2 text-lg font-bold">Facturas claras y seguimiento del pago</p>
+      </div>
+      <div class="rounded-2xl bg-white/5 p-4">
+        <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Equipo</p>
+        <p class="mt-2 text-lg font-bold">Roles para evitar accesos y cambios indebidos</p>
+      </div>
+      <div class="rounded-2xl bg-white/5 p-4">
+        <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Catálogo</p>
+        <p class="mt-2 text-lg font-bold">Productos y clientes con historial centralizado</p>
+      </div>
+      <div class="rounded-2xl bg-white/5 p-4">
+        <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Escalabilidad</p>
+        <p class="mt-2 text-lg font-bold">Más usuarios, más volumen y mejores decisiones</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid gap-6 sm:grid-cols-2">
+    <div class="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+      <p class="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">Control comercial</p>
+      <h3 class="mt-3 text-2xl font-black text-slate-900">Una vista más limpia del negocio</h3>
+      <p class="mt-3 text-base leading-7 text-slate-600">
+        Menos hojas sueltas, menos WhatsApps buscando saldos y más información lista para actuar.
+      </p>
+    </div>
+    <div class="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+      <p class="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">Imagen</p>
+      <h3 class="mt-3 text-2xl font-black text-slate-900">Tu empresa se ve más seria</h3>
+      <p class="mt-3 text-base leading-7 text-slate-600">
+        Presentación consistente, procesos claros y una experiencia que transmite orden desde el primer día.
+      </p>
+    </div>
+    <div class="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm sm:col-span-2">
+      <p class="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">Lo que cambia cuando te organizas</p>
+      <div class="mt-4 grid gap-4 md:grid-cols-3">
+        <div class="rounded-2xl bg-slate-50 p-4">
+          <p class="text-3xl font-black text-slate-900">+Velocidad</p>
+          <p class="mt-2 text-sm leading-6 text-slate-600">Cotizas, facturas y consultas sin reconstruir la información cada vez.</p>
+        </div>
+        <div class="rounded-2xl bg-slate-50 p-4">
+          <p class="text-3xl font-black text-slate-900">+Claridad</p>
+          <p class="mt-2 text-sm leading-6 text-slate-600">Cada quien ve lo que necesita ver y trabaja sobre la misma base.</p>
+        </div>
+        <div class="rounded-2xl bg-slate-50 p-4">
+          <p class="text-3xl font-black text-slate-900">+Escala</p>
+          <p class="mt-2 text-sm leading-6 text-slate-600">Tu operación aguanta mejor el crecimiento sin volverse un cuello de botella.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="py-16">
+  <div class="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm md:p-10">
+    <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div>
+        <p class="text-sm font-semibold uppercase tracking-[0.22em] text-indigo-600">Planes</p>
+        <h2 class="mt-3 text-3xl font-black text-slate-950">Empieza liviano. Escala cuando el negocio lo pida.</h2>
+      </div>
+      <a href="{{ url_for('landing.pricing') }}" class="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+        Ver comparación completa →
+      </a>
+    </div>
+
+    <div class="mt-8 grid gap-5 md:grid-cols-3">
+      {% for plan in plans %}
+        <article class="rounded-[1.5rem] border p-6 {% if plan.code == 'pro' %}border-indigo-500 bg-indigo-50/40 shadow-lg shadow-indigo-100{% else %}border-slate-200 bg-slate-50{% endif %}">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="text-xl font-bold text-slate-900">{{ plan.name }}</h3>
+            {% if plan.code == 'pro' %}
+              <span class="rounded-full bg-indigo-600 px-3 py-1 text-xs font-semibold text-white">Más elegido</span>
+            {% endif %}
+          </div>
+          <p class="mt-3 text-sm leading-6 text-slate-600">{{ plan.description or '' }}</p>
+          <div class="mt-5 text-4xl font-black text-slate-950">
+            {% if plan.price_monthly == 0 %}
+              Gratis
+            {% else %}
+              ${{ plan.price_monthly }}<span class="text-base font-medium text-slate-500">/mes</span>
+            {% endif %}
+          </div>
+          <p class="mt-2 text-sm text-slate-500">
+            {% if plan.price_monthly == 0 %}
+              Ideal para probar el flujo básico.
+            {% else %}
+              o ${{ plan.price_yearly }}/año con pago anual.
+            {% endif %}
+          </p>
+          <ul class="mt-5 space-y-2 text-sm text-slate-600">
+            <li>Hasta {{ plan.max_users }} usuarios</li>
+            <li>{{ plan.max_invoices_per_month }} facturas por mes</li>
+            <li>{{ plan.max_products }} productos</li>
+            <li>{{ 'Exportación PDF incluida' if plan.can_export_pdf else 'Sin exportación PDF' }}</li>
+          </ul>
+        </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="pb-8 pt-2">
+  <div class="rounded-[2rem] bg-gradient-to-r from-slate-950 via-indigo-950 to-emerald-900 px-8 py-10 text-white shadow-2xl shadow-slate-900/10 md:px-10">
+    <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+      <div class="max-w-2xl">
+        <p class="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-300">Siguiente paso</p>
+        <h2 class="mt-3 text-3xl font-black sm:text-4xl">Haz que tu facturación se vea al nivel de tu negocio.</h2>
+        <p class="mt-4 text-base leading-7 text-slate-300">
+          Crea tu cuenta, prueba el flujo real y decide con datos si {{ APP_NAME }} encaja con tu operación.
+        </p>
+      </div>
+      <div class="flex flex-col gap-3 sm:flex-row">
+        <a href="{{ url_for('auth.signup') }}"
+           class="inline-flex items-center justify-center rounded-xl bg-white px-6 py-3 text-base font-semibold text-slate-950 transition hover:bg-slate-100">
+          Crear cuenta
+        </a>
+        <a href="{{ url_for('landing.pricing') }}"
+           class="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-6 py-3 text-base font-semibold text-white transition hover:bg-white/15">
+          Revisar planes
+        </a>
+      </div>
+    </div>
   </div>
 </section>
 {% endblock %}
