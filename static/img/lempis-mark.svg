@@ -1,0 +1,24 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="lempisGradient" x1="16" y1="14" x2="110" y2="112" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#635BFF"/>
+      <stop offset="0.55" stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#10B981"/>
+    </linearGradient>
+    <linearGradient id="lempisSurface" x1="20" y1="18" x2="102" y2="102" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.92"/>
+      <stop offset="1" stop-color="#EEF2FF" stop-opacity="0.82"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="10" y="10" width="108" height="108" rx="28" fill="#F8FAFC"/>
+  <rect x="10" y="10" width="108" height="108" rx="28" stroke="url(#lempisGradient)" stroke-width="4"/>
+
+  <path d="M39 30C39 26.6863 41.6863 24 45 24H71.5L89 41.5V83C89 86.3137 86.3137 89 83 89H45C41.6863 89 39 86.3137 39 83V30Z" fill="url(#lempisSurface)"/>
+  <path d="M71 24V36C71 39.3137 73.6863 42 77 42H89" stroke="url(#lempisGradient)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M52 49V76H79" stroke="#0F172A" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M55 71L63.5 62.5L69.5 68.5L80 58" stroke="url(#lempisGradient)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="46" y="94" width="36" height="8" rx="4" fill="#DDE7F5"/>
+</svg>

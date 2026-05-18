@@ -5,7 +5,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{% block title %}{{ APP_NAME }}{% endblock %}</title>
-  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}" />
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}" />
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/favicon.png') }}" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
@@ -16,15 +16,17 @@
   {# ============ Sidebar ============ #}
   <aside class="w-64 bg-white border-r flex flex-col">
     <div class="px-6 py-5 border-b">
-      <a href="{{ url_for('dashboard.home') }}" class="flex items-center gap-3 text-indigo-600">
-        <img
-          src="{{ url_for('static', filename='img/lempis-logo.png') }}"
-          alt="Logo de {{ APP_NAME }}"
-          class="h-12 w-12 rounded-full object-contain"
-        />
+      <a href="{{ url_for('dashboard.home') }}" class="flex items-center gap-3 text-slate-950">
+        <span class="flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50 shadow-sm">
+          <img
+            src="{{ url_for('static', filename='img/lempis-mark.svg') }}"
+            alt="Isotipo de {{ APP_NAME }}"
+            class="h-9 w-9 object-contain"
+          />
+        </span>
         <div class="min-w-0">
-          <p class="text-2xl font-bold leading-none">{{ APP_NAME }}</p>
-          <p class="text-[11px] uppercase tracking-[0.18em] text-slate-400">Facturación</p>
+          <p class="text-2xl font-black leading-none tracking-[-0.03em]">{{ APP_NAME }}</p>
+          <p class="text-[11px] uppercase tracking-[0.22em] text-slate-400">Billing OS</p>
         </div>
       </a>
       {% if tenant %}

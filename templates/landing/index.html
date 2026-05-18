@@ -102,16 +102,23 @@
           </div>
 
           <div class="mt-5 rounded-[1.5rem] border border-slate-200 bg-gradient-to-br from-emerald-50 via-white to-indigo-50 p-4">
-            <div class="flex items-center gap-4">
-              <img
-                src="{{ url_for('static', filename='img/lempis-logo.png') }}"
-                alt="Mascota de {{ APP_NAME }}"
-                class="h-20 w-20 rounded-2xl object-contain"
-              />
+            <div class="flex items-start gap-4">
+              <span class="flex h-16 w-16 shrink-0 items-center justify-center rounded-[1.35rem] border border-indigo-100 bg-white shadow-sm">
+                <img
+                  src="{{ url_for('static', filename='img/lempis-mark.svg') }}"
+                  alt="Isotipo de {{ APP_NAME }}"
+                  class="h-10 w-10 object-contain"
+                />
+              </span>
               <div>
-                <p class="text-sm font-semibold text-slate-900">Más control, mejor presentación</p>
-                <p class="mt-1 text-sm leading-6 text-slate-600">
-                  Desde el primer contacto hasta el cobro final, tu empresa se ve más organizada y más confiable.
+                <div class="flex items-center gap-3">
+                  <p class="text-lg font-black tracking-[-0.03em] text-slate-950">{{ APP_NAME }}</p>
+                  <span class="rounded-full border border-emerald-200 bg-emerald-100/70 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-700">
+                    Fintech SaaS
+                  </span>
+                </div>
+                <p class="mt-2 text-sm leading-6 text-slate-600">
+                  Una identidad más sobria para una plataforma que ayuda a cobrar, facturar y crecer con orden.
                 </p>
               </div>
             </div>
