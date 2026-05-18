@@ -4,6 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{% block title %}{{ APP_NAME }}{% endblock %}</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}" />
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/favicon.png') }}" />
 
   <!-- Tailwind CDN para arrancar rápido (cambiar por build local en producción) -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -14,8 +16,13 @@
   {% block navbar %}
   <header class="bg-white border-b shadow-sm">
     <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-      <a href="{{ url_for('landing.index') }}" class="font-bold text-xl text-indigo-600">
-        {{ APP_NAME }}
+      <a href="{{ url_for('landing.index') }}" class="flex items-center gap-3 text-indigo-600">
+        <img
+          src="{{ url_for('static', filename='img/lempis-logo.png') }}"
+          alt="Logo de {{ APP_NAME }}"
+          class="h-11 w-11 rounded-full object-contain"
+        />
+        <span class="font-bold text-xl">{{ APP_NAME }}</span>
       </a>
       <nav class="flex items-center gap-4 text-sm">
         <a href="{{ url_for('landing.pricing') }}" class="hover:text-indigo-600">Precios</a>
