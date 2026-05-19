@@ -1,0 +1,64 @@
+{% extends "igh/_layout.html" %}
+{% block title %}Usuarios IVG — {{ company_name }}{% endblock %}
+{% block heading %}Usuarios IVG{% endblock %}
+
+{% block actions %}
+  {% if igh_can_manage_users %}
+    <a href="{{ url_for('igh.usuarios_new') }}"
+       class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
+      + Agregar usuario
+    </a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+  <table class="saas-table w-full">
+    <thead>
+      <tr>
+        <th>Usuario</th>
+        <th>Nombre</th>
+        <th>Rol</th>
+        <th>Estado</th>
+        <th>Último acceso</th>
+        {% if igh_can_manage_users %}
+          <th class="text-right">Acciones</th>
+        {% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr class="hover:bg-slate-50">
+        <td class="font-medium">{{ u.username }}</td>
+        <td class="text-sm">{{ u.full_name or '—' }}</td>
+        <td>
+          <span class="text-xs px-2 py-1 rounded
+                       {% if u.role == 'superadmin' %}bg-amber-100 text-amber-700
+                       {% elif u.role == 'admin' %}bg-indigo-100 text-indigo-700
+                       {% else %}bg-emerald-100 text-emerald-700{% endif %}">
+            {{ u.role }}
+          </span>
+        </td>
+        <td>
+          {% if u.is_active %}
+            <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Activo</span>
+          {% else %}
+            <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">Inactivo</span>
+          {% endif %}
+        </td>
+        <td class="text-sm text-slate-500">
+          {{ u.last_login_at.strftime('%d/%m/%Y %H:%M') if u.last_login_at else 'Nunca' }}
+        </td>
+        {% if igh_can_manage_users %}
+          <td class="text-right">
+            <a href="{{ url_for('igh.usuarios_edit', user_id=u.id) }}"
+               class="text-indigo-600 hover:underline text-sm">Editar</a>
+          </td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="text-sm text-slate-500 mt-3">{{ users|length }} usuario(s) IVG.</p>
+{% endblock %}

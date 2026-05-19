@@ -1,0 +1,74 @@
+{% extends "igh/_layout.html" %}
+{% block title %}{{ 'Editar' if user else 'Nuevo' }} usuario IVG{% endblock %}
+{% block heading %}{{ 'Editar usuario IVG' if user else 'Nuevo usuario IVG' }}{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('igh.usuarios') }}" class="text-slate-600 hover:text-slate-900 text-sm">
+  ← Volver
+</a>
+{% endblock %}
+
+{% block content %}
+<form method="POST" class="bg-white p-6 rounded-xl shadow-sm border max-w-2xl">
+  <div class="grid md:grid-cols-2 gap-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Usuario *</label>
+      <input name="username" required
+             value="{{ user.username if user else '' }}"
+             {% if user %}readonly{% endif %}
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500
+                    {% if user %}bg-slate-100 cursor-not-allowed{% endif %}" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Nombre completo</label>
+      <input name="full_name" value="{{ user.full_name if user else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">Correo</label>
+      <input type="email" name="email" value="{{ user.email if user else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">
+        {% if user %}Cambiar contraseña{% else %}Contraseña *{% endif %}
+      </label>
+      <input type="password" name="password"
+             {% if not user %}required minlength="4"{% endif %}
+             placeholder="{% if user %}Dejar en blanco para no cambiar{% else %}Puede ser de 4 caracteres o más{% endif %}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">Rol</label>
+      <select name="role"
+              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+        {% for role_code, role_name in [('superadmin', 'Super administrador'), ('admin', 'Administrador'), ('cajero', 'Cajero')] %}
+          <option value="{{ role_code }}"
+                  {% if (user and user.role == role_code) or (not user and role_code == 'cajero') %}selected{% endif %}>
+            {{ role_name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    {% if user %}
+      <div class="md:col-span-2">
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="is_active" {% if user.is_active %}checked{% endif %} />
+          Usuario activo (puede iniciar sesión)
+        </label>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="flex gap-3 mt-6 pt-6 border-t">
+    <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+      {{ 'Guardar cambios' if user else 'Crear usuario' }}
+    </button>
+    <a href="{{ url_for('igh.usuarios') }}"
+       class="border px-6 py-2 rounded-lg hover:bg-slate-50">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

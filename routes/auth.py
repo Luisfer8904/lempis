@@ -11,8 +11,10 @@ from flask import (
     Blueprint, render_template, request, redirect, url_for, flash, session, current_app
 )
 from flask_login import login_user, logout_user, login_required, current_user
+from sqlalchemy import func, inspect, or_
 
 from models import db
+from models.ivg import IVGUser
 from models.tenant import Tenant, Plan, Subscription
 from models.user import User, Role, UserRole
 
@@ -108,7 +110,7 @@ def signup():
 
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
-    if session.get("igh_user"):
+    if session.get("igh_user_id"):
         return redirect(url_for("igh.dashboard"))
 
     # Si el usuario "autenticado" tiene una sesión zombi (sin tenant válido),
@@ -121,16 +123,25 @@ def login():
         else:
             return redirect(url_for("dashboard.home"))
 
-    # ===== Sub-app: Inversiones Guevara Herrera =====
-    # Acceso especial con usuario "Luis" + clave "8904" (mismo formulario).
-    # Esto NO afecta el login normal de Lempis — solo se dispara si coinciden exacto.
     if request.method == "POST":
         usr = (request.form.get("email") or "").strip()
         pwd = request.form.get("password") or ""
-        if usr.lower() == "luis" and pwd == "8904":
-            session.pop("tenant_id", None)
-            session["igh_user"] = "Luis"
-            return redirect(url_for("igh.dashboard"))
+        if inspect(db.engine).has_table(IVGUser.__tablename__):
+            ivg_user = IVGUser.query.filter(
+                IVGUser.is_active.is_(True),
+                or_(
+                    func.lower(IVGUser.username) == usr.lower(),
+                    func.lower(IVGUser.email) == usr.lower(),
+                ),
+            ).first()
+            if ivg_user and ivg_user.check_password(pwd):
+                ivg_user.touch_login()
+                db.session.commit()
+                session.pop("tenant_id", None)
+                session["igh_user_id"] = ivg_user.id
+                session["igh_user"] = ivg_user.username
+                session["igh_role"] = ivg_user.role
+                return redirect(url_for("igh.dashboard"))
 
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
