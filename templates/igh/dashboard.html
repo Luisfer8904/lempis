@@ -1,126 +1,136 @@
 {% extends "igh/_layout.html" %}
-{% block title %}Dashboard IVG{% endblock %}
+{% block title %}Dashboard — {{ company_name }}{% endblock %}
 {% block heading %}Dashboard{% endblock %}
 
 {% block content %}
 <section class="mb-6">
   <h2 class="text-2xl font-bold mb-1">Hola, {{ igh_user }} 👋</h2>
-  <p class="text-slate-500">{{ company_name }} — entorno privado en la misma base de datos.</p>
+  <p class="text-slate-500">{{ company_name }} — Workspace privado IVG en la misma base de datos</p>
 </section>
 
 <section class="grid md:grid-cols-4 gap-4 mb-4">
   <div class="bg-white p-5 rounded-xl shadow-sm border">
-    <div class="text-slate-500 text-sm">Usuarios IVG</div>
+    <div class="text-slate-500 text-sm">Usuarios</div>
     <div class="text-3xl font-bold">{{ ivg_counts.users }}</div>
-    <a href="{{ url_for('igh.usuarios') }}" class="text-xs text-indigo-600 hover:underline">Ver módulo →</a>
+    <a href="{{ url_for('igh.usuarios') }}" class="text-xs text-indigo-600 hover:underline">Ver todos →</a>
   </div>
   <div class="bg-white p-5 rounded-xl shadow-sm border">
-    <div class="text-slate-500 text-sm">Clientes IVG</div>
+    <div class="text-slate-500 text-sm">Clientes</div>
     <div class="text-3xl font-bold">{{ ivg_counts.clients }}</div>
-    <a href="{{ url_for('igh.clientes') }}" class="text-xs text-indigo-600 hover:underline">Ver módulo →</a>
+    <a href="{{ url_for('igh.clientes') }}" class="text-xs text-indigo-600 hover:underline">Ver todos →</a>
   </div>
   <div class="bg-white p-5 rounded-xl shadow-sm border">
-    <div class="text-slate-500 text-sm">Productos IVG</div>
+    <div class="text-slate-500 text-sm">Productos</div>
     <div class="text-3xl font-bold">{{ ivg_counts.products }}</div>
-    <a href="{{ url_for('igh.productos') }}" class="text-xs text-indigo-600 hover:underline">Ver módulo →</a>
+    <a href="{{ url_for('igh.productos') }}" class="text-xs text-indigo-600 hover:underline">Ver todos →</a>
   </div>
   <div class="bg-white p-5 rounded-xl shadow-sm border">
-    <div class="text-slate-500 text-sm">Prefijo técnico</div>
-    <div class="text-3xl font-bold">ivg_</div>
-    <p class="text-xs text-slate-500 mt-2">Misma BD, tablas separadas por prefijo.</p>
+    <div class="text-slate-500 text-sm">Ingresos 30 días</div>
+    <div class="text-3xl font-bold">HNL 0.00</div>
+    <p class="text-xs text-slate-500 mt-2">Pendiente de conectar cartera IVG.</p>
   </div>
 </section>
 
-<section class="grid lg:grid-cols-3 gap-6">
+<section class="grid md:grid-cols-3 gap-4 mb-8">
+  <div class="bg-gradient-to-br from-indigo-50 to-white p-5 rounded-xl border border-indigo-200">
+    <p class="text-xs text-indigo-700 uppercase font-semibold">💰 Estructura IVG</p>
+    <p class="text-3xl font-bold text-indigo-700 mt-1">Prefijo ivg_</p>
+    <a href="{{ url_for('igh.reportes') }}" class="text-xs text-indigo-600 hover:underline">Ver detalle →</a>
+  </div>
+  <div class="bg-white p-5 rounded-xl border md:col-span-2 flex items-center gap-4">
+    <span class="text-4xl">🧩</span>
+    <div class="flex-1">
+      <p class="font-semibold text-slate-900">
+        Mismo motor, workspace separado
+      </p>
+      <p class="text-sm text-slate-600">
+        `IGH` comparte la misma base de datos, pero sus entidades operan con tablas prefijadas como
+        <strong>ivg_usuarios</strong>, <strong>ivg_clientes</strong> e <strong>ivg_productos</strong>.
+      </p>
+    </div>
+    <a href="{{ url_for('igh.usuarios') }}"
+       class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm">
+      Abrir módulos
+    </a>
+  </div>
+</section>
+
+<div class="grid lg:grid-cols-3 gap-6">
   <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border">
     <div class="flex justify-between items-center mb-4">
       <div>
-        <p class="text-xs text-slate-500 uppercase font-semibold">Workspace</p>
-        <p class="text-xl font-bold">IVG</p>
+        <p class="text-xs text-slate-500 uppercase font-semibold">Tu workspace</p>
+        <p class="text-xl font-bold">IVG privado</p>
       </div>
-      <span class="text-xs bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg">
-        Activo
-      </span>
+      <a href="{{ url_for('igh.reportes') }}"
+         class="text-xs bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100">
+        Ver estructura
+      </a>
     </div>
 
-    <div class="space-y-4">
-      <div>
+    {% macro usage_bar(label, count, color, pct) %}
+      <div class="mb-4">
         <div class="flex justify-between text-sm mb-1">
-          <span class="text-slate-600">Usuarios cargados</span>
-          <span class="font-mono text-slate-700">{{ ivg_counts.users }}</span>
+          <span class="text-slate-600">{{ label }}</span>
+          <span class="font-mono text-slate-700">{{ count }}</span>
         </div>
         <div class="w-full bg-slate-100 rounded-full h-2">
-          <div class="h-2 rounded-full bg-indigo-500" style="width: {{ 15 if ivg_counts.users == 0 else 55 }}%"></div>
+          <div class="h-2 rounded-full {{ color }}" style="width: {{ pct }}%"></div>
         </div>
       </div>
-      <div>
-        <div class="flex justify-between text-sm mb-1">
-          <span class="text-slate-600">Clientes cargados</span>
-          <span class="font-mono text-slate-700">{{ ivg_counts.clients }}</span>
-        </div>
-        <div class="w-full bg-slate-100 rounded-full h-2">
-          <div class="h-2 rounded-full bg-emerald-500" style="width: {{ 12 if ivg_counts.clients == 0 else 48 }}%"></div>
-        </div>
-      </div>
-      <div>
-        <div class="flex justify-between text-sm mb-1">
-          <span class="text-slate-600">Productos cargados</span>
-          <span class="font-mono text-slate-700">{{ ivg_counts.products }}</span>
-        </div>
-        <div class="w-full bg-slate-100 rounded-full h-2">
-          <div class="h-2 rounded-full bg-sky-500" style="width: {{ 10 if ivg_counts.products == 0 else 42 }}%"></div>
-        </div>
-      </div>
-    </div>
+    {% endmacro %}
+
+    {{ usage_bar('Usuarios IVG', ivg_counts.users, 'bg-rose-500', 100 if ivg_counts.users > 0 else 8) }}
+    {{ usage_bar('Clientes IVG', ivg_counts.clients, 'bg-indigo-500', 100 if ivg_counts.clients > 0 else 8) }}
+    {{ usage_bar('Productos IVG', ivg_counts.products, 'bg-emerald-500', 100 if ivg_counts.products > 0 else 8) }}
   </div>
 
   <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border">
     <div class="flex justify-between items-center mb-4">
-      <h3 class="text-lg font-semibold">Módulos preparados</h3>
-      <span class="text-sm text-indigo-600">IVG separado de Lempis</span>
+      <h3 class="text-lg font-semibold">Módulos IVG</h3>
+      <a href="{{ url_for('igh.reportes') }}" class="text-sm text-indigo-600 hover:underline">Ver todos →</a>
     </div>
-
-    <table class="w-full text-sm">
+    <table class="saas-table w-full">
       <thead>
-        <tr class="text-left text-slate-500 border-b">
-          <th class="py-3">Módulo</th>
-          <th class="py-3">Tabla</th>
-          <th class="py-3">Estado</th>
-          <th class="py-3">Ruta</th>
+        <tr>
+          <th>Módulo</th>
+          <th>Tabla</th>
+          <th>Registros</th>
+          <th>Ruta</th>
         </tr>
       </thead>
       <tbody>
-        <tr class="border-b border-slate-100">
-          <td class="py-3 font-medium">Usuarios</td>
-          <td class="py-3 font-mono text-xs">ivg_usuarios</td>
-          <td class="py-3"><span class="text-xs px-2 py-1 rounded bg-emerald-100 text-emerald-700">Base lista</span></td>
-          <td class="py-3 text-indigo-600">/igh/usuarios</td>
+        <tr class="hover:bg-slate-50">
+          <td class="text-sm font-medium">Usuarios</td>
+          <td class="font-mono text-xs">ivg_usuarios</td>
+          <td class="font-mono">{{ ivg_counts.users }}</td>
+          <td><a href="{{ url_for('igh.usuarios') }}" class="text-indigo-600 hover:underline">/igh/usuarios</a></td>
         </tr>
-        <tr class="border-b border-slate-100">
-          <td class="py-3 font-medium">Clientes</td>
-          <td class="py-3 font-mono text-xs">ivg_clientes</td>
-          <td class="py-3"><span class="text-xs px-2 py-1 rounded bg-emerald-100 text-emerald-700">Base lista</span></td>
-          <td class="py-3 text-indigo-600">/igh/clientes</td>
+        <tr class="hover:bg-slate-50">
+          <td class="text-sm font-medium">Clientes</td>
+          <td class="font-mono text-xs">ivg_clientes</td>
+          <td class="font-mono">{{ ivg_counts.clients }}</td>
+          <td><a href="{{ url_for('igh.clientes') }}" class="text-indigo-600 hover:underline">/igh/clientes</a></td>
         </tr>
-        <tr>
-          <td class="py-3 font-medium">Productos</td>
-          <td class="py-3 font-mono text-xs">ivg_productos</td>
-          <td class="py-3"><span class="text-xs px-2 py-1 rounded bg-emerald-100 text-emerald-700">Base lista</span></td>
-          <td class="py-3 text-indigo-600">/igh/productos</td>
+        <tr class="hover:bg-slate-50">
+          <td class="text-sm font-medium">Productos</td>
+          <td class="font-mono text-xs">ivg_productos</td>
+          <td class="font-mono">{{ ivg_counts.products }}</td>
+          <td><a href="{{ url_for('igh.productos') }}" class="text-indigo-600 hover:underline">/igh/productos</a></td>
         </tr>
       </tbody>
     </table>
   </div>
-</section>
+</div>
 
 <section class="bg-white p-6 rounded-xl shadow-sm border mt-6">
   <h3 class="text-lg font-semibold mb-3">Próximos pasos</h3>
   <ul class="space-y-2 text-slate-600">
-    <li class="flex items-center gap-2">✅ Sidebar y dashboard alineados al estilo principal de Lempis.</li>
-    <li class="flex items-center gap-2">✅ Tablas preparadas en la misma base con prefijo técnico <span class="font-mono text-xs">ivg_*</span>.</li>
-    <li class="flex items-center gap-2">⬜ Crear CRUD real de usuarios IVG.</li>
-    <li class="flex items-center gap-2">⬜ Crear CRUD real de clientes IVG.</li>
-    <li class="flex items-center gap-2">⬜ Crear CRUD real de productos IVG.</li>
+    <li class="flex items-center gap-2">✅ Layout de `IGH` alineado al dashboard principal de Lempis.</li>
+    <li class="flex items-center gap-2">✅ Datos listos para vivir en la misma base con prefijo <span class="font-mono text-xs">ivg_*</span>.</li>
+    <li class="flex items-center gap-2">⬜ Conectar CRUD real de usuarios IVG.</li>
+    <li class="flex items-center gap-2">⬜ Conectar CRUD real de clientes IVG.</li>
+    <li class="flex items-center gap-2">⬜ Conectar CRUD real de productos IVG.</li>
   </ul>
 </section>
 {% endblock %}

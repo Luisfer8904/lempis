@@ -1,5 +1,5 @@
 {% extends "igh/_layout.html" %}
-{% block title %}{{ section_title }} — IVG{% endblock %}
+{% block title %}{{ section_title }} — {{ company_name }}{% endblock %}
 {% block heading %}{{ section_title }}{% endblock %}
 
 {% block content %}
@@ -8,50 +8,48 @@
   <p class="text-slate-500">{{ section_description }}</p>
 </section>
 
-<section class="grid lg:grid-cols-3 gap-6">
+<section class="grid md:grid-cols-4 gap-4 mb-4">
+  <div class="bg-white p-5 rounded-xl shadow-sm border">
+    <div class="text-slate-500 text-sm">Tabla asociada</div>
+    <div class="text-2xl font-bold font-mono">{{ section_eyebrow }}</div>
+  </div>
+  <div class="bg-white p-5 rounded-xl shadow-sm border">
+    <div class="text-slate-500 text-sm">Usuario actual</div>
+    <div class="text-2xl font-bold">{{ igh_user }}</div>
+  </div>
+  <div class="bg-white p-5 rounded-xl shadow-sm border">
+    <div class="text-slate-500 text-sm">Estado</div>
+    <div class="text-2xl font-bold">Base lista</div>
+  </div>
+  <div class="bg-white p-5 rounded-xl shadow-sm border">
+    <div class="text-slate-500 text-sm">Siguiente paso</div>
+    <div class="text-lg font-bold">{{ section_cta }}</div>
+  </div>
+</section>
+
+<div class="grid lg:grid-cols-3 gap-6">
   <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border">
     <div class="flex justify-between items-center mb-4">
-      <div>
-        <p class="text-xs uppercase font-semibold tracking-[0.18em] text-slate-400">{{ section_eyebrow }}</p>
-        <h3 class="text-lg font-semibold mt-2">Módulo preparado</h3>
-      </div>
+      <h3 class="text-lg font-semibold">Módulo preparado</h3>
       <button class="text-xs bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100">
         {{ section_cta }}
       </button>
     </div>
 
     <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center">
-      <p class="text-slate-700 font-medium">Esta vista ya tiene layout, navegación y convención de tabla definidos.</p>
-      <p class="text-sm text-slate-500 mt-2">Siguiente paso: conectar el CRUD real sobre la tabla <span class="font-mono">{{ section_eyebrow }}</span>.</p>
+      <p class="text-slate-700 font-medium">Esta vista ya usa el mismo layout del dashboard principal de Lempis.</p>
+      <p class="text-sm text-slate-500 mt-2">Siguiente paso: conectar el CRUD real sobre <span class="font-mono">{{ section_eyebrow }}</span>.</p>
     </div>
   </div>
 
   <div class="bg-white p-6 rounded-xl shadow-sm border">
-    <p class="text-xs uppercase font-semibold tracking-[0.18em] text-slate-400">Resumen técnico</p>
-    <div class="mt-4 space-y-3 text-sm">
-      <div class="rounded-lg bg-slate-50 border px-4 py-3">
-        <div class="text-slate-500">Usuario especial</div>
-        <div class="font-semibold text-slate-900 mt-1">{{ igh_user }}</div>
-      </div>
-      <div class="rounded-lg bg-slate-50 border px-4 py-3">
-        <div class="text-slate-500">Tabla asociada</div>
-        <div class="font-mono text-xs text-slate-900 mt-1">{{ section_eyebrow }}</div>
-      </div>
-      <div class="rounded-lg bg-slate-50 border px-4 py-3">
-        <div class="text-slate-500">Registros actuales</div>
-        <div class="font-semibold text-slate-900 mt-1">
-          {% if section_eyebrow == 'ivg_usuarios' %}
-            {{ ivg_counts.users }}
-          {% elif section_eyebrow == 'ivg_clientes' %}
-            {{ ivg_counts.clients }}
-          {% elif section_eyebrow == 'ivg_productos' %}
-            {{ ivg_counts.products }}
-          {% else %}
-            0
-          {% endif %}
-        </div>
-      </div>
-    </div>
+    <p class="text-xs text-slate-500 uppercase font-semibold mb-3">Resumen técnico</p>
+    <ul class="space-y-2 text-slate-600 text-sm">
+      <li>Empresa: <strong>{{ company_name }}</strong></li>
+      <li>Usuario: <strong>{{ igh_user }}</strong></li>
+      <li>Tabla: <span class="font-mono text-xs">{{ section_eyebrow }}</span></li>
+      <li>Base de datos: <strong>misma DB de Lempis</strong></li>
+    </ul>
   </div>
-</section>
+</div>
 {% endblock %}
