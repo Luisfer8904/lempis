@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}IGH Dashboard{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <div class="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_22%),radial-gradient(circle_at_80%_10%,_rgba(16,185,129,0.18),_transparent_20%),linear-gradient(180deg,_#020617_0%,_#0f172a_100%)]">
+    <header class="border-b border-white/10 bg-slate-950/60 backdrop-blur-xl">
+      <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        <div class="flex items-center gap-3">
+          <span class="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-400/20 bg-white/5">
+            <img src="{{ url_for('static', filename='img/lempis-mark.svg') }}"
+                 alt="IGH mark"
+                 class="h-8 w-8 object-contain" />
+          </span>
+          <div>
+            <p class="text-sm font-semibold uppercase tracking-[0.25em] text-emerald-300">IGH</p>
+            <p class="text-lg font-bold text-white">Inversiones Guevara Herrera</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300">
+            Sesión: {{ igh_user }}
+          </span>
+          <a href="{{ url_for('igh.logout') }}"
+             class="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10">
+            Salir
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-7xl px-6 py-8">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>

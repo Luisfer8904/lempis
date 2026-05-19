@@ -108,6 +108,9 @@ def signup():
 
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
+    if session.get("igh_user"):
+        return redirect(url_for("igh.dashboard"))
+
     # Si el usuario "autenticado" tiene una sesión zombi (sin tenant válido),
     # limpiamos todo antes de mostrar el login para evitar loops.
     if current_user.is_authenticated:
@@ -117,6 +120,17 @@ def login():
             session.pop("_flashes", None)
         else:
             return redirect(url_for("dashboard.home"))
+
+    # ===== Sub-app: Inversiones Guevara Herrera =====
+    # Acceso especial con usuario "Luis" + clave "8904" (mismo formulario).
+    # Esto NO afecta el login normal de Lempis — solo se dispara si coinciden exacto.
+    if request.method == "POST":
+        usr = (request.form.get("email") or "").strip()
+        pwd = request.form.get("password") or ""
+        if usr.lower() == "luis" and pwd == "8904":
+            session.pop("tenant_id", None)
+            session["igh_user"] = "Luis"
+            return redirect(url_for("igh.dashboard"))
 
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()

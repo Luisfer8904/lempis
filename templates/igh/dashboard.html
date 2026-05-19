@@ -1,0 +1,166 @@
+{% extends "igh/_layout.html" %}
+{% block title %}Dashboard IGH{% endblock %}
+
+{% block content %}
+<section class="grid gap-8 xl:grid-cols-[1.25fr_0.75fr]">
+  <div class="space-y-8">
+    <div class="overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-2xl shadow-slate-950/40">
+      <div class="grid gap-8 px-8 py-10 lg:grid-cols-[1.1fr_0.9fr]">
+        <div class="space-y-6">
+          <div class="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-emerald-200">
+            Acceso privado
+          </div>
+          <div class="space-y-4">
+            <p class="text-sm font-semibold uppercase tracking-[0.3em] text-sky-200/80">Inversiones Guevara Herrera</p>
+            <h1 class="max-w-2xl text-4xl font-black tracking-[-0.04em] text-white sm:text-5xl">
+              Panel ejecutivo listo para una operación más puntual y controlada.
+            </h1>
+            <p class="max-w-xl text-base leading-7 text-slate-300">
+              Este acceso entra a un ambiente separado de Lempis. Aquí puedes manejar indicadores,
+              seguimiento y control comercial sin mezclar navegación, colores ni módulos con el SaaS principal.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <div class="rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3">
+              <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Usuario</p>
+              <p class="mt-1 text-sm font-semibold text-white">{{ igh_user }}</p>
+            </div>
+            <div class="rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3">
+              <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Ambiente</p>
+              <p class="mt-1 text-sm font-semibold text-white">Dashboard privado IGH</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-950/80 p-6">
+          <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(59,130,246,0.18),_transparent_35%),radial-gradient(circle_at_bottom_left,_rgba(16,185,129,0.18),_transparent_35%)]"></div>
+          <div class="relative space-y-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Snapshot operativo</p>
+                <p class="mt-1 text-lg font-bold text-white">Visión rápida del negocio</p>
+              </div>
+              <span class="rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200">
+                En línea
+              </span>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Cobro proyectado</p>
+                <p class="mt-3 text-3xl font-black text-white">$128,400</p>
+                <p class="mt-2 text-sm text-emerald-300">+12.8% vs. semana anterior</p>
+              </div>
+              <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Compromisos activos</p>
+                <p class="mt-3 text-3xl font-black text-white">18</p>
+                <p class="mt-2 text-sm text-sky-300">6 cierres en seguimiento</p>
+              </div>
+            </div>
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div class="flex items-center justify-between">
+                <p class="text-sm font-semibold text-white">Pulso del pipeline</p>
+                <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Últimas 24h</p>
+              </div>
+              <div class="mt-4 space-y-3">
+                <div>
+                  <div class="mb-1 flex items-center justify-between text-xs text-slate-400">
+                    <span>Prospección</span>
+                    <span>68%</span>
+                  </div>
+                  <div class="h-2 rounded-full bg-white/10">
+                    <div class="h-2 rounded-full bg-sky-400" style="width: 68%"></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="mb-1 flex items-center justify-between text-xs text-slate-400">
+                    <span>Negociación</span>
+                    <span>52%</span>
+                  </div>
+                  <div class="h-2 rounded-full bg-white/10">
+                    <div class="h-2 rounded-full bg-violet-400" style="width: 52%"></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="mb-1 flex items-center justify-between text-xs text-slate-400">
+                    <span>Cierre</span>
+                    <span>81%</span>
+                  </div>
+                  <div class="h-2 rounded-full bg-white/10">
+                    <div class="h-2 rounded-full bg-emerald-400" style="width: 81%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid gap-4 md:grid-cols-3">
+      <article class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
+        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Facturación prevista</p>
+        <p class="mt-3 text-3xl font-black text-white">L 3.2M</p>
+        <p class="mt-2 text-sm text-slate-300">Consolidado estimado del periodo actual.</p>
+      </article>
+      <article class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
+        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Operaciones abiertas</p>
+        <p class="mt-3 text-3xl font-black text-white">42</p>
+        <p class="mt-2 text-sm text-slate-300">Seguimiento centralizado de oportunidades.</p>
+      </article>
+      <article class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
+        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Tiempo de respuesta</p>
+        <p class="mt-3 text-3xl font-black text-white">4.6h</p>
+        <p class="mt-2 text-sm text-slate-300">Promedio de atención sobre leads activos.</p>
+      </article>
+    </div>
+  </div>
+
+  <aside class="space-y-4">
+    <section class="rounded-[1.75rem] border border-white/10 bg-white/5 p-6">
+      <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Próximos pasos</p>
+      <h2 class="mt-3 text-2xl font-bold text-white">Checklist de arranque</h2>
+      <div class="mt-6 space-y-4">
+        <div class="flex gap-3 rounded-2xl border border-white/10 bg-slate-900/60 p-4">
+          <span class="mt-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400"></span>
+          <div>
+            <p class="font-semibold text-white">Acceso exclusivo validado</p>
+            <p class="mt-1 text-sm text-slate-400">El usuario especial entra al panel `IGH` sin mezclar sesión con Lempis.</p>
+          </div>
+        </div>
+        <div class="flex gap-3 rounded-2xl border border-white/10 bg-slate-900/60 p-4">
+          <span class="mt-0.5 h-2.5 w-2.5 rounded-full bg-sky-400"></span>
+          <div>
+            <p class="font-semibold text-white">Layout independiente</p>
+            <p class="mt-1 text-sm text-slate-400">Diseño, navegación y atmósfera visual separados del producto principal.</p>
+          </div>
+        </div>
+        <div class="flex gap-3 rounded-2xl border border-white/10 bg-slate-900/60 p-4">
+          <span class="mt-0.5 h-2.5 w-2.5 rounded-full bg-violet-400"></span>
+          <div>
+            <p class="font-semibold text-white">Base lista para crecer</p>
+            <p class="mt-1 text-sm text-slate-400">Aquí ya se pueden agregar módulos, tablas o métricas propias del cliente.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="rounded-[1.75rem] border border-white/10 bg-gradient-to-br from-sky-500/12 via-transparent to-emerald-400/12 p-6">
+      <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Estado del ambiente</p>
+      <div class="mt-4 space-y-4">
+        <div class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+          <span class="text-sm text-slate-300">Ruta privada</span>
+          <span class="text-sm font-semibold text-white">/igh/</span>
+        </div>
+        <div class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+          <span class="text-sm text-slate-300">Autenticación</span>
+          <span class="text-sm font-semibold text-emerald-200">Separada</span>
+        </div>
+        <div class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+          <span class="text-sm text-slate-300">Marca</span>
+          <span class="text-sm font-semibold text-white">IGH / Guevara Herrera</span>
+        </div>
+      </div>
+    </section>
+  </aside>
+</section>
+{% endblock %}
