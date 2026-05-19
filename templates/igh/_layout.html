@@ -3,40 +3,105 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{% block title %}IGH Dashboard{% endblock %}</title>
+  <title>{% block title %}IVG Dashboard{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}" />
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="min-h-screen bg-[#f6f8fc] text-slate-900">
-  <div class="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.08),_transparent_24%),radial-gradient(circle_at_90%_10%,_rgba(16,185,129,0.08),_transparent_22%),linear-gradient(180deg,_#f8fbff_0%,_#f3f6fb_52%,_#eef4f8_100%)]">
-    <header class="sticky top-0 z-30 border-b border-slate-200/80 bg-white/88 backdrop-blur-xl">
-      <div class="mx-auto flex max-w-[1500px] items-center justify-between px-6 py-4">
-        <div class="flex items-center gap-4">
-          <span class="flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-100 bg-gradient-to-br from-white via-indigo-50 to-emerald-50 shadow-sm">
-            <img src="{{ url_for('static', filename='img/lempis-mark.svg') }}"
-                 alt="IGH mark"
-                 class="h-8 w-8 object-contain" />
-          </span>
-          <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.34em] text-emerald-600">IGH Dashboard</p>
-            <p class="text-xl font-black tracking-[-0.03em] text-slate-950">Inversiones Guevara Herrera</p>
-          </div>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+<div class="flex min-h-screen">
+  <aside class="w-64 bg-white border-r flex flex-col">
+    <div class="px-6 py-5 border-b">
+      <a href="{{ url_for('igh.dashboard') }}" class="flex items-center gap-3 text-slate-950">
+        <span class="flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50 shadow-sm">
+          <img
+            src="{{ url_for('static', filename='img/lempis-mark.svg') }}"
+            alt="Isotipo IVG"
+            class="h-9 w-9 object-contain"
+          />
+        </span>
+        <div class="min-w-0">
+          <p class="text-2xl font-black leading-none tracking-[-0.03em]">IVG</p>
+          <p class="text-[11px] uppercase tracking-[0.22em] text-slate-400">Private Workspace</p>
         </div>
-        <div class="flex items-center gap-3">
-          <span class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm">
-            Sesión: {{ igh_user }}
-          </span>
-          <a href="{{ url_for('igh.logout') }}"
-             class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50">
-            Salir
-          </a>
+      </a>
+      <p class="text-xs text-slate-500 mt-1 truncate">{{ company_name }}</p>
+    </div>
+
+    <nav class="flex-1 px-3 py-4 space-y-1">
+      {% set active = request.endpoint or '' %}
+      {% macro navlink(endpoint, label, icon) %}
+        <a href="{{ url_for(endpoint) }}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+                  {% if active == endpoint %}
+                    bg-indigo-50 text-indigo-700
+                  {% else %}
+                    text-slate-600 hover:bg-slate-100
+                  {% endif %}">
+          <span class="text-lg">{{ icon }}</span> {{ label }}
+        </a>
+      {% endmacro %}
+
+      <a href="{{ url_for('igh.dashboard') }}"
+         class="flex items-center justify-center gap-2 px-3 py-3 mb-3
+                bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl
+                font-semibold shadow hover:shadow-md hover:from-emerald-600 hover:to-green-700">
+        ✨ Nueva gestión
+      </a>
+
+      {{ navlink('igh.dashboard', 'Dashboard', '🏠') }}
+      {{ navlink('igh.usuarios', 'Usuarios', '🧑‍🤝‍🧑') }}
+      {{ navlink('igh.clientes', 'Clientes', '👥') }}
+      {{ navlink('igh.productos', 'Productos', '📦') }}
+      {{ navlink('igh.cobros', 'Cobros', '💵') }}
+      {{ navlink('igh.agenda', 'Agenda', '🗓️') }}
+      {{ navlink('igh.reportes', 'Reportes', '📊') }}
+
+      <div class="pt-4 mt-4 border-t">
+        <p class="px-3 text-[10px] text-slate-400 uppercase font-semibold mb-1">Misma base de datos</p>
+        <div class="px-3 py-3 rounded-xl bg-slate-50 border text-xs text-slate-500 leading-5">
+          Estructura preparada con prefijos:
+          <div class="mt-2 font-mono text-[11px] text-slate-700">ivg_usuarios</div>
+          <div class="font-mono text-[11px] text-slate-700">ivg_clientes</div>
+          <div class="font-mono text-[11px] text-slate-700">ivg_productos</div>
         </div>
+      </div>
+    </nav>
+
+    <div class="px-4 py-3 border-t flex items-center gap-3">
+      <div class="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-sm font-semibold">
+        {{ igh_user[:1] | upper }}
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium truncate">{{ igh_user }}</p>
+        <a href="{{ url_for('igh.logout') }}" class="text-xs text-rose-600 hover:underline">Cerrar sesión</a>
+      </div>
+    </div>
+  </aside>
+
+  <main class="flex-1 overflow-x-hidden">
+    <header class="bg-white border-b px-6 py-3 flex justify-between items-center">
+      <h1 class="text-xl font-semibold">{% block heading %}{% endblock %}</h1>
+      <div class="flex items-center gap-2">
+        {% block actions %}{% endblock %}
       </div>
     </header>
 
-    <main class="mx-auto max-w-[1500px] px-6 py-8">
+    <div class="px-6 py-6">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+          <div class="mb-4 px-4 py-3 rounded-lg
+                      {% if cat=='success' %}bg-green-100 text-green-800
+                      {% elif cat=='danger' %}bg-rose-100 text-rose-800
+                      {% elif cat=='warning' %}bg-amber-100 text-amber-800
+                      {% else %}bg-sky-100 text-sky-800{% endif %}">
+            {{ msg }}
+          </div>
+        {% endfor %}
+      {% endwith %}
+
       {% block content %}{% endblock %}
-    </main>
-  </div>
+    </div>
+  </main>
+</div>
 </body>
 </html>
