@@ -1,0 +1,57 @@
+{% extends "igh/_layout.html" %}
+{% block title %}Pagos y abonos — {{ company_name }}{% endblock %}
+{% block heading %}Pagos y abonos{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('igh.pagos_new') }}"
+     class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
+    + Registrar pago
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+  <table class="saas-table w-full">
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Factura crédito</th>
+        <th>Cliente</th>
+        <th>Tipo</th>
+        <th>Método</th>
+        <th>Categoría</th>
+        <th>Monto</th>
+        <th class="text-right">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for payment in payments %}
+      <tr class="hover:bg-slate-50">
+        <td class="text-sm">{{ payment.payment_date.strftime('%d/%m/%Y %H:%M') if payment.payment_date else '—' }}</td>
+        <td class="font-mono text-xs">{{ payment.sale.reference_number or ('VENTA-' ~ payment.sale.id) if payment.sale else '—' }}</td>
+        <td class="font-medium">{{ payment.sale.client.name if payment.sale and payment.sale.client else '—' }}</td>
+        <td>
+          <span class="text-xs px-2 py-1 rounded {% if payment.payment_kind == 'pago' %}bg-emerald-100 text-emerald-700{% else %}bg-indigo-100 text-indigo-700{% endif %}">
+            {{ payment.payment_kind }}
+          </span>
+        </td>
+        <td class="text-sm">{{ payment.payment_method }}</td>
+        <td class="text-sm">{{ payment.category }}</td>
+        <td class="font-semibold">HNL {{ "{:,.2f}".format(payment.amount or 0) }}</td>
+        <td class="text-right">
+          <a href="{{ url_for('igh.pagos_edit', payment_id=payment.id) }}"
+             class="text-indigo-600 hover:underline text-sm">Editar</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="8" class="px-6 py-10 text-center text-slate-500">
+          No hay pagos o abonos IVG registrados todavía.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="text-sm text-slate-500 mt-3">{{ payments|length }} movimiento(s) de cobro.</p>
+{% endblock %}

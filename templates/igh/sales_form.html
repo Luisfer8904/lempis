@@ -1,0 +1,99 @@
+{% extends "igh/_layout.html" %}
+{% block title %}{{ 'Editar' if sale else 'Nueva' }} venta IVG{% endblock %}
+{% block heading %}{{ 'Editar venta IVG' if sale else 'Nueva venta IVG' }}{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('igh.ventas') }}" class="text-slate-600 hover:text-slate-900 text-sm">
+  ← Volver
+</a>
+{% endblock %}
+
+{% block content %}
+<form method="POST" class="bg-white p-6 rounded-xl shadow-sm border max-w-4xl">
+  <div class="grid md:grid-cols-2 gap-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Cliente *</label>
+      <select name="client_id" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+        <option value="">Selecciona un cliente</option>
+        {% for client_item in clients %}
+          <option value="{{ client_item.id }}" {% if sale and sale.client_id == client_item.id %}selected{% endif %}>
+            {{ client_item.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Tipo de venta *</label>
+      <select name="sale_type" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+        {% for code, label in [('contado', 'Contado'), ('credito', 'Crédito')] %}
+          <option value="{{ code }}" {% if (sale and sale.sale_type == code) or (not sale and code == 'contado') %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">Categoría *</label>
+      <select name="category" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+        {% for code, label in [('herbicidas', 'Herbicidas'), ('concentrados', 'Concentrados')] %}
+          <option value="{{ code }}" {% if (sale and sale.category == code) or (not sale and code == 'herbicidas') %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Método de pago</label>
+      <select name="payment_method" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+        <option value="">Solo aplica a ventas de contado</option>
+        {% for code, label in [('efectivo', 'Efectivo'), ('transferencia', 'Transferencia')] %}
+          <option value="{{ code }}" {% if sale and sale.payment_method == code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">Monto bruto *</label>
+      <input type="number" step="0.01" min="0" name="gross_amount"
+             value="{{ sale.gross_amount if sale else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Referencia / factura</label>
+      <input name="reference_number" value="{{ sale.reference_number if sale else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">Fecha de venta *</label>
+      <input type="datetime-local" name="sale_date"
+             value="{{ sale.sale_date.strftime('%Y-%m-%dT%H:%M') if sale and sale.sale_date else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Vencimiento crédito</label>
+      <input type="datetime-local" name="due_date"
+             value="{{ sale.due_date.strftime('%Y-%m-%dT%H:%M') if sale and sale.due_date else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+
+    <div class="md:col-span-2">
+      <label class="block text-sm font-medium mb-1">Notas</label>
+      <textarea name="notes" rows="4"
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">{{ sale.notes if sale else '' }}</textarea>
+    </div>
+  </div>
+
+  {% if sale %}
+  <div class="mt-5 rounded-xl bg-slate-50 border px-4 py-3 text-sm text-slate-600">
+    Estado actual: <strong>{{ sale.status }}</strong> · Saldo pendiente:
+    <strong>HNL {{ "{:,.2f}".format(sale.balance_due or 0) }}</strong>
+  </div>
+  {% endif %}
+
+  <div class="flex gap-3 mt-6 pt-6 border-t">
+    <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+      {{ 'Guardar cambios' if sale else 'Registrar venta' }}
+    </button>
+    <a href="{{ url_for('igh.ventas') }}"
+       class="border px-6 py-2 rounded-lg hover:bg-slate-50">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

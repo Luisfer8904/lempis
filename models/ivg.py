@@ -56,6 +56,7 @@ class IVGClient(db.Model, TimestampMixin):
     is_active = Column(Boolean, default=True, nullable=False)
 
     sales = relationship("IVGSale", back_populates="client")
+    agenda_items = relationship("IVGAgendaItem", back_populates="client")
 
 
 class IVGProduct(db.Model, TimestampMixin):
@@ -116,3 +117,18 @@ class IVGPayment(db.Model, TimestampMixin):
     notes = Column(Text)
 
     sale = relationship("IVGSale", back_populates="payments")
+
+
+class IVGAgendaItem(db.Model, TimestampMixin):
+    __tablename__ = "ivg_agenda"
+
+    id = Column(Integer, primary_key=True)
+    client_id = Column(Integer, ForeignKey("ivg_clientes.id", ondelete="SET NULL"), index=True)
+    title = Column(String(140), nullable=False)
+    activity_type = Column(String(40), default="seguimiento", nullable=False)
+    status = Column(String(20), default="pendiente", nullable=False)
+    priority = Column(String(20), default="media", nullable=False)
+    scheduled_for = Column(DateTime, default=datetime.utcnow, nullable=False)
+    notes = Column(Text)
+
+    client = relationship("IVGClient", back_populates="agenda_items")

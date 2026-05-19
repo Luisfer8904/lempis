@@ -1,0 +1,77 @@
+{% extends "igh/_layout.html" %}
+{% block title %}{{ 'Editar' if client else 'Nuevo' }} cliente IVG{% endblock %}
+{% block heading %}{{ 'Editar cliente IVG' if client else 'Nuevo cliente IVG' }}{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('igh.clientes') }}" class="text-slate-600 hover:text-slate-900 text-sm">
+  ← Volver
+</a>
+{% endblock %}
+
+{% block content %}
+<form method="POST" class="bg-white p-6 rounded-xl shadow-sm border max-w-3xl">
+  <div class="grid md:grid-cols-2 gap-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Nombre comercial *</label>
+      <input name="name" required
+             value="{{ client.name if client else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Razón social</label>
+      <input name="legal_name" value="{{ client.legal_name if client else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">RTN / Identificación</label>
+      <input name="tax_id" value="{{ client.tax_id if client else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Correo</label>
+      <input type="email" name="email" value="{{ client.email if client else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">Teléfono</label>
+      <input name="phone" value="{{ client.phone if client else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Ciudad</label>
+      <input name="city" value="{{ client.city if client else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">Estado comercial</label>
+      <select name="status"
+              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+        {% for status_code, status_name in [('prospecto', 'Prospecto'), ('activo', 'Activo'), ('inactivo', 'Inactivo')] %}
+          <option value="{{ status_code }}"
+                  {% if (client and client.status == status_code) or (not client and status_code == 'prospecto') %}selected{% endif %}>
+            {{ status_name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="flex items-end">
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="is_active" {% if client and client.is_active or not client %}checked{% endif %} />
+        Cliente activo para asignar ventas
+      </label>
+    </div>
+  </div>
+
+  <div class="flex gap-3 mt-6 pt-6 border-t">
+    <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+      {{ 'Guardar cambios' if client else 'Crear cliente' }}
+    </button>
+    <a href="{{ url_for('igh.clientes') }}"
+       class="border px-6 py-2 rounded-lg hover:bg-slate-50">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

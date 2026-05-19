@@ -1,0 +1,65 @@
+{% extends "igh/_layout.html" %}
+{% block title %}Agenda IVG — {{ company_name }}{% endblock %}
+{% block heading %}Agenda operativa{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('igh.agenda_new') }}"
+     class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
+    + Agregar actividad
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+  <table class="saas-table w-full">
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Actividad</th>
+        <th>Cliente</th>
+        <th>Tipo</th>
+        <th>Prioridad</th>
+        <th>Estado</th>
+        <th class="text-right">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in agenda_items %}
+      <tr class="hover:bg-slate-50">
+        <td class="text-sm">{{ item.scheduled_for.strftime('%d/%m/%Y %H:%M') if item.scheduled_for else '—' }}</td>
+        <td class="font-medium">{{ item.title }}</td>
+        <td class="text-sm">{{ item.client.name if item.client else 'General' }}</td>
+        <td class="text-sm">{{ item.activity_type }}</td>
+        <td>
+          <span class="text-xs px-2 py-1 rounded
+                       {% if item.priority == 'alta' %}bg-rose-100 text-rose-700
+                       {% elif item.priority == 'media' %}bg-amber-100 text-amber-700
+                       {% else %}bg-sky-100 text-sky-700{% endif %}">
+            {{ item.priority }}
+          </span>
+        </td>
+        <td>
+          <span class="text-xs px-2 py-1 rounded
+                       {% if item.status == 'completada' %}bg-emerald-100 text-emerald-700
+                       {% elif item.status == 'en_proceso' %}bg-indigo-100 text-indigo-700
+                       {% else %}bg-slate-200 text-slate-700{% endif %}">
+            {{ item.status }}
+          </span>
+        </td>
+        <td class="text-right">
+          <a href="{{ url_for('igh.agenda_edit', item_id=item.id) }}"
+             class="text-indigo-600 hover:underline text-sm">Editar</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="7" class="px-6 py-10 text-center text-slate-500">
+          No hay actividades de agenda registradas todavía.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="text-sm text-slate-500 mt-3">{{ agenda_items|length }} actividad(es) registradas.</p>
+{% endblock %}

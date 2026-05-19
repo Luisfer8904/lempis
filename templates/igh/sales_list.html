@@ -1,0 +1,68 @@
+{% extends "igh/_layout.html" %}
+{% block title %}Ventas IVG — {{ company_name }}{% endblock %}
+{% block heading %}Ventas IVG{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('igh.ventas_new') }}"
+     class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
+    + Registrar venta
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+  <table class="saas-table w-full">
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Cliente</th>
+        <th>Tipo</th>
+        <th>Categoría</th>
+        <th>Referencia</th>
+        <th>Total</th>
+        <th>Saldo</th>
+        <th>Estado</th>
+        <th class="text-right">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for sale in sales %}
+      <tr class="hover:bg-slate-50">
+        <td class="text-sm">{{ sale.sale_date.strftime('%d/%m/%Y %H:%M') if sale.sale_date else '—' }}</td>
+        <td class="font-medium">{{ sale.client.name if sale.client else '—' }}</td>
+        <td>
+          <span class="text-xs px-2 py-1 rounded {% if sale.sale_type == 'credito' %}bg-amber-100 text-amber-700{% else %}bg-emerald-100 text-emerald-700{% endif %}">
+            {{ sale.sale_type }}
+          </span>
+        </td>
+        <td class="text-sm">{{ sale.category }}</td>
+        <td class="font-mono text-xs">{{ sale.reference_number or '—' }}</td>
+        <td class="font-semibold">HNL {{ "{:,.2f}".format(sale.gross_amount or 0) }}</td>
+        <td class="font-semibold {% if sale.balance_due and sale.balance_due > 0 %}text-amber-700{% else %}text-slate-700{% endif %}">
+          HNL {{ "{:,.2f}".format(sale.balance_due or 0) }}
+        </td>
+        <td>
+          <span class="text-xs px-2 py-1 rounded
+                       {% if sale.status == 'pagada' %}bg-emerald-100 text-emerald-700
+                       {% elif sale.status == 'parcial' %}bg-indigo-100 text-indigo-700
+                       {% else %}bg-slate-200 text-slate-700{% endif %}">
+            {{ sale.status }}
+          </span>
+        </td>
+        <td class="text-right">
+          <a href="{{ url_for('igh.ventas_edit', sale_id=sale.id) }}"
+             class="text-indigo-600 hover:underline text-sm">Editar</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="9" class="px-6 py-10 text-center text-slate-500">
+          No hay ventas IVG registradas todavía.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="text-sm text-slate-500 mt-3">{{ sales|length }} venta(s) registradas.</p>
+{% endblock %}

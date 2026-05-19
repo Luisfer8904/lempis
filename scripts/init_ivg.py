@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import create_app
 from models import db
-from models.ivg import IVGClient, IVGPayment, IVGSale, IVGUser
+from models.ivg import IVGAgendaItem, IVGClient, IVGPayment, IVGSale, IVGUser
 
 
 DEFAULT_USERS = [
@@ -44,6 +44,7 @@ def ensure_tables():
     IVGClient.__table__.create(bind=db.engine, checkfirst=True)
     IVGSale.__table__.create(bind=db.engine, checkfirst=True)
     IVGPayment.__table__.create(bind=db.engine, checkfirst=True)
+    IVGAgendaItem.__table__.create(bind=db.engine, checkfirst=True)
 
 
 def seed_users():

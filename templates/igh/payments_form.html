@@ -1,0 +1,81 @@
+{% extends "igh/_layout.html" %}
+{% block title %}{{ 'Editar' if payment else 'Nuevo' }} pago IVG{% endblock %}
+{% block heading %}{{ 'Editar pago / abono' if payment else 'Registrar pago / abono' }}{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('igh.pagos') }}" class="text-slate-600 hover:text-slate-900 text-sm">
+  ← Volver
+</a>
+{% endblock %}
+
+{% block content %}
+<form method="POST" class="bg-white p-6 rounded-xl shadow-sm border max-w-4xl">
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="md:col-span-2">
+      <label class="block text-sm font-medium mb-1">Factura de crédito *</label>
+      <select name="sale_id" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+        <option value="">Selecciona una factura</option>
+        {% for sale in credit_sales %}
+          <option value="{{ sale.id }}" {% if payment and payment.sale_id == sale.id %}selected{% endif %}>
+            {{ sale.reference_number or ('VENTA-' ~ sale.id) }} · {{ sale.client.name if sale.client else 'Sin cliente' }} · Saldo HNL {{ "{:,.2f}".format(sale.balance_due or 0) }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">Tipo de movimiento *</label>
+      <select name="payment_kind" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+        {% for code, label in [('abono', 'Abono'), ('pago', 'Pago final')] %}
+          <option value="{{ code }}" {% if (payment and payment.payment_kind == code) or (not payment and code == 'abono') %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Método *</label>
+      <select name="payment_method" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+        {% for code, label in [('efectivo', 'Efectivo'), ('transferencia', 'Transferencia')] %}
+          <option value="{{ code }}" {% if payment and payment.payment_method == code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">Categoría *</label>
+      <select name="category" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+        {% for code, label in [('herbicidas', 'Herbicidas'), ('concentrados', 'Concentrados')] %}
+          <option value="{{ code }}" {% if (payment and payment.category == code) or (not payment and code == 'herbicidas') %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Monto *</label>
+      <input type="number" step="0.01" min="0" name="amount"
+             value="{{ payment.amount if payment else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">Fecha de pago *</label>
+      <input type="datetime-local" name="payment_date"
+             value="{{ payment.payment_date.strftime('%Y-%m-%dT%H:%M') if payment and payment.payment_date else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <div></div>
+
+    <div class="md:col-span-2">
+      <label class="block text-sm font-medium mb-1">Notas</label>
+      <textarea name="notes" rows="4"
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">{{ payment.notes if payment else '' }}</textarea>
+    </div>
+  </div>
+
+  <div class="flex gap-3 mt-6 pt-6 border-t">
+    <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+      {{ 'Guardar cambios' if payment else 'Registrar pago' }}
+    </button>
+    <a href="{{ url_for('igh.pagos') }}"
+       class="border px-6 py-2 rounded-lg hover:bg-slate-50">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

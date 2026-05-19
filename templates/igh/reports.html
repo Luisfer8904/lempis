@@ -1,0 +1,150 @@
+{% extends "igh/_layout.html" %}
+{% block title %}Reportes IVG — {{ company_name }}{% endblock %}
+{% block heading %}Reportes ejecutivos{% endblock %}
+
+{% block content %}
+<section class="grid md:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white rounded-xl border shadow-sm p-5">
+    <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">Ventas contado</p>
+    <p class="text-3xl font-bold">{{ ivg_counts.cash_sales }}</p>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-5">
+    <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">Ventas crédito</p>
+    <p class="text-3xl font-bold">{{ ivg_counts.credit_sales }}</p>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-5">
+    <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">Cobros registrados</p>
+    <p class="text-3xl font-bold">{{ ivg_counts.payments }}</p>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-5">
+    <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">Por cobrar</p>
+    <p class="text-3xl font-bold">HNL {{ "{:,.2f}".format(ivg_metrics.receivable_total) }}</p>
+  </div>
+</section>
+
+<section class="grid lg:grid-cols-3 gap-6 mb-6">
+  <div class="bg-white rounded-xl border shadow-sm p-6">
+    <h3 class="text-lg font-semibold mb-4">Contado por método</h3>
+    <div class="space-y-4">
+      <div>
+        <div class="flex justify-between text-sm mb-1">
+          <span>Efectivo</span>
+          <span class="font-semibold">HNL {{ "{:,.2f}".format(ivg_metrics.efectivo_total) }}</span>
+        </div>
+        <div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-emerald-500" style="width: {{ 100 if ivg_metrics.efectivo_total > 0 else 8 }}%"></div></div>
+      </div>
+      <div>
+        <div class="flex justify-between text-sm mb-1">
+          <span>Transferencia</span>
+          <span class="font-semibold">HNL {{ "{:,.2f}".format(ivg_metrics.transfer_total) }}</span>
+        </div>
+        <div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-indigo-500" style="width: {{ 100 if ivg_metrics.transfer_total > 0 else 8 }}%"></div></div>
+      </div>
+      <div>
+        <div class="flex justify-between text-sm mb-1">
+          <span>Total contado</span>
+          <span class="font-semibold">HNL {{ "{:,.2f}".format(ivg_metrics.cash_total) }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-xl border shadow-sm p-6">
+    <h3 class="text-lg font-semibold mb-4">Crédito por categoría</h3>
+    <div class="space-y-4">
+      <div>
+        <div class="flex justify-between text-sm mb-1">
+          <span>Herbicidas</span>
+          <span class="font-semibold">HNL {{ "{:,.2f}".format(ivg_metrics.herbicidas_credito) }}</span>
+        </div>
+        <div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-emerald-500" style="width: {{ 100 if ivg_metrics.herbicidas_credito > 0 else 8 }}%"></div></div>
+      </div>
+      <div>
+        <div class="flex justify-between text-sm mb-1">
+          <span>Concentrados</span>
+          <span class="font-semibold">HNL {{ "{:,.2f}".format(ivg_metrics.concentrados_credito) }}</span>
+        </div>
+        <div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-violet-500" style="width: {{ 100 if ivg_metrics.concentrados_credito > 0 else 8 }}%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-xl border shadow-sm p-6">
+    <h3 class="text-lg font-semibold mb-4">Agenda pendiente</h3>
+    <div class="space-y-3 text-sm">
+      {% for item in pending_agenda %}
+        <div class="rounded-lg border px-3 py-2">
+          <p class="font-medium">{{ item.title }}</p>
+          <p class="text-slate-500">{{ item.scheduled_for.strftime('%d/%m/%Y %H:%M') if item.scheduled_for else '—' }}</p>
+        </div>
+      {% else %}
+        <p class="text-slate-500">No hay actividades pendientes.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="grid lg:grid-cols-2 gap-6">
+  <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b flex justify-between items-center">
+      <h3 class="text-lg font-semibold">Últimas ventas</h3>
+      <a href="{{ url_for('igh.ventas') }}" class="text-sm text-indigo-600 hover:underline">Ver ventas →</a>
+    </div>
+    <table class="saas-table w-full">
+      <thead>
+        <tr>
+          <th>Referencia</th>
+          <th>Cliente</th>
+          <th>Tipo</th>
+          <th>Total</th>
+          <th>Saldo</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sale in recent_sales %}
+        <tr class="hover:bg-slate-50">
+          <td class="font-mono text-xs">{{ sale.reference_number or ('VENTA-' ~ sale.id) }}</td>
+          <td>{{ sale.client.name if sale.client else '—' }}</td>
+          <td>{{ sale.sale_type }}</td>
+          <td>HNL {{ "{:,.2f}".format(sale.gross_amount or 0) }}</td>
+          <td>HNL {{ "{:,.2f}".format(sale.balance_due or 0) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Sin ventas registradas.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b flex justify-between items-center">
+      <h3 class="text-lg font-semibold">Últimos pagos / abonos</h3>
+      <a href="{{ url_for('igh.pagos') }}" class="text-sm text-indigo-600 hover:underline">Ver pagos →</a>
+    </div>
+    <table class="saas-table w-full">
+      <thead>
+        <tr>
+          <th>Factura</th>
+          <th>Tipo</th>
+          <th>Método</th>
+          <th>Categoría</th>
+          <th>Monto</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for payment in recent_payments %}
+        <tr class="hover:bg-slate-50">
+          <td class="font-mono text-xs">{{ payment.sale.reference_number or ('VENTA-' ~ payment.sale.id) if payment.sale else '—' }}</td>
+          <td>{{ payment.payment_kind }}</td>
+          <td>{{ payment.payment_method }}</td>
+          <td>{{ payment.category }}</td>
+          <td>HNL {{ "{:,.2f}".format(payment.amount or 0) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Sin pagos registrados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
