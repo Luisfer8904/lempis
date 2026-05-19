@@ -7,34 +7,34 @@
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}" />
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="min-h-screen bg-slate-950 text-slate-100">
-  <div class="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_22%),radial-gradient(circle_at_80%_10%,_rgba(16,185,129,0.18),_transparent_20%),linear-gradient(180deg,_#020617_0%,_#0f172a_100%)]">
-    <header class="border-b border-white/10 bg-slate-950/60 backdrop-blur-xl">
-      <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <div class="flex items-center gap-3">
-          <span class="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-400/20 bg-white/5">
+<body class="min-h-screen bg-[#f6f8fc] text-slate-900">
+  <div class="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.08),_transparent_24%),radial-gradient(circle_at_90%_10%,_rgba(16,185,129,0.08),_transparent_22%),linear-gradient(180deg,_#f8fbff_0%,_#f3f6fb_52%,_#eef4f8_100%)]">
+    <header class="sticky top-0 z-30 border-b border-slate-200/80 bg-white/88 backdrop-blur-xl">
+      <div class="mx-auto flex max-w-[1500px] items-center justify-between px-6 py-4">
+        <div class="flex items-center gap-4">
+          <span class="flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-100 bg-gradient-to-br from-white via-indigo-50 to-emerald-50 shadow-sm">
             <img src="{{ url_for('static', filename='img/lempis-mark.svg') }}"
                  alt="IGH mark"
                  class="h-8 w-8 object-contain" />
           </span>
           <div>
-            <p class="text-sm font-semibold uppercase tracking-[0.25em] text-emerald-300">IGH</p>
-            <p class="text-lg font-bold text-white">Inversiones Guevara Herrera</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.34em] text-emerald-600">IGH Dashboard</p>
+            <p class="text-xl font-black tracking-[-0.03em] text-slate-950">Inversiones Guevara Herrera</p>
           </div>
         </div>
-        <div class="flex items-center gap-4">
-          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300">
+        <div class="flex items-center gap-3">
+          <span class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm">
             Sesión: {{ igh_user }}
           </span>
           <a href="{{ url_for('igh.logout') }}"
-             class="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10">
+             class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50">
             Salir
           </a>
         </div>
       </div>
     </header>
 
-    <main class="mx-auto max-w-7xl px-6 py-8">
+    <main class="mx-auto max-w-[1500px] px-6 py-8">
       {% block content %}{% endblock %}
     </main>
   </div>
