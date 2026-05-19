@@ -23,4 +23,4 @@ from models.country import Country, TaxConfig          # noqa: E402,F401
 from models.audit import AuditLog                      # noqa: E402,F401
 from models.suppliers import Supplier                  # noqa: E402,F401
 from models.purchases import Purchase, PurchaseItem    # noqa: E402,F401
-from models.ivg import IVGUser, IVGClient, IVGProduct  # noqa: E402,F401
+from models.ivg import IVGClient, IVGPayment, IVGProduct, IVGSale, IVGUser  # noqa: E402,F401

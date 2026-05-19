@@ -5,10 +5,10 @@ Acceso separado usando usuarios IVG desde el mismo login de Lempis.
 from functools import wraps
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
-from sqlalchemy import inspect
+from sqlalchemy import func, inspect
 
 from models import db
-from models.ivg import IVGClient, IVGProduct, IVGUser
+from models.ivg import IVGClient, IVGPayment, IVGSale, IVGUser
 
 
 igh_bp = Blueprint("igh", __name__, url_prefix="/igh")
@@ -59,6 +59,15 @@ def _safe_count(model) -> int:
     return model.query.count()
 
 
+def _safe_sum(model, column, *filters):
+    if not _table_exists(model):
+        return 0
+    query = db.session.query(func.coalesce(func.sum(column), 0))
+    if filters:
+        query = query.filter(*filters)
+    return float(query.scalar() or 0)
+
+
 def _base_context():
     current_igh_user = _current_igh_user()
     return {
@@ -69,12 +78,24 @@ def _base_context():
         "ivg_counts": {
             "users": _safe_count(IVGUser),
             "clients": _safe_count(IVGClient),
-            "products": _safe_count(IVGProduct),
+            "sales": _safe_count(IVGSale),
+            "payments": _safe_count(IVGPayment),
+            "credit_sales": _safe_count(IVGSale) if not _table_exists(IVGSale) else IVGSale.query.filter_by(sale_type="credito").count(),
+            "cash_sales": _safe_count(IVGSale) if not _table_exists(IVGSale) else IVGSale.query.filter_by(sale_type="contado").count(),
+        },
+        "ivg_metrics": {
+            "receivable_total": _safe_sum(IVGSale, IVGSale.balance_due, IVGSale.sale_type == "credito") if _table_exists(IVGSale) else 0,
+            "cash_total": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.sale_type == "contado") if _table_exists(IVGSale) else 0,
+            "transfer_total": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.sale_type == "contado", IVGSale.payment_method == "transferencia") if _table_exists(IVGSale) else 0,
+            "efectivo_total": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.sale_type == "contado", IVGSale.payment_method == "efectivo") if _table_exists(IVGSale) else 0,
+            "herbicidas_credito": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.sale_type == "credito", IVGSale.category == "herbicidas") if _table_exists(IVGSale) else 0,
+            "concentrados_credito": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.sale_type == "credito", IVGSale.category == "concentrados") if _table_exists(IVGSale) else 0,
         },
         "ivg_tables": [
             "ivg_usuarios",
             "ivg_clientes",
-            "ivg_productos",
+            "ivg_ventas",
+            "ivg_pagos",
         ],
     }
 
@@ -204,25 +225,25 @@ def clientes():
     )
 
 
-@igh_bp.route("/productos")
+@igh_bp.route("/ventas")
 @igh_login_required
-def productos():
+def ventas():
     return _render_section(
-        "Productos IVG",
-        "ivg_productos",
-        "Catálogo propio para servicios, líneas comerciales o activos que necesite Inversiones Guevara Herrera.",
-        "Crear producto IVG",
+        "Ventas IVG",
+        "ivg_ventas",
+        "Registro de venta bruta del negocio. Aquí vivirán las ventas al contado, las ventas al crédito y sus categorías herbicidas o concentrados.",
+        "Registrar venta",
     )
 
 
-@igh_bp.route("/cobros")
+@igh_bp.route("/pagos")
 @igh_login_required
-def cobros():
+def pagos():
     return _render_section(
-        "Cobros y cartera",
-        "ivg_cobros",
-        "Área lista para conectar cobranza, seguimiento de compromisos y control de saldos con el mismo estilo del dashboard principal.",
-        "Registrar cobro",
+        "Pagos y abonos",
+        "ivg_pagos",
+        "Los pagos y abonos se registrarán sobre facturas de crédito existentes para llevar saldo, historial y forma de pago.",
+        "Registrar pago",
     )
 
 
@@ -243,9 +264,21 @@ def reportes():
     return _render_section(
         "Reportes ejecutivos",
         "ivg_reportes",
-        "Este módulo puede consumir la misma base de datos y consolidar indicadores de usuarios, clientes y productos prefijados como `ivg_*`.",
+        "Este módulo consolidará ventas de contado, facturas de crédito, pagos, abonos y cartera por categoría dentro del workspace IVG.",
         "Generar reporte",
     )
+
+
+@igh_bp.route("/productos")
+@igh_login_required
+def productos_alias():
+    return redirect(url_for("igh.ventas"))
+
+
+@igh_bp.route("/cobros")
+@igh_login_required
+def cobros_alias():
+    return redirect(url_for("igh.pagos"))
 
 
 @igh_bp.route("/logout")

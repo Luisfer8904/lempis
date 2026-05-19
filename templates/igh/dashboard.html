@@ -5,7 +5,7 @@
 {% block content %}
 <section class="mb-6">
   <h2 class="text-2xl font-bold mb-1">Hola, {{ igh_user }} 👋</h2>
-  <p class="text-slate-500">{{ company_name }} — Workspace privado IVG en la misma base de datos</p>
+  <p class="text-slate-500">{{ company_name }} — Registro comercial para contado, crédito, pagos y abonos en la misma base de datos</p>
 </section>
 
 <section class="grid md:grid-cols-4 gap-4 mb-4">
@@ -20,14 +20,14 @@
     <a href="{{ url_for('igh.clientes') }}" class="text-xs text-indigo-600 hover:underline">Ver todos →</a>
   </div>
   <div class="bg-white p-5 rounded-xl shadow-sm border">
-    <div class="text-slate-500 text-sm">Productos</div>
-    <div class="text-3xl font-bold">{{ ivg_counts.products }}</div>
-    <a href="{{ url_for('igh.productos') }}" class="text-xs text-indigo-600 hover:underline">Ver todos →</a>
+    <div class="text-slate-500 text-sm">Ventas crédito</div>
+    <div class="text-3xl font-bold">{{ ivg_counts.credit_sales }}</div>
+    <a href="{{ url_for('igh.ventas') }}" class="text-xs text-indigo-600 hover:underline">Ver ventas →</a>
   </div>
   <div class="bg-white p-5 rounded-xl shadow-sm border">
-    <div class="text-slate-500 text-sm">Ingresos 30 días</div>
-    <div class="text-3xl font-bold">HNL 0.00</div>
-    <p class="text-xs text-slate-500 mt-2">Pendiente de conectar cartera IVG.</p>
+    <div class="text-slate-500 text-sm">Por cobrar</div>
+    <div class="text-3xl font-bold">HNL {{ "{:,.2f}".format(ivg_metrics.receivable_total) }}</div>
+    <p class="text-xs text-slate-500 mt-2">Saldo pendiente de facturas a crédito.</p>
   </div>
 </section>
 
@@ -38,19 +38,20 @@
     <a href="{{ url_for('igh.reportes') }}" class="text-xs text-indigo-600 hover:underline">Ver detalle →</a>
   </div>
   <div class="bg-white p-5 rounded-xl border md:col-span-2 flex items-center gap-4">
-    <span class="text-4xl">🧩</span>
+    <span class="text-4xl">🧾</span>
     <div class="flex-1">
       <p class="font-semibold text-slate-900">
-        Mismo motor, workspace separado
+        Mismo motor, flujo comercial separado
       </p>
       <p class="text-sm text-slate-600">
-        `IGH` comparte la misma base de datos, pero sus entidades operan con tablas prefijadas como
-        <strong>ivg_usuarios</strong>, <strong>ivg_clientes</strong> e <strong>ivg_productos</strong>.
+        `IGH` comparte la misma base de datos, pero su operación vive en tablas separadas para
+        <strong>usuarios</strong>, <strong>clientes</strong>, <strong>ventas</strong> y <strong>pagos</strong>.
+        El foco del módulo es registrar venta bruta, facturas de crédito y movimientos de cobro.
       </p>
     </div>
-    <a href="{{ url_for('igh.usuarios') }}"
+    <a href="{{ url_for('igh.ventas') }}"
        class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm">
-      Abrir módulos
+      Registrar flujo
     </a>
   </div>
 </section>
@@ -82,12 +83,12 @@
 
     {{ usage_bar('Usuarios IVG', ivg_counts.users, 'bg-rose-500', 100 if ivg_counts.users > 0 else 8) }}
     {{ usage_bar('Clientes IVG', ivg_counts.clients, 'bg-indigo-500', 100 if ivg_counts.clients > 0 else 8) }}
-    {{ usage_bar('Productos IVG', ivg_counts.products, 'bg-emerald-500', 100 if ivg_counts.products > 0 else 8) }}
+    {{ usage_bar('Ventas registradas', ivg_counts.sales, 'bg-emerald-500', 100 if ivg_counts.sales > 0 else 8) }}
   </div>
 
   <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border">
     <div class="flex justify-between items-center mb-4">
-      <h3 class="text-lg font-semibold">Módulos IVG</h3>
+      <h3 class="text-lg font-semibold">Operación IVG</h3>
       <a href="{{ url_for('igh.reportes') }}" class="text-sm text-indigo-600 hover:underline">Ver todos →</a>
     </div>
     <table class="saas-table w-full">
@@ -113,24 +114,89 @@
           <td><a href="{{ url_for('igh.clientes') }}" class="text-indigo-600 hover:underline">/igh/clientes</a></td>
         </tr>
         <tr class="hover:bg-slate-50">
-          <td class="text-sm font-medium">Productos</td>
-          <td class="font-mono text-xs">ivg_productos</td>
-          <td class="font-mono">{{ ivg_counts.products }}</td>
-          <td><a href="{{ url_for('igh.productos') }}" class="text-indigo-600 hover:underline">/igh/productos</a></td>
+          <td class="text-sm font-medium">Ventas</td>
+          <td class="font-mono text-xs">ivg_ventas</td>
+          <td class="font-mono">{{ ivg_counts.sales }}</td>
+          <td><a href="{{ url_for('igh.ventas') }}" class="text-indigo-600 hover:underline">/igh/ventas</a></td>
+        </tr>
+        <tr class="hover:bg-slate-50">
+          <td class="text-sm font-medium">Pagos y abonos</td>
+          <td class="font-mono text-xs">ivg_pagos</td>
+          <td class="font-mono">{{ ivg_counts.payments }}</td>
+          <td><a href="{{ url_for('igh.pagos') }}" class="text-indigo-600 hover:underline">/igh/pagos</a></td>
         </tr>
       </tbody>
     </table>
   </div>
 </div>
 
+<section class="grid lg:grid-cols-4 gap-4 mt-6">
+  <div class="bg-white p-5 rounded-xl border shadow-sm">
+    <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">Contado total</p>
+    <p class="text-3xl font-bold text-slate-900">HNL {{ "{:,.2f}".format(ivg_metrics.cash_total) }}</p>
+    <p class="text-xs text-slate-500 mt-2">Suma de ventas registradas como contado.</p>
+  </div>
+  <div class="bg-white p-5 rounded-xl border shadow-sm">
+    <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">Efectivo</p>
+    <p class="text-3xl font-bold text-emerald-600">HNL {{ "{:,.2f}".format(ivg_metrics.efectivo_total) }}</p>
+    <p class="text-xs text-slate-500 mt-2">Ventas de contado cobradas en efectivo.</p>
+  </div>
+  <div class="bg-white p-5 rounded-xl border shadow-sm">
+    <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">Transferencia</p>
+    <p class="text-3xl font-bold text-indigo-600">HNL {{ "{:,.2f}".format(ivg_metrics.transfer_total) }}</p>
+    <p class="text-xs text-slate-500 mt-2">Ventas de contado cobradas por transferencia.</p>
+  </div>
+  <div class="bg-white p-5 rounded-xl border shadow-sm">
+    <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">Facturas crédito</p>
+    <p class="text-3xl font-bold text-amber-600">{{ ivg_counts.credit_sales }}</p>
+    <p class="text-xs text-slate-500 mt-2">Documentos a crédito con pagos o abonos posteriores.</p>
+  </div>
+</section>
+
+<section class="grid md:grid-cols-2 gap-4 mt-6">
+  <div class="bg-white p-6 rounded-xl border shadow-sm">
+    <h3 class="text-lg font-semibold mb-4">Crédito por categoría</h3>
+    <div class="space-y-4">
+      <div>
+        <div class="flex justify-between text-sm mb-1">
+          <span class="text-slate-600">Herbicidas</span>
+          <span class="font-semibold">HNL {{ "{:,.2f}".format(ivg_metrics.herbicidas_credito) }}</span>
+        </div>
+        <div class="h-2 rounded-full bg-slate-100">
+          <div class="h-2 rounded-full bg-emerald-500" style="width: {{ 100 if ivg_metrics.herbicidas_credito > 0 else 8 }}%"></div>
+        </div>
+      </div>
+      <div>
+        <div class="flex justify-between text-sm mb-1">
+          <span class="text-slate-600">Concentrados</span>
+          <span class="font-semibold">HNL {{ "{:,.2f}".format(ivg_metrics.concentrados_credito) }}</span>
+        </div>
+        <div class="h-2 rounded-full bg-slate-100">
+          <div class="h-2 rounded-full bg-violet-500" style="width: {{ 100 if ivg_metrics.concentrados_credito > 0 else 8 }}%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white p-6 rounded-xl border shadow-sm">
+    <h3 class="text-lg font-semibold mb-4">Lógica operativa</h3>
+    <ul class="space-y-3 text-sm text-slate-600">
+      <li class="flex items-start gap-2"><span>✅</span><span>Las ventas de contado distinguen <strong>efectivo</strong> y <strong>transferencia</strong>.</span></li>
+      <li class="flex items-start gap-2"><span>✅</span><span>Las ventas a crédito generan saldo pendiente y luego aceptan <strong>pagos</strong> y <strong>abonos</strong>.</span></li>
+      <li class="flex items-start gap-2"><span>✅</span><span>Cada factura de crédito y cada movimiento de cobro se clasifica como <strong>herbicidas</strong> o <strong>concentrados</strong>.</span></li>
+      <li class="flex items-start gap-2"><span>✅</span><span>Los clientes son la base para asignar ventas; no dependemos de catálogo de productos por ahora.</span></li>
+    </ul>
+  </div>
+</section>
+
 <section class="bg-white p-6 rounded-xl shadow-sm border mt-6">
   <h3 class="text-lg font-semibold mb-3">Próximos pasos</h3>
   <ul class="space-y-2 text-slate-600">
     <li class="flex items-center gap-2">✅ Layout de `IGH` alineado al dashboard principal de Lempis.</li>
-    <li class="flex items-center gap-2">✅ Datos listos para vivir en la misma base con prefijo <span class="font-mono text-xs">ivg_*</span>.</li>
-    <li class="flex items-center gap-2">⬜ Conectar CRUD real de usuarios IVG.</li>
+    <li class="flex items-center gap-2">✅ Base orientada a ventas, pagos y clientes con prefijo <span class="font-mono text-xs">ivg_*</span>.</li>
     <li class="flex items-center gap-2">⬜ Conectar CRUD real de clientes IVG.</li>
-    <li class="flex items-center gap-2">⬜ Conectar CRUD real de productos IVG.</li>
+    <li class="flex items-center gap-2">⬜ Conectar registro de ventas contado y crédito.</li>
+    <li class="flex items-center gap-2">⬜ Conectar pagos y abonos sobre facturas de crédito existentes.</li>
   </ul>
 </section>
 {% endblock %}

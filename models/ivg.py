@@ -4,7 +4,8 @@ Usan prefijo `ivg_` para mantener aislamiento lógico sin otra BD.
 """
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
+from sqlalchemy.orm import relationship
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from models import db
@@ -54,6 +55,8 @@ class IVGClient(db.Model, TimestampMixin):
     status = Column(String(30), default="prospecto", nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
 
+    sales = relationship("IVGSale", back_populates="client")
+
 
 class IVGProduct(db.Model, TimestampMixin):
     __tablename__ = "ivg_productos"
@@ -65,3 +68,51 @@ class IVGProduct(db.Model, TimestampMixin):
     unit_price = Column(Numeric(10, 2), default=0)
     stock = Column(Integer, default=0, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+
+
+class IVGSale(db.Model, TimestampMixin):
+    """
+    Venta bruta del negocio IVG.
+    Puede ser:
+    - contado: se registra total y método de pago
+    - credito: se registra factura/saldo y luego se aplican pagos o abonos
+    """
+    __tablename__ = "ivg_ventas"
+
+    id = Column(Integer, primary_key=True)
+    client_id = Column(Integer, ForeignKey("ivg_clientes.id", ondelete="SET NULL"), index=True)
+
+    sale_type = Column(String(20), default="contado", nullable=False)          # contado | credito
+    category = Column(String(30), default="herbicidas", nullable=False)        # herbicidas | concentrados
+    payment_method = Column(String(20))                                         # efectivo | transferencia
+    status = Column(String(20), default="registrada", nullable=False)          # registrada | parcial | pagada
+
+    gross_amount = Column(Numeric(12, 2), default=0, nullable=False)
+    balance_due = Column(Numeric(12, 2), default=0, nullable=False)
+
+    sale_date = Column(DateTime, default=datetime.utcnow, nullable=False)
+    due_date = Column(DateTime)
+    reference_number = Column(String(60), index=True)
+    notes = Column(Text)
+
+    client = relationship("IVGClient", back_populates="sales")
+    payments = relationship("IVGPayment", back_populates="sale", cascade="all, delete-orphan")
+
+
+class IVGPayment(db.Model, TimestampMixin):
+    """
+    Pago o abono ligado a una venta de crédito.
+    """
+    __tablename__ = "ivg_pagos"
+
+    id = Column(Integer, primary_key=True)
+    sale_id = Column(Integer, ForeignKey("ivg_ventas.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    payment_kind = Column(String(20), default="abono", nullable=False)         # pago | abono
+    payment_method = Column(String(20), nullable=False)                         # efectivo | transferencia
+    category = Column(String(30), default="herbicidas", nullable=False)        # snapshot categoría
+    amount = Column(Numeric(12, 2), default=0, nullable=False)
+    payment_date = Column(DateTime, default=datetime.utcnow, nullable=False)
+    notes = Column(Text)
+
+    sale = relationship("IVGSale", back_populates="payments")
