@@ -10,7 +10,7 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, s
 from sqlalchemy import func, inspect
 
 from models import db
-from models.ivg import IVGAgendaItem, IVGClient, IVGPayment, IVGSale, IVGUser
+from models.ivg import IVGAgendaItem, IVGCashSummary, IVGClient, IVGPayment, IVGSale, IVGUser
 
 
 igh_bp = Blueprint("igh", __name__, url_prefix="/igh")
@@ -98,11 +98,6 @@ def _parse_datetime(raw_value: str, label: str, required: bool = False):
 
 
 def _recalculate_sale_balance(sale: IVGSale) -> None:
-    if sale.sale_type == "contado":
-        sale.balance_due = Decimal("0.00")
-        sale.status = "pagada"
-        return
-
     total_paid = sum((payment.amount or Decimal("0.00")) for payment in sale.payments)
     balance = max(Decimal(sale.gross_amount or 0) - Decimal(total_paid), Decimal("0.00"))
     sale.balance_due = balance
@@ -124,11 +119,11 @@ def _base_context():
     month_start = _month_start()
     pending_invoices = []
     recent_collections = []
+    recent_cash_summaries = []
     top_clients = []
     if _table_exists(IVGSale):
         pending_invoices = (
             IVGSale.query.filter(
-                IVGSale.sale_type == "credito",
                 IVGSale.balance_due > 0,
             )
             .order_by(IVGSale.due_date.asc(), IVGSale.sale_date.desc())
@@ -141,7 +136,6 @@ def _base_context():
                 func.coalesce(func.sum(IVGSale.balance_due), 0).label("pending_balance"),
             )
             .join(IVGSale, IVGSale.client_id == IVGClient.id)
-            .filter(IVGSale.sale_type == "credito")
             .group_by(IVGClient.id)
             .order_by(func.coalesce(func.sum(IVGSale.balance_due), 0).desc())
             .limit(6)
@@ -151,6 +145,12 @@ def _base_context():
         recent_collections = (
             IVGPayment.query.order_by(IVGPayment.payment_date.desc(), IVGPayment.id.desc())
             .limit(8)
+            .all()
+        )
+    if _table_exists(IVGCashSummary):
+        recent_cash_summaries = (
+            IVGCashSummary.query.order_by(IVGCashSummary.summary_date.desc(), IVGCashSummary.id.desc())
+            .limit(6)
             .all()
         )
     return {
@@ -163,30 +163,35 @@ def _base_context():
             "clients": _safe_count(IVGClient),
             "sales": _safe_count(IVGSale),
             "payments": _safe_count(IVGPayment),
+            "cash_summaries": _safe_count(IVGCashSummary),
             "agenda": _safe_count(IVGAgendaItem),
-            "credit_sales": _safe_count(IVGSale) if not _table_exists(IVGSale) else IVGSale.query.filter_by(sale_type="credito").count(),
-            "cash_sales": _safe_count(IVGSale) if not _table_exists(IVGSale) else IVGSale.query.filter_by(sale_type="contado").count(),
-            "pending_invoices": _safe_count(IVGSale) if not _table_exists(IVGSale) else IVGSale.query.filter(IVGSale.sale_type == "credito", IVGSale.balance_due > 0).count(),
+            "credit_sales": _safe_count(IVGSale),
+            "pending_invoices": _safe_count(IVGSale) if not _table_exists(IVGSale) else IVGSale.query.filter(IVGSale.balance_due > 0).count(),
         },
         "ivg_metrics": {
-            "receivable_total": _safe_sum(IVGSale, IVGSale.balance_due, IVGSale.sale_type == "credito") if _table_exists(IVGSale) else 0,
-            "cash_total": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.sale_type == "contado") if _table_exists(IVGSale) else 0,
+            "receivable_total": _safe_sum(IVGSale, IVGSale.balance_due) if _table_exists(IVGSale) else 0,
+            "cash_total": _safe_sum(IVGCashSummary, IVGCashSummary.total_amount) if _table_exists(IVGCashSummary) else 0,
             "payment_total": _safe_sum(IVGPayment, IVGPayment.amount) if _table_exists(IVGPayment) else 0,
-            "sales_month_total": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.sale_date >= month_start) if _table_exists(IVGSale) else 0,
+            "sales_month_total": (
+                (_safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.sale_date >= month_start) if _table_exists(IVGSale) else 0) +
+                (_safe_sum(IVGCashSummary, IVGCashSummary.total_amount, IVGCashSummary.summary_date >= month_start) if _table_exists(IVGCashSummary) else 0)
+            ),
             "collections_month_total": _safe_sum(IVGPayment, IVGPayment.amount, IVGPayment.payment_date >= month_start) if _table_exists(IVGPayment) else 0,
-            "transfer_total": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.sale_type == "contado", IVGSale.payment_method == "transferencia") if _table_exists(IVGSale) else 0,
-            "efectivo_total": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.sale_type == "contado", IVGSale.payment_method == "efectivo") if _table_exists(IVGSale) else 0,
-            "herbicidas_credito": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.sale_type == "credito", IVGSale.category == "herbicidas") if _table_exists(IVGSale) else 0,
-            "concentrados_credito": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.sale_type == "credito", IVGSale.category == "concentrados") if _table_exists(IVGSale) else 0,
+            "transfer_total": _safe_sum(IVGCashSummary, IVGCashSummary.transfer_amount) if _table_exists(IVGCashSummary) else 0,
+            "efectivo_total": _safe_sum(IVGCashSummary, IVGCashSummary.cash_amount) if _table_exists(IVGCashSummary) else 0,
+            "herbicidas_credito": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.category == "herbicidas") if _table_exists(IVGSale) else 0,
+            "concentrados_credito": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.category == "concentrados") if _table_exists(IVGSale) else 0,
         },
         "pending_invoices": pending_invoices,
         "recent_collections": recent_collections,
+        "recent_cash_summaries": recent_cash_summaries,
         "top_clients": top_clients,
         "ivg_tables": [
             "ivg_usuarios",
             "ivg_clientes",
             "ivg_ventas",
             "ivg_pagos",
+            "ivg_contado",
             "ivg_agenda",
         ],
     }
@@ -228,6 +233,15 @@ def _get_ivg_sale_or_404(sale_id: int) -> IVGSale:
     if sale is None:
         abort(404)
     return sale
+
+
+def _get_ivg_cash_or_404(summary_id: int) -> IVGCashSummary:
+    if not _table_exists(IVGCashSummary):
+        abort(404)
+    summary = db.session.get(IVGCashSummary, summary_id)
+    if summary is None:
+        abort(404)
+    return summary
 
 
 def _get_ivg_payment_or_404(payment_id: int) -> IVGPayment:
@@ -370,7 +384,7 @@ def clientes_detail(client_id: int):
         if _table_exists(IVGPayment) and _table_exists(IVGSale)
         else []
     )
-    pending_sales = [sale for sale in sales if sale.sale_type == "credito" and Decimal(sale.balance_due or 0) > 0]
+    pending_sales = [sale for sale in sales if Decimal(sale.balance_due or 0) > 0]
     total_sales = sum(Decimal(sale.gross_amount or 0) for sale in sales)
     total_collections = sum(Decimal(payment.amount or 0) for payment in payments)
     pending_balance = sum(Decimal(sale.balance_due or 0) for sale in pending_sales)
@@ -476,16 +490,14 @@ def ventas_new():
             client_id = int(request.form.get("client_id") or "0")
         except ValueError:
             client_id = 0
-        sale_type = (request.form.get("sale_type") or "contado").strip()
         category = (request.form.get("category") or "herbicidas").strip()
-        payment_method = (request.form.get("payment_method") or "").strip() or None
         reference_number = (request.form.get("reference_number") or "").strip() or None
         notes = (request.form.get("notes") or "").strip() or None
 
         try:
             gross_amount = _parse_decimal(request.form.get("gross_amount"), "El monto bruto")
             sale_date = _parse_datetime(request.form.get("sale_date"), "La fecha de venta", required=True)
-            due_date = _parse_datetime(request.form.get("due_date"), "La fecha de vencimiento") if sale_type == "credito" else None
+            due_date = _parse_datetime(request.form.get("due_date"), "La fecha de vencimiento", required=True)
         except ValueError as exc:
             flash(str(exc), "danger")
             return redirect(url_for("igh.ventas_new"))
@@ -494,20 +506,13 @@ def ventas_new():
         if client is None:
             flash("Debes seleccionar un cliente válido.", "danger")
             return redirect(url_for("igh.ventas_new"))
-        if sale_type == "contado" and payment_method not in {"efectivo", "transferencia"}:
-            flash("Las ventas de contado requieren método de pago.", "danger")
-            return redirect(url_for("igh.ventas_new"))
-        if sale_type == "credito" and due_date is None:
-            flash("Las ventas a crédito requieren fecha de vencimiento.", "danger")
-            return redirect(url_for("igh.ventas_new"))
 
         sale = IVGSale(
             client_id=client.id,
-            sale_type=sale_type,
+            sale_type="credito",
             category=category,
-            payment_method=payment_method if sale_type == "contado" else None,
             gross_amount=gross_amount,
-            balance_due=gross_amount if sale_type == "credito" else Decimal("0.00"),
+            balance_due=gross_amount,
             sale_date=sale_date,
             due_date=due_date,
             reference_number=reference_number,
@@ -517,7 +522,7 @@ def ventas_new():
         _recalculate_sale_balance(sale)
         db.session.add(sale)
         db.session.commit()
-        flash("Venta IVG registrada.", "success")
+        flash("Factura crédito IVG registrada.", "success")
         return redirect(url_for("igh.ventas"))
 
     context["sale"] = None
@@ -536,16 +541,14 @@ def ventas_edit(sale_id: int):
             client_id = int(request.form.get("client_id") or "0")
         except ValueError:
             client_id = 0
-        sale_type = (request.form.get("sale_type") or sale.sale_type).strip()
         category = (request.form.get("category") or sale.category).strip()
-        payment_method = (request.form.get("payment_method") or "").strip() or None
         reference_number = (request.form.get("reference_number") or "").strip() or None
         notes = (request.form.get("notes") or "").strip() or None
 
         try:
             gross_amount = _parse_decimal(request.form.get("gross_amount"), "El monto bruto")
             sale_date = _parse_datetime(request.form.get("sale_date"), "La fecha de venta", required=True)
-            due_date = _parse_datetime(request.form.get("due_date"), "La fecha de vencimiento") if sale_type == "credito" else None
+            due_date = _parse_datetime(request.form.get("due_date"), "La fecha de vencimiento", required=True)
         except ValueError as exc:
             flash(str(exc), "danger")
             return redirect(url_for("igh.ventas_edit", sale_id=sale.id))
@@ -554,20 +557,10 @@ def ventas_edit(sale_id: int):
         if client is None:
             flash("Debes seleccionar un cliente válido.", "danger")
             return redirect(url_for("igh.ventas_edit", sale_id=sale.id))
-        if sale.payments and sale_type != "credito":
-            flash("No puedes cambiar a contado una venta que ya tiene pagos o abonos.", "danger")
-            return redirect(url_for("igh.ventas_edit", sale_id=sale.id))
-        if sale_type == "contado" and payment_method not in {"efectivo", "transferencia"}:
-            flash("Las ventas de contado requieren método de pago.", "danger")
-            return redirect(url_for("igh.ventas_edit", sale_id=sale.id))
-        if sale_type == "credito" and due_date is None:
-            flash("Las ventas a crédito requieren fecha de vencimiento.", "danger")
-            return redirect(url_for("igh.ventas_edit", sale_id=sale.id))
 
         sale.client_id = client.id
-        sale.sale_type = sale_type
+        sale.sale_type = "credito"
         sale.category = category
-        sale.payment_method = payment_method if sale_type == "contado" else None
         sale.gross_amount = gross_amount
         sale.sale_date = sale_date
         sale.due_date = due_date
@@ -575,11 +568,90 @@ def ventas_edit(sale_id: int):
         sale.notes = notes
         _recalculate_sale_balance(sale)
         db.session.commit()
-        flash("Venta IVG actualizada.", "success")
+        flash("Factura crédito IVG actualizada.", "success")
         return redirect(url_for("igh.ventas"))
 
     context["sale"] = sale
     return render_template("igh/sales_form.html", **context)
+
+
+@igh_bp.route("/contado")
+@igh_login_required
+def contado():
+    summaries = IVGCashSummary.query.order_by(IVGCashSummary.summary_date.desc(), IVGCashSummary.id.desc()).all() if _table_exists(IVGCashSummary) else []
+    context = _base_context()
+    context["summaries"] = summaries
+    return render_template("igh/cash_list.html", **context)
+
+
+@igh_bp.route("/contado/new", methods=["GET", "POST"])
+@igh_login_required
+def contado_new():
+    context = _base_context()
+
+    if request.method == "POST":
+        notes = (request.form.get("notes") or "").strip() or None
+        try:
+            summary_date = _parse_datetime(request.form.get("summary_date"), "La fecha del contado", required=True)
+            cash_amount = _parse_decimal(request.form.get("cash_amount"), "El monto en efectivo")
+            transfer_amount = _parse_decimal(request.form.get("transfer_amount"), "El monto en transferencia")
+        except ValueError as exc:
+            flash(str(exc), "danger")
+            return redirect(url_for("igh.contado_new"))
+
+        total_amount = cash_amount + transfer_amount
+        if total_amount <= 0:
+            flash("Debes registrar al menos un monto mayor que cero en contado.", "danger")
+            return redirect(url_for("igh.contado_new"))
+
+        summary = IVGCashSummary(
+            summary_date=summary_date,
+            cash_amount=cash_amount,
+            transfer_amount=transfer_amount,
+            total_amount=total_amount,
+            notes=notes,
+        )
+        db.session.add(summary)
+        db.session.commit()
+        flash("Resumen de contado registrado.", "success")
+        return redirect(url_for("igh.contado"))
+
+    context["summary"] = None
+    return render_template("igh/cash_form.html", **context)
+
+
+@igh_bp.route("/contado/<int:summary_id>/edit", methods=["GET", "POST"])
+@igh_login_required
+def contado_edit(summary_id: int):
+    summary = _get_ivg_cash_or_404(summary_id)
+    context = _base_context()
+
+    if request.method == "POST":
+        notes = (request.form.get("notes") or "").strip() or None
+        try:
+            summary_date = _parse_datetime(request.form.get("summary_date"), "La fecha del contado", required=True)
+            cash_amount = _parse_decimal(request.form.get("cash_amount"), "El monto en efectivo")
+            transfer_amount = _parse_decimal(request.form.get("transfer_amount"), "El monto en transferencia")
+        except ValueError as exc:
+            flash(str(exc), "danger")
+            return redirect(url_for("igh.contado_edit", summary_id=summary.id))
+
+        total_amount = cash_amount + transfer_amount
+        if total_amount <= 0:
+            flash("Debes registrar al menos un monto mayor que cero en contado.", "danger")
+            return redirect(url_for("igh.contado_edit", summary_id=summary.id))
+
+        summary.summary_date = summary_date
+        summary.cash_amount = cash_amount
+        summary.transfer_amount = transfer_amount
+        summary.total_amount = total_amount
+        summary.notes = notes
+        db.session.commit()
+        flash("Resumen de contado actualizado.", "success")
+        return redirect(url_for("igh.contado"))
+
+    context["summary"] = summary
+    return render_template("igh/cash_form.html", **context)
 
 
 @igh_bp.route("/pagos")
@@ -595,7 +667,7 @@ def pagos():
 @igh_login_required
 def pagos_new():
     context = _base_context()
-    context["credit_sales"] = IVGSale.query.filter_by(sale_type="credito").order_by(IVGSale.sale_date.desc()).all() if _table_exists(IVGSale) else []
+    context["credit_sales"] = IVGSale.query.filter(IVGSale.balance_due > 0).order_by(IVGSale.sale_date.desc()).all() if _table_exists(IVGSale) else []
 
     if request.method == "POST":
         try:
@@ -615,7 +687,7 @@ def pagos_new():
             return redirect(url_for("igh.pagos_new"))
 
         sale = db.session.get(IVGSale, sale_id) if sale_id else None
-        if sale is None or sale.sale_type != "credito":
+        if sale is None:
             flash("Debes seleccionar una factura de crédito válida.", "danger")
             return redirect(url_for("igh.pagos_new"))
         if amount <= 0:
@@ -654,7 +726,7 @@ def pagos_edit(payment_id: int):
     payment = _get_ivg_payment_or_404(payment_id)
     old_sale = payment.sale
     context = _base_context()
-    context["credit_sales"] = IVGSale.query.filter_by(sale_type="credito").order_by(IVGSale.sale_date.desc()).all() if _table_exists(IVGSale) else []
+    context["credit_sales"] = IVGSale.query.order_by(IVGSale.sale_date.desc()).all() if _table_exists(IVGSale) else []
 
     if request.method == "POST":
         try:
@@ -674,7 +746,7 @@ def pagos_edit(payment_id: int):
             return redirect(url_for("igh.pagos_edit", payment_id=payment.id))
 
         sale = db.session.get(IVGSale, sale_id) if sale_id else None
-        if sale is None or sale.sale_type != "credito":
+        if sale is None:
             flash("Debes seleccionar una factura de crédito válida.", "danger")
             return redirect(url_for("igh.pagos_edit", payment_id=payment.id))
         if amount <= 0:

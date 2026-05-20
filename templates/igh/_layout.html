@@ -71,7 +71,7 @@
         <div class="mt-2 space-y-2 rounded-xl border bg-white p-2 shadow-sm">
           <a href="{{ url_for('igh.ventas_new') }}"
              class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
-            🧾 Registrar factura / venta
+            🧾 Registrar factura crédito
           </a>
           <a href="{{ url_for('igh.pagos_new') }}"
              class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
@@ -83,7 +83,8 @@
       {{ navlink('igh.dashboard', 'Dashboard', '🏠') }}
       {{ navlink('igh.usuarios', 'Usuarios', '🧑‍🤝‍🧑') }}
       {{ navlink('igh.clientes', 'Clientes', '👥') }}
-      {{ navlink('igh.ventas', 'Ventas', '🧾') }}
+      {{ navlink('igh.ventas', 'Facturas crédito', '🧾') }}
+      {{ navlink('igh.contado', 'Contado', '💵') }}
       {{ navlink('igh.pagos', 'Pagos / abonos', '💰') }}
       {{ navlink('igh.agenda', 'Agenda', '🗓️') }}
       {{ navlink('igh.reportes', 'Reportes', '📊') }}
@@ -95,6 +96,7 @@
           <p class="font-mono text-[11px] text-slate-700">ivg_clientes</p>
           <p class="font-mono text-[11px] text-slate-700">ivg_ventas</p>
           <p class="font-mono text-[11px] text-slate-700">ivg_pagos</p>
+          <p class="font-mono text-[11px] text-slate-700">ivg_contado</p>
           <p class="font-mono text-[11px] text-slate-700">ivg_agenda</p>
         </div>
       </div>

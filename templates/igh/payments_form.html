@@ -17,7 +17,7 @@
         <option value="">Selecciona una factura</option>
         {% for sale in credit_sales %}
           <option value="{{ sale.id }}" {% if payment and payment.sale_id == sale.id %}selected{% endif %}>
-            {{ sale.reference_number or ('VENTA-' ~ sale.id) }} · {{ sale.client.name if sale.client else 'Sin cliente' }} · Saldo HNL {{ "{:,.2f}".format(sale.balance_due or 0) }}
+            {{ sale.reference_number or ('FACT-' ~ sale.id) }} · {{ sale.client.name if sale.client else 'Sin cliente' }} · Saldo HNL {{ "{:,.2f}".format(sale.balance_due or 0) }}
           </option>
         {% endfor %}
       </select>

@@ -1,11 +1,11 @@
 {% extends "igh/_layout.html" %}
-{% block title %}Ventas IVG — {{ company_name }}{% endblock %}
-{% block heading %}Ventas IVG{% endblock %}
+{% block title %}Facturas crédito IVG — {{ company_name }}{% endblock %}
+{% block heading %}Facturas crédito IVG{% endblock %}
 
 {% block actions %}
   <a href="{{ url_for('igh.ventas_new') }}"
      class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
-    + Registrar venta
+    + Registrar factura
   </a>
 {% endblock %}
 
@@ -16,7 +16,6 @@
       <tr>
         <th>Fecha</th>
         <th>Cliente</th>
-        <th>Tipo</th>
         <th>Categoría</th>
         <th>Referencia</th>
         <th>Total</th>
@@ -30,11 +29,6 @@
       <tr class="hover:bg-slate-50">
         <td class="text-sm">{{ sale.sale_date.strftime('%d/%m/%Y %H:%M') if sale.sale_date else '—' }}</td>
         <td class="font-medium">{{ sale.client.name if sale.client else '—' }}</td>
-        <td>
-          <span class="text-xs px-2 py-1 rounded {% if sale.sale_type == 'credito' %}bg-amber-100 text-amber-700{% else %}bg-emerald-100 text-emerald-700{% endif %}">
-            {{ sale.sale_type }}
-          </span>
-        </td>
         <td class="text-sm">{{ sale.category }}</td>
         <td class="font-mono text-xs">{{ sale.reference_number or '—' }}</td>
         <td class="font-semibold">HNL {{ "{:,.2f}".format(sale.gross_amount or 0) }}</td>
@@ -56,13 +50,13 @@
       </tr>
       {% else %}
       <tr>
-        <td colspan="9" class="px-6 py-10 text-center text-slate-500">
-          No hay ventas IVG registradas todavía.
+        <td colspan="8" class="px-6 py-10 text-center text-slate-500">
+          No hay facturas crédito IVG registradas todavía.
         </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
-<p class="text-sm text-slate-500 mt-3">{{ sales|length }} venta(s) registradas.</p>
+<p class="text-sm text-slate-500 mt-3">{{ sales|length }} factura(s) registradas.</p>
 {% endblock %}

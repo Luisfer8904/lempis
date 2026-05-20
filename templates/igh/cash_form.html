@@ -1,0 +1,56 @@
+{% extends "igh/_layout.html" %}
+{% block title %}{{ 'Editar' if summary else 'Nuevo' }} contado IVG{% endblock %}
+{% block heading %}{{ 'Editar contado IVG' if summary else 'Registrar contado IVG' }}{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('igh.contado') }}" class="text-slate-600 hover:text-slate-900 text-sm">
+  ← Volver
+</a>
+{% endblock %}
+
+{% block content %}
+<form method="POST" class="bg-white p-6 rounded-xl shadow-sm border max-w-4xl">
+  <div class="grid md:grid-cols-2 gap-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Fecha del contado *</label>
+      <input type="datetime-local" name="summary_date"
+             value="{{ summary.summary_date.strftime('%Y-%m-%dT%H:%M') if summary and summary.summary_date else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <div></div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">Monto en efectivo *</label>
+      <input type="number" step="0.01" min="0" name="cash_amount"
+             value="{{ summary.cash_amount if summary else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Monto en transferencia *</label>
+      <input type="number" step="0.01" min="0" name="transfer_amount"
+             value="{{ summary.transfer_amount if summary else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+
+    {% if summary %}
+    <div class="md:col-span-2 rounded-xl bg-slate-50 border px-4 py-3 text-sm text-slate-600">
+      Total actual: <strong>HNL {{ "{:,.2f}".format(summary.total_amount or 0) }}</strong>
+    </div>
+    {% endif %}
+
+    <div class="md:col-span-2">
+      <label class="block text-sm font-medium mb-1">Notas</label>
+      <textarea name="notes" rows="4"
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">{{ summary.notes if summary else '' }}</textarea>
+    </div>
+  </div>
+
+  <div class="flex gap-3 mt-6 pt-6 border-t">
+    <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+      {{ 'Guardar cambios' if summary else 'Registrar contado' }}
+    </button>
+    <a href="{{ url_for('igh.contado') }}"
+       class="border px-6 py-2 rounded-lg hover:bg-slate-50">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

@@ -73,19 +73,16 @@ class IVGProduct(db.Model, TimestampMixin):
 
 class IVGSale(db.Model, TimestampMixin):
     """
-    Venta bruta del negocio IVG.
-    Puede ser:
-    - contado: se registra total y método de pago
-    - credito: se registra factura/saldo y luego se aplican pagos o abonos
+    Factura individual del negocio IVG.
+    En IVG las ventas individuales son siempre a crédito.
     """
     __tablename__ = "ivg_ventas"
 
     id = Column(Integer, primary_key=True)
     client_id = Column(Integer, ForeignKey("ivg_clientes.id", ondelete="SET NULL"), index=True)
 
-    sale_type = Column(String(20), default="contado", nullable=False)          # contado | credito
+    sale_type = Column(String(20), default="credito", nullable=False)          # legado; IVG usa credito
     category = Column(String(30), default="herbicidas", nullable=False)        # herbicidas | concentrados
-    payment_method = Column(String(20))                                         # efectivo | transferencia
     status = Column(String(20), default="registrada", nullable=False)          # registrada | parcial | pagada
 
     gross_amount = Column(Numeric(12, 2), default=0, nullable=False)
@@ -98,6 +95,21 @@ class IVGSale(db.Model, TimestampMixin):
 
     client = relationship("IVGClient", back_populates="sales")
     payments = relationship("IVGPayment", back_populates="sale", cascade="all, delete-orphan")
+
+
+class IVGCashSummary(db.Model, TimestampMixin):
+    """
+    Resumen de ventas de contado.
+    Registra el total del día y cómo se distribuyó entre efectivo y transferencia.
+    """
+    __tablename__ = "ivg_contado"
+
+    id = Column(Integer, primary_key=True)
+    summary_date = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    total_amount = Column(Numeric(12, 2), default=0, nullable=False)
+    cash_amount = Column(Numeric(12, 2), default=0, nullable=False)
+    transfer_amount = Column(Numeric(12, 2), default=0, nullable=False)
+    notes = Column(Text)
 
 
 class IVGPayment(db.Model, TimestampMixin):

@@ -28,7 +28,7 @@
       {% for payment in payments %}
       <tr class="hover:bg-slate-50">
         <td class="text-sm">{{ payment.payment_date.strftime('%d/%m/%Y %H:%M') if payment.payment_date else '—' }}</td>
-        <td class="font-mono text-xs">{{ payment.sale.reference_number or ('VENTA-' ~ payment.sale.id) if payment.sale else '—' }}</td>
+        <td class="font-mono text-xs">{{ payment.sale.reference_number or ('FACT-' ~ payment.sale.id) if payment.sale else '—' }}</td>
         <td class="font-medium">{{ payment.sale.client.name if payment.sale and payment.sale.client else '—' }}</td>
         <td>
           <span class="text-xs px-2 py-1 rounded {% if payment.payment_kind == 'pago' %}bg-emerald-100 text-emerald-700{% else %}bg-indigo-100 text-indigo-700{% endif %}">

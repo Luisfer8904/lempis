@@ -5,8 +5,8 @@
 {% block content %}
 <section class="grid md:grid-cols-4 gap-4 mb-6">
   <div class="bg-white rounded-xl border shadow-sm p-5">
-    <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">Ventas contado</p>
-    <p class="text-3xl font-bold">{{ ivg_counts.cash_sales }}</p>
+    <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">Resúmenes contado</p>
+    <p class="text-3xl font-bold">{{ ivg_counts.cash_summaries }}</p>
   </div>
   <div class="bg-white rounded-xl border shadow-sm p-5">
     <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">Ventas crédito</p>
@@ -87,8 +87,8 @@
 <section class="grid lg:grid-cols-2 gap-6">
   <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
     <div class="px-6 py-4 border-b flex justify-between items-center">
-      <h3 class="text-lg font-semibold">Últimas ventas</h3>
-      <a href="{{ url_for('igh.ventas') }}" class="text-sm text-indigo-600 hover:underline">Ver ventas →</a>
+      <h3 class="text-lg font-semibold">Últimas facturas crédito</h3>
+      <a href="{{ url_for('igh.ventas') }}" class="text-sm text-indigo-600 hover:underline">Ver facturas →</a>
     </div>
     <table class="saas-table w-full">
       <thead>
@@ -103,14 +103,14 @@
       <tbody>
         {% for sale in recent_sales %}
         <tr class="hover:bg-slate-50">
-          <td class="font-mono text-xs">{{ sale.reference_number or ('VENTA-' ~ sale.id) }}</td>
+          <td class="font-mono text-xs">{{ sale.reference_number or ('FACT-' ~ sale.id) }}</td>
           <td>{{ sale.client.name if sale.client else '—' }}</td>
-          <td>{{ sale.sale_type }}</td>
+          <td>credito</td>
           <td>HNL {{ "{:,.2f}".format(sale.gross_amount or 0) }}</td>
           <td>HNL {{ "{:,.2f}".format(sale.balance_due or 0) }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Sin ventas registradas.</td></tr>
+        <tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Sin facturas registradas.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -134,7 +134,7 @@
       <tbody>
         {% for payment in recent_payments %}
         <tr class="hover:bg-slate-50">
-          <td class="font-mono text-xs">{{ payment.sale.reference_number or ('VENTA-' ~ payment.sale.id) if payment.sale else '—' }}</td>
+          <td class="font-mono text-xs">{{ payment.sale.reference_number or ('FACT-' ~ payment.sale.id) if payment.sale else '—' }}</td>
           <td>{{ payment.payment_kind }}</td>
           <td>{{ payment.payment_method }}</td>
           <td>{{ payment.category }}</td>
@@ -146,5 +146,36 @@
       </tbody>
     </table>
   </div>
+</section>
+
+<section class="bg-white rounded-xl border shadow-sm overflow-hidden mt-6">
+  <div class="px-6 py-4 border-b flex justify-between items-center">
+    <h3 class="text-lg font-semibold">Últimos resúmenes de contado</h3>
+    <a href="{{ url_for('igh.contado') }}" class="text-sm text-indigo-600 hover:underline">Ver contado →</a>
+  </div>
+  <table class="saas-table w-full">
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Total</th>
+        <th>Efectivo</th>
+        <th>Transferencia</th>
+        <th>Notas</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for summary in recent_cash_summaries %}
+      <tr class="hover:bg-slate-50">
+        <td>{{ summary.summary_date.strftime('%d/%m/%Y %H:%M') if summary.summary_date else '—' }}</td>
+        <td>HNL {{ "{:,.2f}".format(summary.total_amount or 0) }}</td>
+        <td>HNL {{ "{:,.2f}".format(summary.cash_amount or 0) }}</td>
+        <td>HNL {{ "{:,.2f}".format(summary.transfer_amount or 0) }}</td>
+        <td>{{ summary.notes or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Sin contado registrado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </section>
 {% endblock %}

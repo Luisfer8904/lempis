@@ -1,6 +1,6 @@
 {% extends "igh/_layout.html" %}
-{% block title %}{{ 'Editar' if sale else 'Nueva' }} venta IVG{% endblock %}
-{% block heading %}{{ 'Editar venta IVG' if sale else 'Nueva venta IVG' }}{% endblock %}
+{% block title %}{{ 'Editar' if sale else 'Nueva' }} factura crédito IVG{% endblock %}
+{% block heading %}{{ 'Editar factura crédito IVG' if sale else 'Nueva factura crédito IVG' }}{% endblock %}
 
 {% block actions %}
 <a href="{{ url_for('igh.ventas') }}" class="text-slate-600 hover:text-slate-900 text-sm">
@@ -23,15 +23,6 @@
       </select>
     </div>
     <div>
-      <label class="block text-sm font-medium mb-1">Tipo de venta *</label>
-      <select name="sale_type" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
-        {% for code, label in [('contado', 'Contado'), ('credito', 'Crédito')] %}
-          <option value="{{ code }}" {% if (sale and sale.sale_type == code) or (not sale and code == 'contado') %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <div>
       <label class="block text-sm font-medium mb-1">Categoría *</label>
       <select name="category" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
         {% for code, label in [('herbicidas', 'Herbicidas'), ('concentrados', 'Concentrados')] %}
@@ -40,13 +31,10 @@
       </select>
     </div>
     <div>
-      <label class="block text-sm font-medium mb-1">Método de pago</label>
-      <select name="payment_method" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
-        <option value="">Solo aplica a ventas de contado</option>
-        {% for code, label in [('efectivo', 'Efectivo'), ('transferencia', 'Transferencia')] %}
-          <option value="{{ code }}" {% if sale and sale.payment_method == code %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-      </select>
+      <label class="block text-sm font-medium mb-1">Estado</label>
+      <div class="w-full px-3 py-2 border rounded-lg bg-slate-50 text-slate-600">
+        Factura de crédito
+      </div>
     </div>
 
     <div>
@@ -90,7 +78,7 @@
 
   <div class="flex gap-3 mt-6 pt-6 border-t">
     <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
-      {{ 'Guardar cambios' if sale else 'Registrar venta' }}
+      {{ 'Guardar cambios' if sale else 'Registrar factura' }}
     </button>
     <a href="{{ url_for('igh.ventas') }}"
        class="border px-6 py-2 rounded-lg hover:bg-slate-50">Cancelar</a>

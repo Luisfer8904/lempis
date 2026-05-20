@@ -1,0 +1,49 @@
+{% extends "igh/_layout.html" %}
+{% block title %}Contado IVG — {{ company_name }}{% endblock %}
+{% block heading %}Contado IVG{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('igh.contado_new') }}"
+     class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
+    + Registrar contado
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+  <table class="saas-table w-full">
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Total contado</th>
+        <th>Efectivo</th>
+        <th>Transferencia</th>
+        <th>Notas</th>
+        <th class="text-right">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for summary in summaries %}
+      <tr class="hover:bg-slate-50">
+        <td class="text-sm">{{ summary.summary_date.strftime('%d/%m/%Y %H:%M') if summary.summary_date else '—' }}</td>
+        <td class="font-semibold">HNL {{ "{:,.2f}".format(summary.total_amount or 0) }}</td>
+        <td class="text-emerald-700 font-medium">HNL {{ "{:,.2f}".format(summary.cash_amount or 0) }}</td>
+        <td class="text-indigo-700 font-medium">HNL {{ "{:,.2f}".format(summary.transfer_amount or 0) }}</td>
+        <td class="text-sm text-slate-500">{{ summary.notes or '—' }}</td>
+        <td class="text-right">
+          <a href="{{ url_for('igh.contado_edit', summary_id=summary.id) }}"
+             class="text-indigo-600 hover:underline text-sm">Editar</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6" class="px-6 py-10 text-center text-slate-500">
+          No hay resúmenes de contado registrados todavía.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="text-sm text-slate-500 mt-3">{{ summaries|length }} resumen(es) de contado.</p>
+{% endblock %}
