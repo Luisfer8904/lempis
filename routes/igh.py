@@ -304,7 +304,13 @@ def dashboard_alias():
 @igh_bp.route("/usuarios")
 @igh_login_required
 def usuarios():
-    users = IVGUser.query.order_by(IVGUser.created_at.asc()).all() if _table_exists(IVGUser) else []
+    current_user = _current_igh_user()
+    users = []
+    if _table_exists(IVGUser):
+        query = IVGUser.query.order_by(IVGUser.created_at.asc())
+        if current_user and current_user.is_admin():
+            query = query.filter(IVGUser.role != "superadmin")
+        users = query.all()
     context = _base_context()
     context["users"] = users
     return render_template("igh/users_list.html", **context)

@@ -41,6 +41,9 @@ class IVGUser(db.Model, TimestampMixin):
     def is_superadmin(self) -> bool:
         return self.role == "superadmin"
 
+    def is_admin(self) -> bool:
+        return self.role == "admin"
+
 
 class IVGClient(db.Model, TimestampMixin):
     __tablename__ = "ivg_clientes"
