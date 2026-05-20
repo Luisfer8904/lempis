@@ -1,0 +1,121 @@
+{% extends "igh/_layout.html" %}
+{% block title %}{{ client.name }} — {{ company_name }}{% endblock %}
+{% block heading %}Cliente IVG{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('igh.pagos_new') }}" class="border px-4 py-2 rounded-lg hover:bg-slate-50 text-sm">Nuevo cobro</a>
+  <a href="{{ url_for('igh.ventas_new') }}" class="border px-4 py-2 rounded-lg hover:bg-slate-50 text-sm">Nueva factura / venta</a>
+  <a href="{{ url_for('igh.clientes_edit', client_id=client.id) }}" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">Editar cliente</a>
+{% endblock %}
+
+{% block content %}
+<section class="mb-6">
+  <h2 class="text-2xl font-bold mb-1">{{ client.name }}</h2>
+  <p class="text-slate-500">
+    {{ client.legal_name or 'Sin razón social' }} · {{ client.city or 'Sin ciudad' }} · {{ client.phone or 'Sin teléfono' }}
+  </p>
+</section>
+
+<section class="grid md:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white p-5 rounded-xl border shadow-sm">
+    <p class="text-slate-500 text-sm">Facturas / ventas</p>
+    <p class="text-3xl font-bold">{{ client_sales|length }}</p>
+  </div>
+  <div class="bg-white p-5 rounded-xl border shadow-sm">
+    <p class="text-slate-500 text-sm">Cobros registrados</p>
+    <p class="text-3xl font-bold">{{ client_payments|length }}</p>
+  </div>
+  <div class="bg-white p-5 rounded-xl border shadow-sm">
+    <p class="text-slate-500 text-sm">Saldo pendiente</p>
+    <p class="text-3xl font-bold text-amber-700">HNL {{ "{:,.2f}".format(client_metrics.pending_balance) }}</p>
+  </div>
+  <div class="bg-white p-5 rounded-xl border shadow-sm">
+    <p class="text-slate-500 text-sm">Cobrado acumulado</p>
+    <p class="text-3xl font-bold text-emerald-700">HNL {{ "{:,.2f}".format(client_metrics.collections_total) }}</p>
+  </div>
+</section>
+
+<section class="grid lg:grid-cols-3 gap-6 mb-6">
+  <div class="lg:col-span-2 bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b flex justify-between items-center">
+      <h3 class="text-lg font-semibold">Historial de facturas y ventas</h3>
+      <span class="text-sm text-slate-500">Total vendido: HNL {{ "{:,.2f}".format(client_metrics.sales_total) }}</span>
+    </div>
+    <table class="saas-table w-full">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Referencia</th>
+          <th>Tipo</th>
+          <th>Categoría</th>
+          <th>Total</th>
+          <th>Saldo</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sale in client_sales %}
+        <tr class="hover:bg-slate-50">
+          <td>{{ sale.sale_date.strftime('%d/%m/%Y') if sale.sale_date else '—' }}</td>
+          <td class="font-mono text-xs">{{ sale.reference_number or ('VENTA-' ~ sale.id) }}</td>
+          <td>{{ sale.sale_type }}</td>
+          <td>{{ sale.category }}</td>
+          <td>HNL {{ "{:,.2f}".format(sale.gross_amount or 0) }}</td>
+          <td>HNL {{ "{:,.2f}".format(sale.balance_due or 0) }}</td>
+          <td>{{ sale.status }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="px-6 py-8 text-center text-slate-500">Sin ventas registradas.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="bg-white rounded-xl border shadow-sm p-6">
+    <h3 class="text-lg font-semibold mb-4">Cobros pendientes</h3>
+    <div class="space-y-3">
+      {% for sale in client_pending_sales %}
+      <div class="rounded-xl border px-4 py-3">
+        <p class="font-medium">{{ sale.reference_number or ('VENTA-' ~ sale.id) }}</p>
+        <p class="text-xs text-slate-500">{{ sale.category }} · vence {{ sale.due_date.strftime('%d/%m/%Y') if sale.due_date else 'sin fecha' }}</p>
+        <p class="text-lg font-bold text-amber-700 mt-2">HNL {{ "{:,.2f}".format(sale.balance_due or 0) }}</p>
+      </div>
+      {% else %}
+      <p class="text-sm text-slate-500">Este cliente no tiene cobros pendientes.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="bg-white rounded-xl border shadow-sm overflow-hidden">
+  <div class="px-6 py-4 border-b">
+    <h3 class="text-lg font-semibold">Historial de cobros y abonos</h3>
+  </div>
+  <table class="saas-table w-full">
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Factura</th>
+        <th>Tipo</th>
+        <th>Método</th>
+        <th>Categoría</th>
+        <th>Monto</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for payment in client_payments %}
+      <tr class="hover:bg-slate-50">
+        <td>{{ payment.payment_date.strftime('%d/%m/%Y') if payment.payment_date else '—' }}</td>
+        <td class="font-mono text-xs">{{ payment.sale.reference_number or ('VENTA-' ~ payment.sale.id) if payment.sale else '—' }}</td>
+        <td>{{ payment.payment_kind }}</td>
+        <td>{{ payment.payment_method }}</td>
+        <td>{{ payment.category }}</td>
+        <td>HNL {{ "{:,.2f}".format(payment.amount or 0) }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">Sin cobros registrados.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

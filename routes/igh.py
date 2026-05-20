@@ -114,8 +114,45 @@ def _recalculate_sale_balance(sale: IVGSale) -> None:
         sale.status = "registrada"
 
 
+def _month_start():
+    now = datetime.utcnow()
+    return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+
 def _base_context():
     current_igh_user = _current_igh_user()
+    month_start = _month_start()
+    pending_invoices = []
+    recent_collections = []
+    top_clients = []
+    if _table_exists(IVGSale):
+        pending_invoices = (
+            IVGSale.query.filter(
+                IVGSale.sale_type == "credito",
+                IVGSale.balance_due > 0,
+            )
+            .order_by(IVGSale.due_date.asc(), IVGSale.sale_date.desc())
+            .limit(8)
+            .all()
+        )
+        top_clients = (
+            db.session.query(
+                IVGClient,
+                func.coalesce(func.sum(IVGSale.balance_due), 0).label("pending_balance"),
+            )
+            .join(IVGSale, IVGSale.client_id == IVGClient.id)
+            .filter(IVGSale.sale_type == "credito")
+            .group_by(IVGClient.id)
+            .order_by(func.coalesce(func.sum(IVGSale.balance_due), 0).desc())
+            .limit(6)
+            .all()
+        )
+    if _table_exists(IVGPayment):
+        recent_collections = (
+            IVGPayment.query.order_by(IVGPayment.payment_date.desc(), IVGPayment.id.desc())
+            .limit(8)
+            .all()
+        )
     return {
         "igh_user": current_igh_user.username if current_igh_user else session.get("igh_user"),
         "igh_current_user": current_igh_user,
@@ -129,21 +166,28 @@ def _base_context():
             "agenda": _safe_count(IVGAgendaItem),
             "credit_sales": _safe_count(IVGSale) if not _table_exists(IVGSale) else IVGSale.query.filter_by(sale_type="credito").count(),
             "cash_sales": _safe_count(IVGSale) if not _table_exists(IVGSale) else IVGSale.query.filter_by(sale_type="contado").count(),
+            "pending_invoices": _safe_count(IVGSale) if not _table_exists(IVGSale) else IVGSale.query.filter(IVGSale.sale_type == "credito", IVGSale.balance_due > 0).count(),
         },
         "ivg_metrics": {
             "receivable_total": _safe_sum(IVGSale, IVGSale.balance_due, IVGSale.sale_type == "credito") if _table_exists(IVGSale) else 0,
             "cash_total": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.sale_type == "contado") if _table_exists(IVGSale) else 0,
             "payment_total": _safe_sum(IVGPayment, IVGPayment.amount) if _table_exists(IVGPayment) else 0,
+            "sales_month_total": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.sale_date >= month_start) if _table_exists(IVGSale) else 0,
+            "collections_month_total": _safe_sum(IVGPayment, IVGPayment.amount, IVGPayment.payment_date >= month_start) if _table_exists(IVGPayment) else 0,
             "transfer_total": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.sale_type == "contado", IVGSale.payment_method == "transferencia") if _table_exists(IVGSale) else 0,
             "efectivo_total": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.sale_type == "contado", IVGSale.payment_method == "efectivo") if _table_exists(IVGSale) else 0,
             "herbicidas_credito": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.sale_type == "credito", IVGSale.category == "herbicidas") if _table_exists(IVGSale) else 0,
             "concentrados_credito": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.sale_type == "credito", IVGSale.category == "concentrados") if _table_exists(IVGSale) else 0,
         },
+        "pending_invoices": pending_invoices,
+        "recent_collections": recent_collections,
+        "top_clients": top_clients,
         "ivg_tables": [
             "ivg_usuarios",
             "ivg_clientes",
             "ivg_ventas",
             "ivg_pagos",
+            "ivg_agenda",
         ],
     }
 
@@ -305,6 +349,45 @@ def clientes():
     context = _base_context()
     context["clients"] = clients
     return render_template("igh/clients_list.html", **context)
+
+
+@igh_bp.route("/clientes/<int:client_id>")
+@igh_login_required
+def clientes_detail(client_id: int):
+    client = _get_ivg_client_or_404(client_id)
+    sales = (
+        IVGSale.query.filter_by(client_id=client.id)
+        .order_by(IVGSale.sale_date.desc(), IVGSale.id.desc())
+        .all()
+        if _table_exists(IVGSale)
+        else []
+    )
+    payments = (
+        IVGPayment.query.join(IVGSale, IVGPayment.sale_id == IVGSale.id)
+        .filter(IVGSale.client_id == client.id)
+        .order_by(IVGPayment.payment_date.desc(), IVGPayment.id.desc())
+        .all()
+        if _table_exists(IVGPayment) and _table_exists(IVGSale)
+        else []
+    )
+    pending_sales = [sale for sale in sales if sale.sale_type == "credito" and Decimal(sale.balance_due or 0) > 0]
+    total_sales = sum(Decimal(sale.gross_amount or 0) for sale in sales)
+    total_collections = sum(Decimal(payment.amount or 0) for payment in payments)
+    pending_balance = sum(Decimal(sale.balance_due or 0) for sale in pending_sales)
+
+    context = _base_context()
+    context.update({
+        "client": client,
+        "client_sales": sales,
+        "client_payments": payments,
+        "client_pending_sales": pending_sales,
+        "client_metrics": {
+            "sales_total": total_sales,
+            "collections_total": total_collections,
+            "pending_balance": pending_balance,
+        },
+    })
+    return render_template("igh/client_detail.html", **context)
 
 
 @igh_bp.route("/clientes/new", methods=["GET", "POST"])

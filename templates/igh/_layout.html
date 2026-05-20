@@ -61,12 +61,24 @@
         </a>
       {% endmacro %}
 
-      <a href="{{ url_for('igh.dashboard') }}"
-         class="flex items-center justify-center gap-2 px-3 py-3 mb-3
-                bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl
-                font-semibold shadow hover:shadow-md hover:from-emerald-600 hover:to-green-700">
-        💼 Nueva gestión
-      </a>
+      <details class="mb-3 group">
+        <summary class="list-none flex items-center justify-center gap-2 px-3 py-3
+                        bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl
+                        font-semibold shadow hover:shadow-md hover:from-emerald-600 hover:to-green-700 cursor-pointer">
+          <span>💼 Nueva gestión</span>
+          <span class="text-xs opacity-80 group-open:rotate-180 transition-transform">▾</span>
+        </summary>
+        <div class="mt-2 space-y-2 rounded-xl border bg-white p-2 shadow-sm">
+          <a href="{{ url_for('igh.ventas_new') }}"
+             class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+            🧾 Registrar factura / venta
+          </a>
+          <a href="{{ url_for('igh.pagos_new') }}"
+             class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+            💰 Nuevo cobro / abono
+          </a>
+        </div>
+      </details>
 
       {{ navlink('igh.dashboard', 'Dashboard', '🏠') }}
       {{ navlink('igh.usuarios', 'Usuarios', '🧑‍🤝‍🧑') }}
@@ -83,6 +95,7 @@
           <p class="font-mono text-[11px] text-slate-700">ivg_clientes</p>
           <p class="font-mono text-[11px] text-slate-700">ivg_ventas</p>
           <p class="font-mono text-[11px] text-slate-700">ivg_pagos</p>
+          <p class="font-mono text-[11px] text-slate-700">ivg_agenda</p>
         </div>
       </div>
     </nav>

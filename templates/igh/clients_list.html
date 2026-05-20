@@ -26,7 +26,11 @@
     <tbody>
       {% for client in clients %}
       <tr class="hover:bg-slate-50">
-        <td class="font-medium">{{ client.name }}</td>
+        <td class="font-medium">
+          <a href="{{ url_for('igh.clientes_detail', client_id=client.id) }}" class="text-slate-900 hover:text-indigo-700 hover:underline">
+            {{ client.name }}
+          </a>
+        </td>
         <td class="text-sm">{{ client.legal_name or '—' }}</td>
         <td class="text-sm text-slate-600">
           <div>{{ client.phone or '—' }}</div>
@@ -49,6 +53,8 @@
           {% endif %}
         </td>
         <td class="text-right">
+          <a href="{{ url_for('igh.clientes_detail', client_id=client.id) }}"
+             class="text-slate-600 hover:underline text-sm mr-3">Ver</a>
           <a href="{{ url_for('igh.clientes_edit', client_id=client.id) }}"
              class="text-indigo-600 hover:underline text-sm">Editar</a>
         </td>

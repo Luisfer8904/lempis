@@ -10,18 +10,18 @@
 
 <section class="grid md:grid-cols-4 gap-4 mb-4">
   <div class="bg-white p-5 rounded-xl shadow-sm border">
-    <div class="text-slate-500 text-sm">Usuarios</div>
-    <div class="text-3xl font-bold">{{ ivg_counts.users }}</div>
-    <a href="{{ url_for('igh.usuarios') }}" class="text-xs text-indigo-600 hover:underline">Ver todos →</a>
+    <div class="text-slate-500 text-sm">Facturas pendientes</div>
+    <div class="text-3xl font-bold">{{ ivg_counts.pending_invoices }}</div>
+    <a href="{{ url_for('igh.ventas') }}" class="text-xs text-indigo-600 hover:underline">Ver cartera →</a>
   </div>
   <div class="bg-white p-5 rounded-xl shadow-sm border">
-    <div class="text-slate-500 text-sm">Clientes</div>
-    <div class="text-3xl font-bold">{{ ivg_counts.clients }}</div>
-    <a href="{{ url_for('igh.clientes') }}" class="text-xs text-indigo-600 hover:underline">Ver todos →</a>
+    <div class="text-slate-500 text-sm">Cobros del mes</div>
+    <div class="text-3xl font-bold">HNL {{ "{:,.2f}".format(ivg_metrics.collections_month_total) }}</div>
+    <a href="{{ url_for('igh.pagos') }}" class="text-xs text-indigo-600 hover:underline">Ver cobros →</a>
   </div>
   <div class="bg-white p-5 rounded-xl shadow-sm border">
-    <div class="text-slate-500 text-sm">Ventas crédito</div>
-    <div class="text-3xl font-bold">{{ ivg_counts.credit_sales }}</div>
+    <div class="text-slate-500 text-sm">Ventas del mes</div>
+    <div class="text-3xl font-bold">HNL {{ "{:,.2f}".format(ivg_metrics.sales_month_total) }}</div>
     <a href="{{ url_for('igh.ventas') }}" class="text-xs text-indigo-600 hover:underline">Ver ventas →</a>
   </div>
   <div class="bg-white p-5 rounded-xl shadow-sm border">
@@ -81,9 +81,9 @@
       </div>
     {% endmacro %}
 
-    {{ usage_bar('Usuarios IVG', ivg_counts.users, 'bg-rose-500', 100 if ivg_counts.users > 0 else 8) }}
     {{ usage_bar('Clientes IVG', ivg_counts.clients, 'bg-indigo-500', 100 if ivg_counts.clients > 0 else 8) }}
     {{ usage_bar('Ventas registradas', ivg_counts.sales, 'bg-emerald-500', 100 if ivg_counts.sales > 0 else 8) }}
+    {{ usage_bar('Cobros registrados', ivg_counts.payments, 'bg-violet-500', 100 if ivg_counts.payments > 0 else 8) }}
   </div>
 
   <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border">
@@ -129,6 +129,54 @@
     </table>
   </div>
 </div>
+
+<section class="grid lg:grid-cols-2 gap-6 mt-6">
+  <div class="bg-white p-6 rounded-xl border shadow-sm">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-semibold">Facturas pendientes de cobro</h3>
+      <a href="{{ url_for('igh.ventas') }}" class="text-sm text-indigo-600 hover:underline">Ver todas →</a>
+    </div>
+    <div class="space-y-3">
+      {% for sale in pending_invoices %}
+      <div class="rounded-xl border px-4 py-3 flex items-center justify-between gap-4">
+        <div class="min-w-0">
+          <p class="font-medium truncate">{{ sale.client.name if sale.client else 'Cliente sin nombre' }}</p>
+          <p class="text-xs text-slate-500">{{ sale.reference_number or ('VENTA-' ~ sale.id) }} · {{ sale.category }} · vence {{ sale.due_date.strftime('%d/%m/%Y') if sale.due_date else 'sin fecha' }}</p>
+        </div>
+        <div class="text-right">
+          <p class="font-semibold text-amber-700">HNL {{ "{:,.2f}".format(sale.balance_due or 0) }}</p>
+          <a href="{{ url_for('igh.ventas_edit', sale_id=sale.id) }}" class="text-xs text-indigo-600 hover:underline">Abrir</a>
+        </div>
+      </div>
+      {% else %}
+      <p class="text-sm text-slate-500">No hay facturas pendientes.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="bg-white p-6 rounded-xl border shadow-sm">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-semibold">Cobros recientes</h3>
+      <a href="{{ url_for('igh.pagos') }}" class="text-sm text-indigo-600 hover:underline">Ver todos →</a>
+    </div>
+    <div class="space-y-3">
+      {% for payment in recent_collections %}
+      <div class="rounded-xl border px-4 py-3 flex items-center justify-between gap-4">
+        <div class="min-w-0">
+          <p class="font-medium truncate">{{ payment.sale.client.name if payment.sale and payment.sale.client else 'Cliente sin nombre' }}</p>
+          <p class="text-xs text-slate-500">{{ payment.payment_kind }} · {{ payment.payment_method }} · {{ payment.category }}</p>
+        </div>
+        <div class="text-right">
+          <p class="font-semibold text-emerald-700">HNL {{ "{:,.2f}".format(payment.amount or 0) }}</p>
+          <p class="text-xs text-slate-500">{{ payment.payment_date.strftime('%d/%m/%Y') if payment.payment_date else '' }}</p>
+        </div>
+      </div>
+      {% else %}
+      <p class="text-sm text-slate-500">No hay cobros recientes.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
 
 <section class="grid lg:grid-cols-4 gap-4 mt-6">
   <div class="bg-white p-5 rounded-xl border shadow-sm">
@@ -189,14 +237,36 @@
   </div>
 </section>
 
+<section class="bg-white p-6 rounded-xl border shadow-sm mt-6">
+  <div class="flex justify-between items-center mb-4">
+    <h3 class="text-lg font-semibold">Clientes con mayor saldo pendiente</h3>
+    <a href="{{ url_for('igh.clientes') }}" class="text-sm text-indigo-600 hover:underline">Ver clientes →</a>
+  </div>
+  <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+    {% for client, pending_balance in top_clients %}
+    <a href="{{ url_for('igh.clientes_detail', client_id=client.id) }}"
+       class="rounded-xl border p-4 hover:border-indigo-200 hover:bg-indigo-50/40 transition-colors">
+      <p class="font-semibold text-slate-900">{{ client.name }}</p>
+      <p class="text-sm text-slate-500 mt-1">{{ client.city or 'Sin ciudad' }}</p>
+      <p class="text-lg font-bold text-amber-700 mt-3">HNL {{ "{:,.2f}".format(pending_balance or 0) }}</p>
+      <p class="text-xs text-indigo-600 mt-2">Abrir historial →</p>
+    </a>
+    {% else %}
+    <p class="text-sm text-slate-500">Aún no hay clientes con saldo pendiente.</p>
+    {% endfor %}
+  </div>
+</section>
+
 <section class="bg-white p-6 rounded-xl shadow-sm border mt-6">
   <h3 class="text-lg font-semibold mb-3">Próximos pasos</h3>
   <ul class="space-y-2 text-slate-600">
     <li class="flex items-center gap-2">✅ Layout de `IGH` alineado al dashboard principal de Lempis.</li>
     <li class="flex items-center gap-2">✅ Base orientada a ventas, pagos y clientes con prefijo <span class="font-mono text-xs">ivg_*</span>.</li>
-    <li class="flex items-center gap-2">⬜ Conectar CRUD real de clientes IVG.</li>
-    <li class="flex items-center gap-2">⬜ Conectar registro de ventas contado y crédito.</li>
-    <li class="flex items-center gap-2">⬜ Conectar pagos y abonos sobre facturas de crédito existentes.</li>
+    <li class="flex items-center gap-2">✅ CRUD real de clientes IVG.</li>
+    <li class="flex items-center gap-2">✅ Registro de ventas contado y crédito.</li>
+    <li class="flex items-center gap-2">✅ Pagos y abonos sobre facturas de crédito existentes.</li>
+    <li class="flex items-center gap-2">⬜ Agregar filtros por fecha, categoría y cliente.</li>
+    <li class="flex items-center gap-2">⬜ Automatizar el recálculo de saldo con triggers o lógica SQL en producción.</li>
   </ul>
 </section>
 {% endblock %}
