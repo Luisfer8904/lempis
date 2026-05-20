@@ -187,6 +187,39 @@
 
 <section class="grid lg:grid-cols-4 gap-4 mt-6">
   <div class="bg-white p-5 rounded-xl border shadow-sm">
+    <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">Última apertura</p>
+    <p class="text-3xl font-bold text-slate-900">HNL {{ "{:,.2f}".format(ivg_metrics.latest_opening_amount) }}</p>
+    <p class="text-xs text-slate-500 mt-2">Base de caja tomada del cierre anterior.</p>
+  </div>
+  <div class="bg-white p-5 rounded-xl border shadow-sm">
+    <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">Cierre esperado</p>
+    <p class="text-3xl font-bold text-amber-600">HNL {{ "{:,.2f}".format(ivg_metrics.latest_expected_close_amount) }}</p>
+    <p class="text-xs text-slate-500 mt-2">Apertura + efectivo del último corte.</p>
+  </div>
+  <div class="bg-white p-5 rounded-xl border shadow-sm">
+    <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">Cierre real</p>
+    <p class="text-3xl font-bold text-slate-900">HNL {{ "{:,.2f}".format(ivg_metrics.latest_actual_close_amount) }}</p>
+    <p class="text-xs text-slate-500 mt-2">Efectivo físico reportado al cierre.</p>
+  </div>
+  <div class="bg-white p-5 rounded-xl border shadow-sm">
+    <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">Sobrante / faltante</p>
+    <p class="text-3xl font-bold {% if ivg_metrics.latest_variance_signed < 0 %}text-rose-600{% elif ivg_metrics.latest_variance_signed > 0 %}text-emerald-600{% else %}text-slate-900{% endif %}">
+      HNL {{ "{:,.2f}".format(ivg_metrics.latest_variance_amount) }}
+    </p>
+    <p class="text-xs text-slate-500 mt-2">
+      {% if ivg_metrics.latest_variance_signed < 0 %}
+        Faltante detectado en el último corte.
+      {% elif ivg_metrics.latest_variance_signed > 0 %}
+        Sobrante detectado en el último corte.
+      {% else %}
+        Sin diferencia en el último corte.
+      {% endif %}
+    </p>
+  </div>
+</section>
+
+<section class="grid lg:grid-cols-4 gap-4 mt-6">
+  <div class="bg-white p-5 rounded-xl border shadow-sm">
     <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">Contado total</p>
     <p class="text-3xl font-bold text-slate-900">HNL {{ "{:,.2f}".format(ivg_metrics.cash_total) }}</p>
     <p class="text-xs text-slate-500 mt-2">Suma de resúmenes diarios de contado.</p>
@@ -217,11 +250,17 @@
     {% for summary in recent_cash_summaries %}
     <div class="rounded-xl border p-4">
       <p class="font-semibold text-slate-900">{{ summary.summary_date.strftime('%d/%m/%Y') if summary.summary_date else 'Sin fecha' }}</p>
-      <p class="text-sm text-slate-500 mt-1">{{ summary.notes or 'Resumen diario de contado.' }}</p>
+        <p class="text-sm text-slate-500 mt-1">{{ summary.notes or 'Resumen diario de contado.' }}</p>
       <div class="mt-3 space-y-1 text-sm">
+        <p class="flex justify-between"><span>Apertura</span><strong>HNL {{ "{:,.2f}".format(summary.opening_amount or 0) }}</strong></p>
         <p class="flex justify-between"><span>Total</span><strong>HNL {{ "{:,.2f}".format(summary.total_amount or 0) }}</strong></p>
         <p class="flex justify-between text-emerald-700"><span>Efectivo</span><strong>HNL {{ "{:,.2f}".format(summary.cash_amount or 0) }}</strong></p>
         <p class="flex justify-between text-indigo-700"><span>Transferencia</span><strong>HNL {{ "{:,.2f}".format(summary.transfer_amount or 0) }}</strong></p>
+        <p class="flex justify-between"><span>Cierre esperado</span><strong>HNL {{ "{:,.2f}".format(summary.expected_close_amount or 0) }}</strong></p>
+        <p class="flex justify-between"><span>Cierre real</span><strong>HNL {{ "{:,.2f}".format(summary.actual_close_amount or 0) }}</strong></p>
+        <p class="flex justify-between {% if (summary.variance_amount or 0) < 0 %}text-rose-600{% elif (summary.variance_amount or 0) > 0 %}text-emerald-600{% endif %}">
+          <span>Diferencia</span><strong>HNL {{ "{:,.2f}".format(summary.variance_amount or 0) }}</strong>
+        </p>
       </div>
     </div>
     {% else %}

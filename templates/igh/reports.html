@@ -157,9 +157,13 @@
     <thead>
       <tr>
         <th>Fecha</th>
+        <th>Apertura</th>
         <th>Total</th>
         <th>Efectivo</th>
         <th>Transferencia</th>
+        <th>Cierre esperado</th>
+        <th>Cierre real</th>
+        <th>Diferencia</th>
         <th>Notas</th>
       </tr>
     </thead>
@@ -167,13 +171,19 @@
       {% for summary in recent_cash_summaries %}
       <tr class="hover:bg-slate-50">
         <td>{{ summary.summary_date.strftime('%d/%m/%Y %H:%M') if summary.summary_date else '—' }}</td>
+        <td>HNL {{ "{:,.2f}".format(summary.opening_amount or 0) }}</td>
         <td>HNL {{ "{:,.2f}".format(summary.total_amount or 0) }}</td>
         <td>HNL {{ "{:,.2f}".format(summary.cash_amount or 0) }}</td>
         <td>HNL {{ "{:,.2f}".format(summary.transfer_amount or 0) }}</td>
+        <td>HNL {{ "{:,.2f}".format(summary.expected_close_amount or 0) }}</td>
+        <td>HNL {{ "{:,.2f}".format(summary.actual_close_amount or 0) }}</td>
+        <td class="{% if (summary.variance_amount or 0) < 0 %}text-rose-600{% elif (summary.variance_amount or 0) > 0 %}text-emerald-600{% endif %}">
+          HNL {{ "{:,.2f}".format(summary.variance_amount or 0) }}
+        </td>
         <td>{{ summary.notes or '—' }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Sin contado registrado.</td></tr>
+      <tr><td colspan="9" class="px-6 py-8 text-center text-slate-500">Sin contado registrado.</td></tr>
       {% endfor %}
     </tbody>
   </table>

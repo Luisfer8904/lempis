@@ -15,9 +15,13 @@
     <thead>
       <tr>
         <th>Fecha</th>
+        <th>Apertura</th>
         <th>Total contado</th>
         <th>Efectivo</th>
         <th>Transferencia</th>
+        <th>Cierre esperado</th>
+        <th>Cierre real</th>
+        <th>Sobrante / faltante</th>
         <th>Notas</th>
         <th class="text-right">Acciones</th>
       </tr>
@@ -26,9 +30,15 @@
       {% for summary in summaries %}
       <tr class="hover:bg-slate-50">
         <td class="text-sm">{{ summary.summary_date.strftime('%d/%m/%Y %H:%M') if summary.summary_date else '—' }}</td>
+        <td class="font-medium">HNL {{ "{:,.2f}".format(summary.opening_amount or 0) }}</td>
         <td class="font-semibold">HNL {{ "{:,.2f}".format(summary.total_amount or 0) }}</td>
         <td class="text-emerald-700 font-medium">HNL {{ "{:,.2f}".format(summary.cash_amount or 0) }}</td>
         <td class="text-indigo-700 font-medium">HNL {{ "{:,.2f}".format(summary.transfer_amount or 0) }}</td>
+        <td class="font-medium">HNL {{ "{:,.2f}".format(summary.expected_close_amount or 0) }}</td>
+        <td class="font-medium">HNL {{ "{:,.2f}".format(summary.actual_close_amount or 0) }}</td>
+        <td class="font-medium {% if (summary.variance_amount or 0) < 0 %}text-rose-600{% elif (summary.variance_amount or 0) > 0 %}text-emerald-600{% endif %}">
+          HNL {{ "{:,.2f}".format(summary.variance_amount or 0) }}
+        </td>
         <td class="text-sm text-slate-500">{{ summary.notes or '—' }}</td>
         <td class="text-right">
           <a href="{{ url_for('igh.contado_edit', summary_id=summary.id) }}"
@@ -37,7 +47,7 @@
       </tr>
       {% else %}
       <tr>
-        <td colspan="6" class="px-6 py-10 text-center text-slate-500">
+        <td colspan="10" class="px-6 py-10 text-center text-slate-500">
           No hay resúmenes de contado registrados todavía.
         </td>
       </tr>

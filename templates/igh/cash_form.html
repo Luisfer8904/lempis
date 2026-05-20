@@ -17,6 +17,24 @@
              value="{{ summary.summary_date.strftime('%Y-%m-%dT%H:%M') if summary and summary.summary_date else '' }}"
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
     </div>
+    <div class="rounded-xl border bg-slate-50 px-4 py-3 text-sm text-slate-600">
+      <p class="font-medium text-slate-800">Regla operativa</p>
+      <p class="mt-1">La apertura normalmente corresponde al cierre real del día anterior.</p>
+      {% if previous_summary %}
+      <p class="mt-2 text-xs text-slate-500">
+        Último cierre registrado:
+        <strong>HNL {{ "{:,.2f}".format(previous_summary.actual_close_amount or 0) }}</strong>
+        el {{ previous_summary.summary_date.strftime('%d/%m/%Y') if previous_summary.summary_date else 'día anterior' }}.
+      </p>
+      {% endif %}
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">Apertura de caja *</label>
+      <input type="number" step="0.01" min="0" name="opening_amount"
+             value="{{ summary.opening_amount if summary else default_opening_amount }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
     <div></div>
 
     <div>
@@ -32,9 +50,30 @@
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
     </div>
 
+    <div>
+      <label class="block text-sm font-medium mb-1">Cierre real de caja *</label>
+      <input type="number" step="0.01" min="0" name="actual_close_amount"
+             value="{{ summary.actual_close_amount if summary else '' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <div class="rounded-xl border bg-slate-50 px-4 py-3 text-sm text-slate-600">
+      <p><strong>Cálculo:</strong> cierre esperado = apertura + efectivo.</p>
+      <p class="mt-1">La transferencia suma al contado del día, pero no al efectivo de caja.</p>
+    </div>
+
     {% if summary %}
     <div class="md:col-span-2 rounded-xl bg-slate-50 border px-4 py-3 text-sm text-slate-600">
-      Total actual: <strong>HNL {{ "{:,.2f}".format(summary.total_amount or 0) }}</strong>
+      <div class="grid md:grid-cols-4 gap-3">
+        <div>Total contado: <strong>HNL {{ "{:,.2f}".format(summary.total_amount or 0) }}</strong></div>
+        <div>Cierre esperado: <strong>HNL {{ "{:,.2f}".format(summary.expected_close_amount or 0) }}</strong></div>
+        <div>Cierre real: <strong>HNL {{ "{:,.2f}".format(summary.actual_close_amount or 0) }}</strong></div>
+        <div>
+          Diferencia:
+          <strong class="{% if (summary.variance_amount or 0) < 0 %}text-rose-600{% elif (summary.variance_amount or 0) > 0 %}text-emerald-600{% else %}text-slate-800{% endif %}">
+            HNL {{ "{:,.2f}".format(summary.variance_amount or 0) }}
+          </strong>
+        </div>
+      </div>
     </div>
     {% endif %}
 
