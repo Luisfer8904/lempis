@@ -126,6 +126,9 @@ def login():
     if request.method == "POST":
         usr = (request.form.get("email") or "").strip()
         pwd = request.form.get("password") or ""
+        remember = bool(request.form.get("remember"))
+
+        # 1) Intentar autenticación IGH (usuarios IVG con username o email)
         if inspect(db.engine).has_table(IVGUser.__tablename__):
             ivg_user = IVGUser.query.filter(
                 IVGUser.is_active.is_(True),
@@ -143,13 +146,10 @@ def login():
                 session["igh_role"] = ivg_user.role
                 return redirect(url_for("igh.dashboard"))
 
-    if request.method == "POST":
-        email = request.form.get("email", "").strip().lower()
-        password = request.form.get("password", "")
-        remember = bool(request.form.get("remember"))
-
+        # 2) Flujo normal de Lempis (email + password)
+        email = usr.lower()
         user = User.query.filter_by(email=email, is_active=True).first()
-        if not user or not user.check_password(password):
+        if not user or not user.check_password(pwd):
             flash("Correo o contraseña inválidos.", "danger")
             return redirect(url_for("auth.login"))
 
@@ -159,7 +159,6 @@ def login():
 
         user.touch_login()
         db.session.commit()
-
         login_user(user, remember=remember)
         session["tenant_id"] = user.tenant_id
         return redirect(url_for("dashboard.home"))

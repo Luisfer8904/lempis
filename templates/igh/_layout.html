@@ -1,18 +1,31 @@
+{# Layout IGH responsive: sidebar drawer en móvil, fija en desktop. #}
 <!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>{% block title %}IGH Dashboard{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body.sidebar-open { overflow: hidden; }
+    @media (min-width: 1024px) { body.sidebar-open { overflow: auto; } }
+  </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen">
+
+<div id="sidebar-overlay"
+     onclick="closeSidebar()"
+     class="hidden fixed inset-0 bg-slate-900/40 z-30 lg:hidden"></div>
+
 <div class="flex min-h-screen">
-  <aside class="w-64 bg-white border-r flex flex-col">
-    <div class="px-6 py-5 border-b">
-      <a href="{{ url_for('igh.dashboard') }}" class="flex items-center gap-3 text-slate-950">
-        <span class="flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50 shadow-sm">
+  <aside id="sidebar"
+         class="fixed inset-y-0 left-0 z-40 w-72 bg-white border-r flex flex-col
+                transform -translate-x-full transition-transform duration-200 ease-out
+                lg:static lg:translate-x-0 lg:w-64 lg:flex-shrink-0">
+    <div class="px-6 py-5 border-b flex items-start justify-between">
+      <a href="{{ url_for('igh.dashboard') }}" class="flex items-center gap-3 text-slate-950 min-w-0">
+        <span class="flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50 shadow-sm flex-shrink-0">
           <img
             src="{{ url_for('static', filename='img/lempis-mark.svg') }}"
             alt="Isotipo de IGH"
@@ -24,10 +37,17 @@
           <p class="text-[11px] uppercase tracking-[0.22em] text-slate-400">Billing OS</p>
         </div>
       </a>
-      <p class="text-xs text-slate-500 mt-1 truncate">{{ company_name }}</p>
+      <button type="button" onclick="closeSidebar()"
+              class="lg:hidden text-slate-400 hover:text-slate-700 p-1 -mr-1"
+              aria-label="Cerrar menú">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
     </div>
+    <p class="text-xs text-slate-500 mt-1 truncate px-6">{{ company_name }}</p>
 
-    <nav class="flex-1 px-3 py-4 space-y-1">
+    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
       {% set active = request.endpoint or '' %}
       {% macro navlink(endpoint, label, icon) %}
         <a href="{{ url_for(endpoint) }}"
@@ -68,7 +88,7 @@
     </nav>
 
     <div class="px-4 py-3 border-t flex items-center gap-3">
-      <div class="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-sm font-semibold">
+      <div class="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-sm font-semibold flex-shrink-0">
         {{ igh_user[:1] | upper }}
       </div>
       <div class="flex-1 min-w-0">
@@ -78,15 +98,22 @@
     </div>
   </aside>
 
-  <main class="flex-1 overflow-x-hidden">
-    <header class="bg-white border-b px-6 py-3 flex justify-between items-center">
-      <h1 class="text-xl font-semibold">{% block heading %}{% endblock %}</h1>
-      <div class="flex items-center gap-2">
+  <main class="flex-1 min-w-0 overflow-x-hidden">
+    <header class="bg-white border-b px-4 sm:px-6 py-3 flex items-center gap-3 sticky top-0 z-20">
+      <button type="button" onclick="openSidebar()"
+              class="lg:hidden text-slate-700 hover:text-slate-900 p-2 -ml-2"
+              aria-label="Abrir menú">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      <h1 class="text-lg sm:text-xl font-semibold flex-1 min-w-0 truncate">{% block heading %}{% endblock %}</h1>
+      <div class="flex flex-wrap items-center gap-2 justify-end">
         {% block actions %}{% endblock %}
       </div>
     </header>
 
-    <div class="px-6 py-6">
+    <div class="px-4 sm:px-6 py-4 sm:py-6">
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% for cat, msg in messages %}
           <div class="mb-4 px-4 py-3 rounded-lg
@@ -103,5 +130,29 @@
     </div>
   </main>
 </div>
+
+<script>
+function openSidebar() {
+  document.getElementById('sidebar').classList.remove('-translate-x-full');
+  document.getElementById('sidebar-overlay').classList.remove('hidden');
+  document.body.classList.add('sidebar-open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.add('-translate-x-full');
+  document.getElementById('sidebar-overlay').classList.add('hidden');
+  document.body.classList.remove('sidebar-open');
+}
+document.querySelectorAll('#sidebar nav a').forEach(a => {
+  a.addEventListener('click', () => {
+    if (window.innerWidth < 1024) closeSidebar();
+  });
+});
+window.addEventListener('resize', () => {
+  if (window.innerWidth >= 1024) {
+    document.getElementById('sidebar-overlay').classList.add('hidden');
+    document.body.classList.remove('sidebar-open');
+  }
+});
+</script>
 </body>
 </html>

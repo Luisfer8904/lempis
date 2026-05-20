@@ -11,7 +11,7 @@
 {% block content %}
 
 {# Cabecera #}
-<div class="bg-white p-6 rounded-xl shadow-sm border mb-6 grid md:grid-cols-3 gap-4">
+<div class="bg-white p-6 rounded-xl shadow-sm border mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
   <div>
     <p class="text-xs text-slate-500 uppercase">Cliente</p>
     <p class="font-semibold text-lg">{{ customer.name }}</p>
@@ -47,8 +47,8 @@
 {% if pendientes %}
   <div class="space-y-3 mb-6">
     {% for f in pendientes %}
-      <div class="bg-white rounded-xl border p-4">
-        <div class="flex items-center gap-4 flex-wrap">
+      <div class="bg-white rounded-xl border p-3 sm:p-4">
+        <div class="flex items-center gap-2 sm:gap-4 flex-wrap">
           <div class="flex-1 min-w-0">
             <a href="{{ url_for('facturas.detail', invoice_id=f.id) }}"
                class="font-mono font-semibold text-indigo-600 hover:underline">{{ f.number }}</a>

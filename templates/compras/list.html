@@ -43,9 +43,9 @@
   <div class="space-y-2">
     {% for c in compras %}
       <a href="{{ url_for('compras.detail', purchase_id=c.id) }}"
-         class="block bg-white rounded-xl border hover:border-indigo-300 hover:shadow-sm transition p-4">
-        <div class="flex items-center gap-4">
-          <div class="flex-shrink-0 w-44">
+         class="block bg-white rounded-xl border hover:border-indigo-300 hover:shadow-sm transition p-3 sm:p-4">
+        <div class="flex flex-wrap items-center gap-3 sm:gap-4">
+          <div class="flex-shrink-0 w-full sm:w-40">
             <p class="font-mono font-semibold text-sm">{{ c.number }}</p>
             <p class="text-xs text-slate-500">{{ c.issue_date.strftime('%d/%m/%Y') }}</p>
           </div>
@@ -55,11 +55,11 @@
               <p class="text-xs text-slate-500">Factura: <span class="font-mono">{{ c.supplier_invoice_number }}</span></p>
             {% endif %}
           </div>
-          <div class="hidden md:block text-xs text-slate-600 w-28">
+          <div class="hidden lg:block text-xs text-slate-600 w-24">
             {% if c.terms_days == 0 %}💵 Contado
             {% else %}📋 {{ c.terms_days }}d{% endif %}
           </div>
-          <div class="flex-shrink-0 w-28 text-center">
+          <div class="flex-shrink-0">
             {% set badges = {
               'draft': 'bg-slate-200 text-slate-700',
               'received': 'bg-green-100 text-green-800',
@@ -70,7 +70,7 @@
               {{ labels.get(c.status, c.status) }}
             </span>
           </div>
-          <div class="flex-shrink-0 text-right w-36">
+          <div class="flex-shrink-0 text-right ml-auto">
             <p class="text-lg font-bold text-slate-900">{{ '%.2f'|format(c.total) }}</p>
             {% if c.amount_due > 0 and c.status == 'received' %}
               <p class="text-xs text-rose-600">Saldo: {{ '%.2f'|format(c.amount_due) }}</p>
@@ -78,7 +78,7 @@
               <p class="text-xs text-slate-500">{{ c.currency }}</p>
             {% endif %}
           </div>
-          <span class="text-slate-300 text-xl">›</span>
+          <span class="text-slate-300 text-xl hidden sm:inline">›</span>
         </div>
       </a>
     {% endfor %}
