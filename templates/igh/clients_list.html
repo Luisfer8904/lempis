@@ -20,15 +20,15 @@
       <div class="text-sm text-slate-500 whitespace-nowrap">{{ clients|length }} cliente(s)</div>
     </div>
   </div>
-  <div class="overflow-x-auto">
-  <table class="saas-table w-full min-w-[980px]">
+  <div class="saas-list-card__table-wrap overflow-x-auto">
+  <table class="saas-table table-fixed w-full min-w-[920px]">
     <thead>
       <tr>
-        <th class="min-w-[240px]">Cliente</th>
-        <th class="min-w-[220px]">Razón social</th>
-        <th class="min-w-[240px]">Contacto</th>
+        <th class="min-w-[260px]">Cliente</th>
+        <th class="min-w-[240px]">Razón social</th>
+        <th class="min-w-[260px]">Contacto</th>
         <th class="min-w-[140px]">Ciudad</th>
-        <th class="text-right">Acciones</th>
+        <th class="text-right min-w-[150px]">Acciones</th>
       </tr>
     </thead>
     <tbody>
@@ -52,7 +52,16 @@
           <a href="{{ url_for('igh.clientes_detail', client_id=client.id) }}"
              class="text-slate-600 hover:underline text-sm mr-3">Ver</a>
           <a href="{{ url_for('igh.clientes_edit', client_id=client.id) }}"
-             class="text-indigo-600 hover:underline text-sm">Editar</a>
+             class="text-indigo-600 hover:underline text-sm mr-3">Editar</a>
+          {% if igh_can_delete_records %}
+            <form method="POST" action="{{ url_for('igh.clientes_delete', client_id=client.id) }}" class="inline">
+              <button type="submit"
+                      onclick="return confirm('¿Eliminar este cliente?')"
+                      class="text-rose-600 hover:underline text-sm">
+                Eliminar
+              </button>
+            </form>
+          {% endif %}
         </td>
       </tr>
       {% else %}

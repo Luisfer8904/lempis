@@ -20,8 +20,8 @@
       <div class="text-sm text-slate-500 whitespace-nowrap">{{ agenda_items|length }} actividad(es)</div>
     </div>
   </div>
-  <div class="overflow-x-auto">
-  <table class="saas-table w-full min-w-[900px]">
+  <div class="saas-list-card__table-wrap overflow-x-auto">
+  <table class="saas-table table-fixed w-full min-w-[920px]">
     <thead>
       <tr>
         <th class="min-w-[170px]">Fecha</th>
@@ -65,7 +65,16 @@
         </td>
         <td class="text-right whitespace-nowrap align-middle">
           <a href="{{ url_for('igh.agenda_edit', item_id=item.id) }}"
-             class="text-indigo-600 hover:underline text-sm">Editar</a>
+             class="text-indigo-600 hover:underline text-sm mr-3">Editar</a>
+          {% if igh_can_delete_records %}
+            <form method="POST" action="{{ url_for('igh.agenda_delete', item_id=item.id) }}" class="inline">
+              <button type="submit"
+                      onclick="return confirm('¿Eliminar esta actividad?')"
+                      class="text-rose-600 hover:underline text-sm">
+                Eliminar
+              </button>
+            </form>
+          {% endif %}
         </td>
       </tr>
       {% else %}

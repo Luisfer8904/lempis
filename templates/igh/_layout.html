@@ -81,13 +81,17 @@
       </details>
 
       {{ navlink('igh.dashboard', 'Dashboard', '🏠') }}
-      {{ navlink('igh.usuarios', 'Usuarios', '🧑‍🤝‍🧑') }}
+      {% if igh_can_access_users_module %}
+        {{ navlink('igh.usuarios', 'Usuarios', '🧑‍🤝‍🧑') }}
+      {% endif %}
       {{ navlink('igh.clientes', 'Clientes', '👥') }}
       {{ navlink('igh.ventas', 'Facturas crédito', '🧾') }}
       {{ navlink('igh.contado', 'Contado', '💵') }}
       {{ navlink('igh.pagos', 'Pagos / abonos', '💰') }}
       {{ navlink('igh.agenda', 'Agenda', '🗓️') }}
-      {{ navlink('igh.reportes', 'Reportes', '📊') }}
+      {% if igh_can_access_reports_module %}
+        {{ navlink('igh.reportes', 'Reportes', '📊') }}
+      {% endif %}
 
     </nav>
 

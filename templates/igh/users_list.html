@@ -22,17 +22,17 @@
       <div class="text-sm text-slate-500 whitespace-nowrap">{{ users|length }} usuario(s)</div>
     </div>
   </div>
-  <div class="overflow-x-auto">
-  <table class="saas-table w-full min-w-[980px]">
+  <div class="saas-list-card__table-wrap overflow-x-auto">
+  <table class="saas-table table-fixed w-full min-w-[900px]">
     <thead>
       <tr>
-        <th class="min-w-[210px]">Usuario</th>
-        <th class="min-w-[220px]">Nombre</th>
+        <th class="min-w-[220px]">Usuario</th>
+        <th class="min-w-[240px]">Nombre</th>
         <th class="min-w-[120px]">Rol</th>
         <th class="min-w-[110px]">Estado</th>
         <th class="min-w-[180px]">Último acceso</th>
         {% if igh_can_manage_users %}
-          <th class="text-right">Acciones</th>
+          <th class="text-right min-w-[150px]">Acciones</th>
         {% endif %}
       </tr>
     </thead>
@@ -43,7 +43,9 @@
           <div class="font-semibold text-slate-900">{{ u.username }}</div>
           <div class="text-xs text-slate-400 mt-1">{{ u.email or 'Sin correo' }}</div>
         </td>
-        <td class="text-sm align-middle">{{ u.full_name or '—' }}</td>
+        <td class="align-middle">
+          <div class="text-sm text-slate-800">{{ u.full_name or '—' }}</div>
+        </td>
         <td class="align-middle">
           <span class="inline-block text-xs px-2 py-1 rounded
                        {% if u.role == 'superadmin' %}bg-amber-100 text-amber-700
@@ -66,7 +68,7 @@
           <td class="text-right whitespace-nowrap align-middle">
             {% if igh_current_user and (igh_current_user.is_superadmin() or (igh_current_user.is_admin() and (u.id == igh_current_user.id or u.role == 'cajero'))) %}
               <a href="{{ url_for('igh.usuarios_edit', user_id=u.id) }}"
-                 class="text-indigo-600 hover:underline text-sm">
+                 class="inline-flex items-center rounded-lg border border-indigo-200 px-3 py-1.5 text-sm text-indigo-700 hover:bg-indigo-50">
                 {{ 'Cambiar clave' if igh_current_user.is_admin() and not igh_current_user.is_superadmin() else 'Editar' }}
               </a>
             {% else %}

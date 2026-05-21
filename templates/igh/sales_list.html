@@ -20,8 +20,8 @@
       <div class="text-sm text-slate-500 whitespace-nowrap">{{ sales|length }} factura(s)</div>
     </div>
   </div>
-  <div class="overflow-x-auto">
-  <table class="saas-table w-full min-w-[1040px]">
+  <div class="saas-list-card__table-wrap overflow-x-auto">
+  <table class="saas-table table-fixed w-full min-w-[980px]">
     <thead>
       <tr>
         <th class="min-w-[160px]">Fecha</th>
@@ -60,7 +60,16 @@
         </td>
         <td class="text-right whitespace-nowrap align-middle">
           <a href="{{ url_for('igh.ventas_edit', sale_id=sale.id) }}"
-             class="text-indigo-600 hover:underline text-sm">Editar</a>
+             class="text-indigo-600 hover:underline text-sm mr-3">Editar</a>
+          {% if igh_can_delete_records %}
+            <form method="POST" action="{{ url_for('igh.ventas_delete', sale_id=sale.id) }}" class="inline">
+              <button type="submit"
+                      onclick="return confirm('¿Eliminar esta factura crédito?')"
+                      class="text-rose-600 hover:underline text-sm">
+                Eliminar
+              </button>
+            </form>
+          {% endif %}
         </td>
       </tr>
       {% else %}

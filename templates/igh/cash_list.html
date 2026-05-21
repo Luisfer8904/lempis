@@ -20,8 +20,8 @@
       <div class="text-sm text-slate-500 whitespace-nowrap">{{ summaries|length }} resumen(es)</div>
     </div>
   </div>
-  <div class="overflow-x-auto">
-  <table class="saas-table w-full min-w-[1280px]">
+  <div class="saas-list-card__table-wrap overflow-x-auto">
+  <table class="saas-table table-fixed w-full min-w-[1180px]">
     <thead>
       <tr>
         <th class="min-w-[160px]">Fecha</th>
@@ -52,7 +52,16 @@
         <td class="text-sm text-slate-500 align-middle">{{ summary.notes or '—' }}</td>
         <td class="text-right whitespace-nowrap align-middle">
           <a href="{{ url_for('igh.contado_edit', summary_id=summary.id) }}"
-             class="text-indigo-600 hover:underline text-sm">Editar</a>
+             class="text-indigo-600 hover:underline text-sm mr-3">Editar</a>
+          {% if igh_can_delete_records %}
+            <form method="POST" action="{{ url_for('igh.contado_delete', summary_id=summary.id) }}" class="inline">
+              <button type="submit"
+                      onclick="return confirm('¿Eliminar este resumen de contado?')"
+                      class="text-rose-600 hover:underline text-sm">
+                Eliminar
+              </button>
+            </form>
+          {% endif %}
         </td>
       </tr>
       {% else %}

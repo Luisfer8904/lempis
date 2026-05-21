@@ -12,21 +12,22 @@ table.saas-table {
   width: 100%;
   border-collapse: collapse;
   table-layout: auto;
+  background: #fff;
 }
 table.saas-table th,
 table.saas-table td {
-  padding: 0.75rem 1rem;
+  padding: 0.9rem 1.1rem;
   border-bottom: 1px solid #e5e7eb;
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
 }
 table.saas-table th:first-child,
 table.saas-table td:first-child {
-  padding-left: 1.5rem;
+  padding-left: 1.35rem;
 }
 table.saas-table th:last-child,
 table.saas-table td:last-child {
-  padding-right: 1.5rem;
+  padding-right: 1.35rem;
 }
 table.saas-table th {
   background: #f8fafc;
@@ -52,4 +53,14 @@ table.saas-table td {
 .saas-list-card__header {
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid #e5e7eb;
+}
+
+.saas-list-card__table-wrap {
+  padding: 0 0.85rem 0.9rem;
+}
+
+@media (min-width: 640px) {
+  .saas-list-card__table-wrap {
+    padding: 0 1.25rem 1.1rem;
+  }
 }

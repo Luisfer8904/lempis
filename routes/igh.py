@@ -2,7 +2,7 @@
 Sub-app privada para Inversiones Guevara Herrera.
 Acceso separado usando usuarios IVG desde el mismo login de Lempis.
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import wraps
 
@@ -55,6 +55,18 @@ def igh_superadmin_required(fn):
     return wrapper
 
 
+def igh_admin_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        user = _current_igh_user()
+        if user is None:
+            return redirect(url_for("auth.login"))
+        if not (user.is_superadmin() or user.is_admin()):
+            abort(403)
+        return fn(*args, **kwargs)
+    return wrapper
+
+
 def _can_create_ivg_users(user: IVGUser | None) -> bool:
     return bool(user and user.is_superadmin())
 
@@ -79,6 +91,18 @@ def _can_view_ivg_user(actor: IVGUser | None, target: IVGUser | None) -> bool:
     if actor.is_admin():
         return not target.is_superadmin()
     return False
+
+
+def _can_access_users_module(user: IVGUser | None) -> bool:
+    return bool(user and (user.is_superadmin() or user.is_admin()))
+
+
+def _can_access_reports_module(user: IVGUser | None) -> bool:
+    return bool(user and (user.is_superadmin() or user.is_admin()))
+
+
+def _can_delete_operational_records(user: IVGUser | None) -> bool:
+    return bool(user and (user.is_superadmin() or user.is_admin()))
 
 
 def _safe_count(model) -> int:
@@ -149,6 +173,25 @@ def _month_start():
     return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
 
+def _cashier_missing_summary_dates(days_back: int = 7):
+    if not _table_exists(IVGCashSummary):
+        return []
+    today = datetime.utcnow().date()
+    start_date = today - timedelta(days=days_back - 1)
+    existing_dates = {
+        summary.summary_date.date()
+        for summary in IVGCashSummary.query.filter(
+            IVGCashSummary.summary_date >= datetime.combine(start_date, datetime.min.time())
+        ).all()
+    }
+    missing_dates = []
+    for offset in range(days_back - 1, -1, -1):
+        day = today - timedelta(days=offset)
+        if day not in existing_dates:
+            missing_dates.append(day)
+    return missing_dates
+
+
 def _latest_cash_summary():
     if not _table_exists(IVGCashSummary):
         return None
@@ -198,11 +241,23 @@ def _base_context():
         )
     latest_cash_summary = recent_cash_summaries[0] if recent_cash_summaries else None
     latest_variance = _to_decimal(latest_cash_summary.variance_amount) if latest_cash_summary else Decimal("0.00")
+    cashier_missing_dates = _cashier_missing_summary_dates()
+    pending_agenda_count = (
+        IVGAgendaItem.query.filter(IVGAgendaItem.status != "completada").count()
+        if _table_exists(IVGAgendaItem)
+        else 0
+    )
     return {
         "igh_user": current_igh_user.username if current_igh_user else session.get("igh_user"),
         "igh_current_user": current_igh_user,
+        "igh_is_superadmin": bool(current_igh_user and current_igh_user.is_superadmin()),
+        "igh_is_admin": bool(current_igh_user and current_igh_user.is_admin()),
+        "igh_is_cajero": bool(current_igh_user and current_igh_user.is_cajero()),
         "igh_can_create_users": _can_create_ivg_users(current_igh_user),
         "igh_can_manage_users": bool(current_igh_user and (current_igh_user.is_superadmin() or current_igh_user.is_admin())),
+        "igh_can_access_users_module": _can_access_users_module(current_igh_user),
+        "igh_can_access_reports_module": _can_access_reports_module(current_igh_user),
+        "igh_can_delete_records": _can_delete_operational_records(current_igh_user),
         "company_name": "Inversiones Guevara Herrera",
         "ivg_counts": {
             "users": _safe_count(IVGUser),
@@ -238,6 +293,9 @@ def _base_context():
         "recent_cash_summaries": recent_cash_summaries,
         "latest_cash_summary": latest_cash_summary,
         "top_clients": top_clients,
+        "cashier_missing_dates": cashier_missing_dates,
+        "cashier_missing_dates_count": len(cashier_missing_dates),
+        "cashier_pending_agenda_count": pending_agenda_count,
         "ivg_tables": [
             "ivg_usuarios",
             "ivg_clientes",
@@ -330,6 +388,7 @@ def dashboard_alias():
 
 @igh_bp.route("/usuarios")
 @igh_login_required
+@igh_admin_required
 def usuarios():
     current_user = _current_igh_user()
     users = []
@@ -535,6 +594,18 @@ def clientes_edit(client_id: int):
     return render_template("igh/clients_form.html", **context)
 
 
+@igh_bp.route("/clientes/<int:client_id>/delete", methods=["POST"])
+@igh_login_required
+@igh_admin_required
+def clientes_delete(client_id: int):
+    client = _get_ivg_client_or_404(client_id)
+    client_name = client.name
+    db.session.delete(client)
+    db.session.commit()
+    flash(f"Cliente IVG {client_name} eliminado.", "success")
+    return redirect(url_for("igh.clientes"))
+
+
 @igh_bp.route("/ventas")
 @igh_login_required
 def ventas():
@@ -640,6 +711,18 @@ def ventas_edit(sale_id: int):
     return render_template("igh/sales_form.html", **context)
 
 
+@igh_bp.route("/ventas/<int:sale_id>/delete", methods=["POST"])
+@igh_login_required
+@igh_admin_required
+def ventas_delete(sale_id: int):
+    sale = _get_ivg_sale_or_404(sale_id)
+    reference = sale.reference_number or f"FACT-{sale.id}"
+    db.session.delete(sale)
+    db.session.commit()
+    flash(f"Factura crédito {reference} eliminada.", "success")
+    return redirect(url_for("igh.ventas"))
+
+
 @igh_bp.route("/contado")
 @igh_login_required
 def contado():
@@ -736,6 +819,17 @@ def contado_edit(summary_id: int):
 
     context["summary"] = summary
     return render_template("igh/cash_form.html", **context)
+
+
+@igh_bp.route("/contado/<int:summary_id>/delete", methods=["POST"])
+@igh_login_required
+@igh_admin_required
+def contado_delete(summary_id: int):
+    summary = _get_ivg_cash_or_404(summary_id)
+    db.session.delete(summary)
+    db.session.commit()
+    flash("Resumen de contado eliminado.", "success")
+    return redirect(url_for("igh.contado"))
 
 
 @igh_bp.route("/pagos")
@@ -862,6 +956,21 @@ def pagos_edit(payment_id: int):
     return render_template("igh/payments_form.html", **context)
 
 
+@igh_bp.route("/pagos/<int:payment_id>/delete", methods=["POST"])
+@igh_login_required
+@igh_admin_required
+def pagos_delete(payment_id: int):
+    payment = _get_ivg_payment_or_404(payment_id)
+    sale = payment.sale
+    db.session.delete(payment)
+    db.session.flush()
+    if sale is not None:
+        _recalculate_sale_balance(sale)
+    db.session.commit()
+    flash("Pago / abono eliminado.", "success")
+    return redirect(url_for("igh.pagos"))
+
+
 @igh_bp.route("/agenda")
 @igh_login_required
 def agenda():
@@ -959,8 +1068,20 @@ def agenda_edit(item_id: int):
     return render_template("igh/agenda_form.html", **context)
 
 
+@igh_bp.route("/agenda/<int:item_id>/delete", methods=["POST"])
+@igh_login_required
+@igh_admin_required
+def agenda_delete(item_id: int):
+    item = _get_ivg_agenda_or_404(item_id)
+    db.session.delete(item)
+    db.session.commit()
+    flash("Actividad eliminada.", "success")
+    return redirect(url_for("igh.agenda"))
+
+
 @igh_bp.route("/reportes")
 @igh_login_required
+@igh_admin_required
 def reportes():
     context = _base_context()
     context["recent_sales"] = IVGSale.query.order_by(IVGSale.sale_date.desc(), IVGSale.id.desc()).limit(8).all() if _table_exists(IVGSale) else []

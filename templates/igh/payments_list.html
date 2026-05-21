@@ -20,8 +20,8 @@
       <div class="text-sm text-slate-500 whitespace-nowrap">{{ payments|length }} movimiento(s)</div>
     </div>
   </div>
-  <div class="overflow-x-auto">
-  <table class="saas-table w-full min-w-[1040px]">
+  <div class="saas-list-card__table-wrap overflow-x-auto">
+  <table class="saas-table table-fixed w-full min-w-[980px]">
     <thead>
       <tr>
         <th class="min-w-[160px]">Fecha</th>
@@ -56,7 +56,16 @@
         <td class="text-right font-semibold text-emerald-700 align-middle">HNL {{ "{:,.2f}".format(payment.amount or 0) }}</td>
         <td class="text-right whitespace-nowrap align-middle">
           <a href="{{ url_for('igh.pagos_edit', payment_id=payment.id) }}"
-             class="text-indigo-600 hover:underline text-sm">Editar</a>
+             class="text-indigo-600 hover:underline text-sm mr-3">Editar</a>
+          {% if igh_can_delete_records %}
+            <form method="POST" action="{{ url_for('igh.pagos_delete', payment_id=payment.id) }}" class="inline">
+              <button type="submit"
+                      onclick="return confirm('¿Eliminar este pago o abono?')"
+                      class="text-rose-600 hover:underline text-sm">
+                Eliminar
+              </button>
+            </form>
+          {% endif %}
         </td>
       </tr>
       {% else %}

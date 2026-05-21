@@ -3,6 +3,118 @@
 {% block heading %}Dashboard{% endblock %}
 
 {% block content %}
+{% if igh_is_cajero %}
+<section class="mb-6">
+  <h2 class="text-2xl font-bold mb-1">Hola, {{ igh_user }} 👋</h2>
+  <p class="text-slate-500">{{ company_name }} — panel diario para registrar facturas, cobros, contado y actividades pendientes.</p>
+</section>
+
+<section class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white p-5 rounded-xl shadow-sm border">
+    <div class="text-slate-500 text-sm">Días sin contado</div>
+    <div class="text-3xl font-bold mt-1 {% if cashier_missing_dates_count > 0 %}text-amber-700{% endif %}">
+      {{ cashier_missing_dates_count }}
+    </div>
+    <a href="{{ url_for('igh.contado') }}" class="text-xs text-indigo-600 hover:underline">Completar contado →</a>
+  </div>
+  <div class="bg-white p-5 rounded-xl shadow-sm border">
+    <div class="text-slate-500 text-sm">Facturas pendientes</div>
+    <div class="text-3xl font-bold mt-1">{{ ivg_counts.pending_invoices }}</div>
+    <a href="{{ url_for('igh.ventas') }}" class="text-xs text-indigo-600 hover:underline">Revisar cartera →</a>
+  </div>
+  <div class="bg-white p-5 rounded-xl shadow-sm border">
+    <div class="text-slate-500 text-sm">Agenda pendiente</div>
+    <div class="text-3xl font-bold mt-1">{{ cashier_pending_agenda_count }}</div>
+    <a href="{{ url_for('igh.agenda') }}" class="text-xs text-indigo-600 hover:underline">Ver agenda →</a>
+  </div>
+  <div class="bg-white p-5 rounded-xl shadow-sm border">
+    <div class="text-slate-500 text-sm">Cobros del mes</div>
+    <div class="text-2xl font-bold mt-1">HNL {{ "{:,.2f}".format(ivg_metrics.collections_month_total) }}</div>
+    <a href="{{ url_for('igh.pagos') }}" class="text-xs text-indigo-600 hover:underline">Registrar cobro →</a>
+  </div>
+</section>
+
+<section class="grid lg:grid-cols-2 gap-6 mb-6">
+  <div class="bg-white p-6 rounded-xl border shadow-sm">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-semibold">Días pendientes por registrar</h3>
+      <a href="{{ url_for('igh.contado_new') }}" class="text-sm text-indigo-600 hover:underline">Nuevo contado →</a>
+    </div>
+    <div class="space-y-3">
+      {% for day in cashier_missing_dates %}
+      <div class="rounded-xl border px-4 py-3 flex items-center justify-between gap-4">
+        <div>
+          <p class="font-medium text-slate-900">{{ day.strftime('%d/%m/%Y') }}</p>
+          <p class="text-xs text-slate-500">Hace falta introducir el resumen de contado de este día.</p>
+        </div>
+        <span class="inline-block text-xs px-2 py-1 rounded bg-amber-100 text-amber-700">Pendiente</span>
+      </div>
+      {% else %}
+      <p class="text-sm text-slate-500">No hay días pendientes de contado en la última semana.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="bg-white p-6 rounded-xl border shadow-sm">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-semibold">Enfoque del día</h3>
+      <a href="{{ url_for('igh.ventas_new') }}" class="text-sm text-indigo-600 hover:underline">Nueva factura →</a>
+    </div>
+    <ul class="space-y-3 text-sm text-slate-600">
+      <li class="flex items-start gap-2"><span>•</span><span>Registrar todas las facturas a crédito del día.</span></li>
+      <li class="flex items-start gap-2"><span>•</span><span>Aplicar cobros y abonos a las facturas pendientes.</span></li>
+      <li class="flex items-start gap-2"><span>•</span><span>Consolidar el contado separando efectivo y transferencia.</span></li>
+      <li class="flex items-start gap-2"><span>•</span><span>Marcar actividades completadas y revisar agenda pendiente.</span></li>
+    </ul>
+  </div>
+</section>
+
+<section class="grid lg:grid-cols-2 gap-6">
+  <div class="bg-white p-6 rounded-xl border shadow-sm">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-semibold">Facturas pendientes de cobro</h3>
+      <a href="{{ url_for('igh.ventas') }}" class="text-sm text-indigo-600 hover:underline">Ver todas →</a>
+    </div>
+    <div class="space-y-3">
+      {% for sale in pending_invoices %}
+      <div class="rounded-xl border px-4 py-3 flex items-center justify-between gap-4">
+        <div class="min-w-0">
+          <p class="font-medium truncate">{{ sale.client.name if sale.client else 'Cliente sin nombre' }}</p>
+          <p class="text-xs text-slate-500">{{ sale.reference_number or ('FACT-' ~ sale.id) }} · vence {{ sale.due_date.strftime('%d/%m/%Y') if sale.due_date else 'sin fecha' }}</p>
+        </div>
+        <div class="text-right">
+          <p class="font-semibold text-amber-700">HNL {{ "{:,.2f}".format(sale.balance_due or 0) }}</p>
+        </div>
+      </div>
+      {% else %}
+      <p class="text-sm text-slate-500">No hay facturas pendientes.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="bg-white p-6 rounded-xl border shadow-sm">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-semibold">Cobros recientes</h3>
+      <a href="{{ url_for('igh.pagos') }}" class="text-sm text-indigo-600 hover:underline">Ver cobros →</a>
+    </div>
+    <div class="space-y-3">
+      {% for payment in recent_collections %}
+      <div class="rounded-xl border px-4 py-3 flex items-center justify-between gap-4">
+        <div class="min-w-0">
+          <p class="font-medium truncate">{{ payment.sale.client.name if payment.sale and payment.sale.client else 'Cliente sin nombre' }}</p>
+          <p class="text-xs text-slate-500">{{ payment.payment_kind }} · {{ payment.payment_method }}</p>
+        </div>
+        <div class="text-right">
+          <p class="font-semibold text-emerald-700">HNL {{ "{:,.2f}".format(payment.amount or 0) }}</p>
+        </div>
+      </div>
+      {% else %}
+      <p class="text-sm text-slate-500">No hay cobros recientes.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% else %}
 <section class="mb-6">
   <h2 class="text-2xl font-bold mb-1">Hola, {{ igh_user }} 👋</h2>
   <p class="text-slate-500">{{ company_name }} — seguimiento diario de facturas crédito, cobros y cierre de contado.</p>
@@ -235,4 +347,5 @@
     </ul>
   </div>
 </section>
+{% endif %}
 {% endblock %}
