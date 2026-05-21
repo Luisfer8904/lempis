@@ -68,7 +68,7 @@ def igh_admin_required(fn):
 
 
 def _can_create_ivg_users(user: IVGUser | None) -> bool:
-    return bool(user and user.is_superadmin())
+    return bool(user and (user.is_superadmin() or user.is_admin()))
 
 
 def _can_edit_ivg_user(actor: IVGUser | None, target: IVGUser | None) -> bool:
@@ -90,6 +90,16 @@ def _can_view_ivg_user(actor: IVGUser | None, target: IVGUser | None) -> bool:
         return True
     if actor.is_admin():
         return not target.is_superadmin()
+    return False
+
+
+def _can_delete_ivg_user(actor: IVGUser | None, target: IVGUser | None) -> bool:
+    if actor is None or target is None:
+        return False
+    if actor.is_superadmin():
+        return target.id != actor.id
+    if actor.is_admin():
+        return target.is_cajero()
     return False
 
 
@@ -335,6 +345,29 @@ def _render_section(title: str, eyebrow: str, description: str, cta: str):
     return render_template("igh/section.html", **context)
 
 
+def _build_user_form_data(user: IVGUser | None = None, form=None, actor: IVGUser | None = None):
+    if form is not None:
+        return {
+            "username": (form.get("username") or "").strip(),
+            "full_name": (form.get("full_name") or "").strip(),
+            "email": (form.get("email") or "").strip(),
+            "role": (
+                "cajero"
+                if actor and actor.is_admin() and not actor.is_superadmin()
+                else (form.get("role") or "cajero")
+            ),
+            "is_active": bool(form.get("is_active")) if user else True,
+        }
+
+    return {
+        "username": user.username if user else "",
+        "full_name": user.full_name if user and user.full_name else "",
+        "email": user.email if user and user.email else "",
+        "role": user.role if user else "cajero",
+        "is_active": user.is_active if user else True,
+    }
+
+
 def _get_ivg_user_or_404(user_id: int) -> IVGUser:
     if not _table_exists(IVGUser):
         abort(404)
@@ -419,29 +452,36 @@ def usuarios():
 
 @igh_bp.route("/usuarios/new", methods=["GET", "POST"])
 @igh_login_required
-@igh_superadmin_required
+@igh_admin_required
 def usuarios_new():
     context = _base_context()
+    actor = context["igh_current_user"]
+    context["form_data"] = _build_user_form_data(actor=actor)
+
     if request.method == "POST":
         username = (request.form.get("username") or "").strip()
         full_name = (request.form.get("full_name") or "").strip()
         email = (request.form.get("email") or "").strip().lower() or None
         password = request.form.get("password") or ""
-        role = request.form.get("role") or "cajero"
+        role = "cajero" if actor and actor.is_admin() and not actor.is_superadmin() else (request.form.get("role") or "cajero")
+        context["form_data"] = _build_user_form_data(form=request.form, actor=actor)
 
         if not username or not password:
             flash("Usuario y contraseña son obligatorios.", "danger")
-            return redirect(url_for("igh.usuarios_new"))
+            context["user"] = None
+            return render_template("igh/users_form.html", **context)
 
         if len(password) < 4:
             flash("La contraseña debe tener al menos 4 caracteres.", "danger")
-            return redirect(url_for("igh.usuarios_new"))
+            context["user"] = None
+            return render_template("igh/users_form.html", **context)
 
         if _table_exists(IVGUser):
             exists = IVGUser.query.filter_by(username=username).first()
             if exists:
                 flash("Ya existe un usuario IVG con ese nombre.", "danger")
-                return redirect(url_for("igh.usuarios_new"))
+                context["user"] = None
+                return render_template("igh/users_form.html", **context)
 
         user = IVGUser(
             username=username,
@@ -481,7 +521,9 @@ def usuarios_edit(user_id: int):
         if new_password:
             if len(new_password) < 4:
                 flash("La contraseña debe tener al menos 4 caracteres.", "danger")
-                return redirect(url_for("igh.usuarios_edit", user_id=user.id))
+                context["user"] = user
+                context["form_data"] = _build_user_form_data(user=user, form=request.form, actor=actor)
+                return render_template("igh/users_form.html", **context)
             user.set_password(new_password)
 
         db.session.commit()
@@ -496,7 +538,24 @@ def usuarios_edit(user_id: int):
         return redirect(url_for("igh.usuarios"))
 
     context["user"] = user
+    context["form_data"] = _build_user_form_data(user=user, actor=actor)
     return render_template("igh/users_form.html", **context)
+
+
+@igh_bp.route("/usuarios/<int:user_id>/delete", methods=["POST"])
+@igh_login_required
+@igh_admin_required
+def usuarios_delete(user_id: int):
+    user = _get_ivg_user_or_404(user_id)
+    actor = _current_igh_user()
+    if not _can_delete_ivg_user(actor, user):
+        abort(403)
+
+    username = user.username
+    db.session.delete(user)
+    db.session.commit()
+    flash(f"Usuario IVG {username} eliminado.", "success")
+    return redirect(url_for("igh.usuarios"))
 
 
 @igh_bp.route("/clientes")

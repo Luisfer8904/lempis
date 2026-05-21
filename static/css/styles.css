@@ -16,7 +16,7 @@ table.saas-table {
 }
 table.saas-table th,
 table.saas-table td {
-  padding: 0.9rem 1.1rem;
+  padding: 1rem 1.2rem;
   border-bottom: 1px solid #e5e7eb;
   text-align: left;
   vertical-align: middle;
@@ -39,7 +39,8 @@ table.saas-table th {
 
 table.saas-table td {
   white-space: normal;
-  word-break: break-word;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 .saas-list-card {
@@ -48,19 +49,20 @@ table.saas-table td {
   border-radius: 0.75rem;
   box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
   overflow: hidden;
+  margin-bottom: 1.5rem;
 }
 
 .saas-list-card__header {
-  padding: 1.25rem 1.5rem;
+  padding: 1.35rem 1.65rem;
   border-bottom: 1px solid #e5e7eb;
 }
 
 .saas-list-card__table-wrap {
-  padding: 0 0.85rem 0.9rem;
+  padding: 0.2rem 1rem 1rem;
 }
 
 @media (min-width: 640px) {
   .saas-list-card__table-wrap {
-    padding: 0 1.25rem 1.1rem;
+    padding: 0.3rem 1.4rem 1.2rem;
   }
 }

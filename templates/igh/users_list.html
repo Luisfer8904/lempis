@@ -23,16 +23,16 @@
     </div>
   </div>
   <div class="saas-list-card__table-wrap overflow-x-auto">
-  <table class="saas-table table-fixed w-full min-w-[900px]">
+  <table class="saas-table w-full min-w-[920px]">
     <thead>
       <tr>
-        <th class="min-w-[220px]">Usuario</th>
+        <th class="min-w-[240px]">Usuario</th>
         <th class="min-w-[240px]">Nombre</th>
-        <th class="min-w-[120px]">Rol</th>
-        <th class="min-w-[110px]">Estado</th>
-        <th class="min-w-[180px]">Último acceso</th>
+        <th class="min-w-[140px]">Rol</th>
+        <th class="min-w-[130px]">Estado</th>
+        <th class="min-w-[190px]">Último acceso</th>
         {% if igh_can_manage_users %}
-          <th class="text-right min-w-[150px]">Acciones</th>
+          <th class="text-right min-w-[220px]">Acciones</th>
         {% endif %}
       </tr>
     </thead>
@@ -71,6 +71,15 @@
                  class="inline-flex items-center rounded-lg border border-indigo-200 px-3 py-1.5 text-sm text-indigo-700 hover:bg-indigo-50">
                 {{ 'Cambiar clave' if igh_current_user.is_admin() and not igh_current_user.is_superadmin() else 'Editar' }}
               </a>
+              {% if (igh_current_user.is_superadmin() and u.id != igh_current_user.id) or (igh_current_user.is_admin() and u.role == 'cajero') %}
+                <form method="POST" action="{{ url_for('igh.usuarios_delete', user_id=u.id) }}" class="inline-block ml-2"
+                      onsubmit="return confirm('¿Eliminar a {{ u.username }}?');">
+                  <button type="submit"
+                          class="inline-flex items-center rounded-lg border border-rose-200 px-3 py-1.5 text-sm text-rose-700 hover:bg-rose-50">
+                    Eliminar
+                  </button>
+                </form>
+              {% endif %}
             {% else %}
               <span class="text-sm text-slate-300">—</span>
             {% endif %}
