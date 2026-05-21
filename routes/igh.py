@@ -165,6 +165,12 @@ def _parse_datetime(raw_value: str, label: str, required: bool = False):
     raise ValueError(f"{label} no tiene un formato válido.")
 
 
+def _format_datetime_local(value):
+    if not value:
+        return ""
+    return value.strftime("%Y-%m-%dT%H:%M")
+
+
 def _recalculate_sale_balance(sale: IVGSale) -> None:
     total_paid = sum((payment.amount or Decimal("0.00")) for payment in sale.payments)
     gross_amount = _to_decimal(sale.gross_amount)
@@ -343,6 +349,41 @@ def _render_section(title: str, eyebrow: str, description: str, cta: str):
         "section_cta": cta,
     })
     return render_template("igh/section.html", **context)
+
+
+def _build_sale_form_data(sale: IVGSale | None = None, form=None):
+    if form is not None:
+        return {
+            "client_id": (form.get("client_id") or "").strip(),
+            "category": (form.get("category") or "herbicidas").strip(),
+            "gross_amount": (form.get("gross_amount") or "").strip(),
+            "reference_number": (form.get("reference_number") or "").strip(),
+            "sale_date": (form.get("sale_date") or "").strip(),
+            "due_date": (form.get("due_date") or "").strip(),
+            "notes": (form.get("notes") or "").strip(),
+        }
+
+    if sale is not None:
+        return {
+            "client_id": str(sale.client_id or ""),
+            "category": sale.category or "herbicidas",
+            "gross_amount": str(sale.gross_amount or ""),
+            "reference_number": sale.reference_number or "",
+            "sale_date": _format_datetime_local(sale.sale_date),
+            "due_date": _format_datetime_local(sale.due_date),
+            "notes": sale.notes or "",
+        }
+
+    now = datetime.now().replace(second=0, microsecond=0)
+    return {
+        "client_id": "",
+        "category": "herbicidas",
+        "gross_amount": "",
+        "reference_number": "",
+        "sale_date": _format_datetime_local(now),
+        "due_date": _format_datetime_local(now + timedelta(days=30)),
+        "notes": "",
+    }
 
 
 def _build_user_form_data(user: IVGUser | None = None, form=None, actor: IVGUser | None = None):
@@ -696,8 +737,10 @@ def ventas():
 def ventas_new():
     context = _base_context()
     context["clients"] = IVGClient.query.filter_by(is_active=True).order_by(IVGClient.name.asc()).all() if _table_exists(IVGClient) else []
+    context["form_data"] = _build_sale_form_data()
 
     if request.method == "POST":
+        context["form_data"] = _build_sale_form_data(form=request.form)
         try:
             client_id = int(request.form.get("client_id") or "0")
         except ValueError:
@@ -712,12 +755,14 @@ def ventas_new():
             due_date = _parse_datetime(request.form.get("due_date"), "La fecha de vencimiento", required=True)
         except ValueError as exc:
             flash(str(exc), "danger")
-            return redirect(url_for("igh.ventas_new"))
+            context["sale"] = None
+            return render_template("igh/sales_form.html", **context)
 
         client = db.session.get(IVGClient, client_id) if client_id else None
         if client is None:
             flash("Debes seleccionar un cliente válido.", "danger")
-            return redirect(url_for("igh.ventas_new"))
+            context["sale"] = None
+            return render_template("igh/sales_form.html", **context)
 
         sale = IVGSale(
             client_id=client.id,
@@ -747,8 +792,10 @@ def ventas_edit(sale_id: int):
     sale = _get_ivg_sale_or_404(sale_id)
     context = _base_context()
     context["clients"] = IVGClient.query.filter_by(is_active=True).order_by(IVGClient.name.asc()).all() if _table_exists(IVGClient) else []
+    context["form_data"] = _build_sale_form_data(sale=sale)
 
     if request.method == "POST":
+        context["form_data"] = _build_sale_form_data(sale=sale, form=request.form)
         try:
             client_id = int(request.form.get("client_id") or "0")
         except ValueError:
@@ -763,12 +810,14 @@ def ventas_edit(sale_id: int):
             due_date = _parse_datetime(request.form.get("due_date"), "La fecha de vencimiento", required=True)
         except ValueError as exc:
             flash(str(exc), "danger")
-            return redirect(url_for("igh.ventas_edit", sale_id=sale.id))
+            context["sale"] = sale
+            return render_template("igh/sales_form.html", **context)
 
         client = db.session.get(IVGClient, client_id) if client_id else None
         if client is None:
             flash("Debes seleccionar un cliente válido.", "danger")
-            return redirect(url_for("igh.ventas_edit", sale_id=sale.id))
+            context["sale"] = sale
+            return render_template("igh/sales_form.html", **context)
 
         sale.client_id = client.id
         sale.sale_type = "credito"
