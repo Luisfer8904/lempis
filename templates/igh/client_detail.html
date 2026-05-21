@@ -11,9 +11,29 @@
 {% block content %}
 <section class="mb-6">
   <h2 class="text-2xl font-bold mb-1">{{ client.name }}</h2>
-  <p class="text-slate-500">
-    {{ client.legal_name or 'Sin razón social' }} · {{ client.city or 'Sin ciudad' }} · {{ client.phone or 'Sin teléfono' }}
-  </p>
+  <p class="text-slate-500">Ficha comercial y seguimiento de cartera del cliente.</p>
+</section>
+
+<section class="bg-white rounded-xl border shadow-sm p-6 mb-6">
+  <div class="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div class="rounded-xl border bg-slate-50 px-4 py-3">
+      <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-1">Cliente</p>
+      <p class="font-semibold text-slate-900 break-words">{{ client.name }}</p>
+    </div>
+    <div class="rounded-xl border bg-slate-50 px-4 py-3">
+      <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-1">Razón social</p>
+      <p class="font-semibold text-slate-900 break-words">{{ client.legal_name or 'Sin razón social' }}</p>
+    </div>
+    <div class="rounded-xl border bg-slate-50 px-4 py-3">
+      <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-1">Contacto</p>
+      <p class="font-semibold text-slate-900 break-words">{{ client.phone or 'Sin teléfono' }}</p>
+      <p class="text-sm text-slate-500 break-all mt-1">{{ client.email or 'Sin correo' }}</p>
+    </div>
+    <div class="rounded-xl border bg-slate-50 px-4 py-3">
+      <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-1">Ciudad</p>
+      <p class="font-semibold text-slate-900 break-words">{{ client.city or 'Sin ciudad' }}</p>
+    </div>
+  </div>
 </section>
 
 <section class="grid md:grid-cols-4 gap-4 mb-6">
@@ -41,7 +61,8 @@
       <h3 class="text-lg font-semibold">Historial de facturas crédito</h3>
       <span class="text-sm text-slate-500">Total facturado: HNL {{ "{:,.2f}".format(client_metrics.sales_total) }}</span>
     </div>
-    <table class="saas-table w-full">
+    <div class="overflow-x-auto">
+    <table class="saas-table w-full min-w-[760px]">
       <thead>
         <tr>
           <th>Fecha</th>
@@ -67,6 +88,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 
   <div class="bg-white rounded-xl border shadow-sm p-6">
@@ -89,7 +111,8 @@
   <div class="px-6 py-4 border-b">
     <h3 class="text-lg font-semibold">Historial de cobros y abonos</h3>
   </div>
-  <table class="saas-table w-full">
+  <div class="overflow-x-auto">
+  <table class="saas-table w-full min-w-[760px]">
     <thead>
       <tr>
         <th>Fecha</th>
@@ -115,5 +138,6 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </section>
 {% endblock %}

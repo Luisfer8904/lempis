@@ -446,8 +446,6 @@ def clientes_new():
         email = (request.form.get("email") or "").strip().lower() or None
         phone = (request.form.get("phone") or "").strip() or None
         city = (request.form.get("city") or "").strip() or None
-        status = (request.form.get("status") or "prospecto").strip()
-        is_active = bool(request.form.get("is_active"))
 
         if not name:
             flash("El nombre del cliente es obligatorio.", "danger")
@@ -460,8 +458,8 @@ def clientes_new():
             email=email,
             phone=phone,
             city=city,
-            status=status,
-            is_active=is_active,
+            status="activo",
+            is_active=True,
         )
         db.session.add(client)
         db.session.commit()
@@ -490,8 +488,8 @@ def clientes_edit(client_id: int):
         client.email = (request.form.get("email") or "").strip().lower() or None
         client.phone = (request.form.get("phone") or "").strip() or None
         client.city = (request.form.get("city") or "").strip() or None
-        client.status = (request.form.get("status") or "prospecto").strip()
-        client.is_active = bool(request.form.get("is_active"))
+        client.status = "activo"
+        client.is_active = True
 
         db.session.commit()
         flash(f"Cliente IVG {client.name} actualizado.", "success")

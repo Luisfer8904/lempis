@@ -11,7 +11,8 @@
 
 {% block content %}
 <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
-  <table class="saas-table w-full">
+  <div class="overflow-x-auto">
+  <table class="saas-table w-full min-w-[1200px]">
     <thead>
       <tr>
         <th>Fecha</th>
@@ -29,7 +30,7 @@
     <tbody>
       {% for summary in summaries %}
       <tr class="hover:bg-slate-50">
-        <td class="text-sm">{{ summary.summary_date.strftime('%d/%m/%Y %H:%M') if summary.summary_date else '—' }}</td>
+        <td class="text-sm min-w-[170px]">{{ summary.summary_date.strftime('%d/%m/%Y %H:%M') if summary.summary_date else '—' }}</td>
         <td class="font-medium">HNL {{ "{:,.2f}".format(summary.opening_amount or 0) }}</td>
         <td class="font-semibold">HNL {{ "{:,.2f}".format(summary.total_amount or 0) }}</td>
         <td class="text-emerald-700 font-medium">HNL {{ "{:,.2f}".format(summary.cash_amount or 0) }}</td>
@@ -39,8 +40,8 @@
         <td class="font-medium {% if (summary.variance_amount or 0) < 0 %}text-rose-600{% elif (summary.variance_amount or 0) > 0 %}text-emerald-600{% endif %}">
           HNL {{ "{:,.2f}".format(summary.variance_amount or 0) }}
         </td>
-        <td class="text-sm text-slate-500">{{ summary.notes or '—' }}</td>
-        <td class="text-right">
+        <td class="text-sm text-slate-500 min-w-[260px]">{{ summary.notes or '—' }}</td>
+        <td class="text-right whitespace-nowrap">
           <a href="{{ url_for('igh.contado_edit', summary_id=summary.id) }}"
              class="text-indigo-600 hover:underline text-sm">Editar</a>
         </td>
@@ -54,6 +55,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 <p class="text-sm text-slate-500 mt-3">{{ summaries|length }} resumen(es) de contado.</p>
 {% endblock %}

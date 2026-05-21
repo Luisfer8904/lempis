@@ -44,26 +44,6 @@
       <input name="city" value="{{ client.city if client else '' }}"
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
     </div>
-
-    <div>
-      <label class="block text-sm font-medium mb-1">Estado comercial</label>
-      <select name="status"
-              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
-        {% for status_code, status_name in [('prospecto', 'Prospecto'), ('activo', 'Activo'), ('inactivo', 'Inactivo')] %}
-          <option value="{{ status_code }}"
-                  {% if (client and client.status == status_code) or (not client and status_code == 'prospecto') %}selected{% endif %}>
-            {{ status_name }}
-          </option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <div class="flex items-end">
-      <label class="flex items-center gap-2 text-sm">
-        <input type="checkbox" name="is_active" {% if client and client.is_active or not client %}checked{% endif %} />
-        Cliente activo para asignar ventas
-      </label>
-    </div>
   </div>
 
   <div class="flex gap-3 mt-6 pt-6 border-t">

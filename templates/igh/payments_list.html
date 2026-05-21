@@ -11,7 +11,8 @@
 
 {% block content %}
 <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
-  <table class="saas-table w-full">
+  <div class="overflow-x-auto">
+  <table class="saas-table w-full min-w-[980px]">
     <thead>
       <tr>
         <th>Fecha</th>
@@ -27,18 +28,18 @@
     <tbody>
       {% for payment in payments %}
       <tr class="hover:bg-slate-50">
-        <td class="text-sm">{{ payment.payment_date.strftime('%d/%m/%Y %H:%M') if payment.payment_date else '—' }}</td>
-        <td class="font-mono text-xs">{{ payment.sale.reference_number or ('FACT-' ~ payment.sale.id) if payment.sale else '—' }}</td>
-        <td class="font-medium">{{ payment.sale.client.name if payment.sale and payment.sale.client else '—' }}</td>
+        <td class="text-sm min-w-[170px]">{{ payment.payment_date.strftime('%d/%m/%Y %H:%M') if payment.payment_date else '—' }}</td>
+        <td class="font-mono text-xs min-w-[130px]">{{ payment.sale.reference_number or ('FACT-' ~ payment.sale.id) if payment.sale else '—' }}</td>
+        <td class="font-medium min-w-[240px]">{{ payment.sale.client.name if payment.sale and payment.sale.client else '—' }}</td>
         <td>
           <span class="text-xs px-2 py-1 rounded {% if payment.payment_kind == 'pago' %}bg-emerald-100 text-emerald-700{% else %}bg-indigo-100 text-indigo-700{% endif %}">
             {{ payment.payment_kind }}
           </span>
         </td>
-        <td class="text-sm">{{ payment.payment_method }}</td>
-        <td class="text-sm">{{ payment.category }}</td>
+        <td class="text-sm min-w-[120px]">{{ payment.payment_method }}</td>
+        <td class="text-sm min-w-[130px]">{{ payment.category }}</td>
         <td class="font-semibold">HNL {{ "{:,.2f}".format(payment.amount or 0) }}</td>
-        <td class="text-right">
+        <td class="text-right whitespace-nowrap">
           <a href="{{ url_for('igh.pagos_edit', payment_id=payment.id) }}"
              class="text-indigo-600 hover:underline text-sm">Editar</a>
         </td>
@@ -52,6 +53,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 <p class="text-sm text-slate-500 mt-3">{{ payments|length }} movimiento(s) de cobro.</p>
 {% endblock %}

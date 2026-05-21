@@ -11,48 +11,32 @@
 
 {% block content %}
 <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
-  <table class="saas-table w-full">
+  <div class="overflow-x-auto">
+  <table class="saas-table w-full min-w-[900px]">
     <thead>
       <tr>
         <th>Cliente</th>
         <th>Razón social</th>
         <th>Contacto</th>
         <th>Ciudad</th>
-        <th>Estado comercial</th>
-        <th>Activo</th>
         <th class="text-right">Acciones</th>
       </tr>
     </thead>
     <tbody>
       {% for client in clients %}
       <tr class="hover:bg-slate-50">
-        <td class="font-medium">
+        <td class="font-medium min-w-[260px]">
           <a href="{{ url_for('igh.clientes_detail', client_id=client.id) }}" class="text-slate-900 hover:text-indigo-700 hover:underline">
             {{ client.name }}
           </a>
         </td>
-        <td class="text-sm">{{ client.legal_name or '—' }}</td>
-        <td class="text-sm text-slate-600">
+        <td class="text-sm min-w-[260px]">{{ client.legal_name or '—' }}</td>
+        <td class="text-sm text-slate-600 min-w-[240px]">
           <div>{{ client.phone or '—' }}</div>
           <div class="text-xs text-slate-400">{{ client.email or '—' }}</div>
         </td>
-        <td class="text-sm">{{ client.city or '—' }}</td>
-        <td>
-          <span class="text-xs px-2 py-1 rounded
-                       {% if client.status == 'activo' %}bg-emerald-100 text-emerald-700
-                       {% elif client.status == 'prospecto' %}bg-amber-100 text-amber-700
-                       {% else %}bg-slate-200 text-slate-600{% endif %}">
-            {{ client.status }}
-          </span>
-        </td>
-        <td>
-          {% if client.is_active %}
-            <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Sí</span>
-          {% else %}
-            <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">No</span>
-          {% endif %}
-        </td>
-        <td class="text-right">
+        <td class="text-sm min-w-[150px]">{{ client.city or '—' }}</td>
+        <td class="text-right whitespace-nowrap">
           <a href="{{ url_for('igh.clientes_detail', client_id=client.id) }}"
              class="text-slate-600 hover:underline text-sm mr-3">Ver</a>
           <a href="{{ url_for('igh.clientes_edit', client_id=client.id) }}"
@@ -61,13 +45,14 @@
       </tr>
       {% else %}
       <tr>
-        <td colspan="7" class="px-6 py-10 text-center text-slate-500">
+        <td colspan="5" class="px-6 py-10 text-center text-slate-500">
           No hay clientes IVG registrados todavía.
         </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 <p class="text-sm text-slate-500 mt-3">{{ clients|length }} cliente(s) IVG.</p>
 {% endblock %}

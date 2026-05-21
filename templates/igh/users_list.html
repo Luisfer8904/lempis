@@ -13,7 +13,8 @@
 
 {% block content %}
 <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
-  <table class="saas-table w-full">
+  <div class="overflow-x-auto">
+  <table class="saas-table w-full min-w-[860px]">
     <thead>
       <tr>
         <th>Usuario</th>
@@ -29,8 +30,8 @@
     <tbody>
       {% for u in users %}
       <tr class="hover:bg-slate-50">
-        <td class="font-medium">{{ u.username }}</td>
-        <td class="text-sm">{{ u.full_name or '—' }}</td>
+        <td class="font-medium min-w-[180px]">{{ u.username }}</td>
+        <td class="text-sm min-w-[220px]">{{ u.full_name or '—' }}</td>
         <td>
           <span class="text-xs px-2 py-1 rounded
                        {% if u.role == 'superadmin' %}bg-amber-100 text-amber-700
@@ -46,11 +47,11 @@
             <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">Inactivo</span>
           {% endif %}
         </td>
-        <td class="text-sm text-slate-500">
+        <td class="text-sm text-slate-500 min-w-[180px]">
           {{ u.last_login_at.strftime('%d/%m/%Y %H:%M') if u.last_login_at else 'Nunca' }}
         </td>
         {% if igh_can_manage_users %}
-          <td class="text-right">
+          <td class="text-right whitespace-nowrap">
             <a href="{{ url_for('igh.usuarios_edit', user_id=u.id) }}"
                class="text-indigo-600 hover:underline text-sm">Editar</a>
           </td>
@@ -59,6 +60,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 <p class="text-sm text-slate-500 mt-3">{{ users|length }} usuario(s) IVG.</p>
 {% endblock %}
