@@ -8,6 +8,7 @@ from functools import wraps
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
 from sqlalchemy import func, inspect
+from sqlalchemy.exc import IntegrityError
 
 from models import db
 from models.ivg import IVGAgendaItem, IVGCashSummary, IVGClient, IVGPayment, IVGSale, IVGUser
@@ -628,6 +629,7 @@ def clientes_detail(client_id: int):
         else []
     )
     pending_sales = [sale for sale in sales if Decimal(sale.balance_due or 0) > 0]
+    paid_sales = [sale for sale in sales if Decimal(sale.balance_due or 0) <= 0]
     total_sales = sum(Decimal(sale.gross_amount or 0) for sale in sales)
     total_collections = sum(Decimal(payment.amount or 0) for payment in payments)
     pending_balance = sum(Decimal(sale.balance_due or 0) for sale in pending_sales)
@@ -638,6 +640,7 @@ def clientes_detail(client_id: int):
         "client_sales": sales,
         "client_payments": payments,
         "client_pending_sales": pending_sales,
+        "client_paid_sales": paid_sales,
         "client_metrics": {
             "sales_total": total_sales,
             "collections_total": total_collections,
@@ -711,14 +714,31 @@ def clientes_edit(client_id: int):
     return render_template("igh/clients_form.html", **context)
 
 
-@igh_bp.route("/clientes/<int:client_id>/delete", methods=["POST"])
+@igh_bp.route("/clientes/<int:client_id>/delete", methods=["GET", "POST"])
 @igh_login_required
 @igh_admin_required
 def clientes_delete(client_id: int):
     client = _get_ivg_client_or_404(client_id)
+
+    if request.method == "GET":
+        flash("La eliminación de clientes debe hacerse desde el botón de la lista.", "warning")
+        return redirect(url_for("igh.clientes"))
+
+    has_sales = _table_exists(IVGSale) and IVGSale.query.filter_by(client_id=client.id).first() is not None
+    has_agenda = _table_exists(IVGAgendaItem) and IVGAgendaItem.query.filter_by(client_id=client.id).first() is not None
+    if has_sales or has_agenda:
+        flash("No puedes eliminar este cliente porque ya tiene facturas, cobros o historial asociado.", "danger")
+        return redirect(url_for("igh.clientes_detail", client_id=client.id))
+
     client_name = client.name
-    db.session.delete(client)
-    db.session.commit()
+    try:
+        db.session.delete(client)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash("No se pudo eliminar el cliente porque tiene movimientos relacionados.", "danger")
+        return redirect(url_for("igh.clientes_detail", client_id=client.id))
+
     flash(f"Cliente IVG {client_name} eliminado.", "success")
     return redirect(url_for("igh.clientes"))
 
