@@ -5,7 +5,7 @@
 {% block content %}
 <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
   <div class="bg-white rounded-xl border shadow-sm p-4 sm:p-5">
-    <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">Resúmenes contado</p>
+    <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">Cierres del día</p>
     <p class="text-2xl sm:text-3xl font-bold">{{ ivg_counts.cash_summaries }}</p>
   </div>
   <div class="bg-white rounded-xl border shadow-sm p-4 sm:p-5">
@@ -24,25 +24,25 @@
 
 <section class="grid lg:grid-cols-3 gap-6 mb-6">
   <div class="bg-white rounded-xl border shadow-sm p-6">
-    <h3 class="text-lg font-semibold mb-4">Contado por método</h3>
+    <h3 class="text-lg font-semibold mb-4">Ventas del día por método</h3>
     <div class="space-y-4">
       <div>
         <div class="flex justify-between text-sm mb-1">
-          <span class="text-slate-600">Efectivo</span>
+          <span class="text-slate-600">Venta del día</span>
           <span class="font-semibold">HNL {{ "{:,.2f}".format(ivg_metrics.efectivo_total) }}</span>
         </div>
         <div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-emerald-500" style="width: {{ 100 if ivg_metrics.efectivo_total > 0 else 8 }}%"></div></div>
       </div>
       <div>
         <div class="flex justify-between text-sm mb-1">
-          <span class="text-slate-600">Transferencia</span>
+          <span class="text-slate-600">Transferencias</span>
           <span class="font-semibold">HNL {{ "{:,.2f}".format(ivg_metrics.transfer_total) }}</span>
         </div>
         <div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-indigo-500" style="width: {{ 100 if ivg_metrics.transfer_total > 0 else 8 }}%"></div></div>
       </div>
       <div class="pt-2 mt-2 border-t">
         <div class="flex justify-between text-sm">
-          <span class="text-slate-600 font-medium">Total contado</span>
+          <span class="text-slate-600 font-medium">Ventas del día</span>
           <span class="font-bold text-slate-900">HNL {{ "{:,.2f}".format(ivg_metrics.cash_total) }}</span>
         </div>
       </div>
@@ -176,10 +176,10 @@
   <div class="saas-list-card__header">
     <div class="flex items-start justify-between gap-4">
       <div>
-        <h3 class="text-lg font-semibold text-slate-900">Últimos resúmenes de contado</h3>
-        <p class="text-sm text-slate-500 mt-1">Cierres de caja recientes con apertura, totales y diferencia.</p>
+        <h3 class="text-lg font-semibold text-slate-900">Últimos cierres del día</h3>
+        <p class="text-sm text-slate-500 mt-1">Apertura, venta del día, retiro en efectivo, transferencias y diferencia del cierre.</p>
       </div>
-      <a href="{{ url_for('igh.contado') }}" class="text-sm text-indigo-600 hover:underline whitespace-nowrap">Ver contado →</a>
+      <a href="{{ url_for('igh.contado') }}" class="text-sm text-indigo-600 hover:underline whitespace-nowrap">Ver cierres →</a>
     </div>
   </div>
   <div class="overflow-x-auto">
@@ -188,9 +188,10 @@
       <tr>
         <th class="min-w-[160px]">Fecha</th>
         <th class="text-right min-w-[120px]">Apertura</th>
-        <th class="text-right min-w-[120px]">Total</th>
-        <th class="text-right min-w-[120px]">Efectivo</th>
-        <th class="text-right min-w-[130px]">Transferencia</th>
+        <th class="text-right min-w-[120px]">Venta del día</th>
+        <th class="text-right min-w-[140px]">Venta + apertura</th>
+        <th class="text-right min-w-[150px]">Retiro en efectivo</th>
+        <th class="text-right min-w-[130px]">Transferencias</th>
         <th class="text-right min-w-[140px]">Cierre esperado</th>
         <th class="text-right min-w-[120px]">Cierre real</th>
         <th class="text-right min-w-[130px]">Diferencia</th>
@@ -202,8 +203,9 @@
       <tr class="hover:bg-slate-50">
         <td class="text-sm text-slate-600 align-middle">{{ summary.summary_date.strftime('%d/%m/%Y %H:%M') if summary.summary_date else '—' }}</td>
         <td class="text-right font-medium align-middle">HNL {{ "{:,.2f}".format(summary.opening_amount or 0) }}</td>
-        <td class="text-right font-semibold align-middle">HNL {{ "{:,.2f}".format(summary.total_amount or 0) }}</td>
         <td class="text-right font-medium text-emerald-700 align-middle">HNL {{ "{:,.2f}".format(summary.cash_amount or 0) }}</td>
+        <td class="text-right font-semibold align-middle">HNL {{ "{:,.2f}".format((summary.opening_amount or 0) + (summary.cash_amount or 0)) }}</td>
+        <td class="text-right font-medium text-rose-700 align-middle">HNL {{ "{:,.2f}".format(summary.withdrawal_amount or 0) }}</td>
         <td class="text-right font-medium text-indigo-700 align-middle">HNL {{ "{:,.2f}".format(summary.transfer_amount or 0) }}</td>
         <td class="text-right font-medium align-middle">HNL {{ "{:,.2f}".format(summary.expected_close_amount or 0) }}</td>
         <td class="text-right font-medium align-middle">HNL {{ "{:,.2f}".format(summary.actual_close_amount or 0) }}</td>
@@ -213,7 +215,7 @@
         <td class="text-sm text-slate-500 align-middle">{{ summary.notes or '—' }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="9" class="px-6 py-8 text-center text-slate-500">Sin contado registrado.</td></tr>
+      <tr><td colspan="10" class="px-6 py-8 text-center text-slate-500">Sin cierres del día registrados.</td></tr>
       {% endfor %}
     </tbody>
   </table>

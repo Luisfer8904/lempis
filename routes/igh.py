@@ -200,6 +200,17 @@ def _latest_cash_summary():
     )
 
 
+def _calculate_day_close(opening_amount: Decimal, cash_amount: Decimal, withdrawal_amount: Decimal, transfer_amount: Decimal):
+    sales_total = cash_amount + transfer_amount
+    opening_plus_sales_amount = opening_amount + cash_amount
+    expected_close_amount = opening_plus_sales_amount - withdrawal_amount
+    return {
+        "sales_total": sales_total,
+        "opening_plus_sales_amount": opening_plus_sales_amount,
+        "expected_close_amount": expected_close_amount,
+    }
+
+
 def _base_context():
     current_igh_user = _current_igh_user()
     month_start = _month_start()
@@ -241,6 +252,10 @@ def _base_context():
         )
     latest_cash_summary = recent_cash_summaries[0] if recent_cash_summaries else None
     latest_variance = _to_decimal(latest_cash_summary.variance_amount) if latest_cash_summary else Decimal("0.00")
+    latest_opening_plus_sales = (
+        _to_decimal(latest_cash_summary.opening_amount) + _to_decimal(latest_cash_summary.cash_amount)
+        if latest_cash_summary else Decimal("0.00")
+    )
     cashier_missing_dates = _cashier_missing_summary_dates()
     pending_agenda_count = (
         IVGAgendaItem.query.filter(IVGAgendaItem.status != "completada").count()
@@ -283,6 +298,8 @@ def _base_context():
             "herbicidas_credito": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.category == "herbicidas") if _table_exists(IVGSale) else 0,
             "concentrados_credito": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.category == "concentrados") if _table_exists(IVGSale) else 0,
             "latest_opening_amount": float(_to_decimal(latest_cash_summary.opening_amount)) if latest_cash_summary else 0,
+            "latest_withdrawal_amount": float(_to_decimal(latest_cash_summary.withdrawal_amount)) if latest_cash_summary else 0,
+            "latest_opening_plus_sales_amount": float(latest_opening_plus_sales) if latest_cash_summary else 0,
             "latest_expected_close_amount": float(_to_decimal(latest_cash_summary.expected_close_amount)) if latest_cash_summary else 0,
             "latest_actual_close_amount": float(_to_decimal(latest_cash_summary.actual_close_amount)) if latest_cash_summary else 0,
             "latest_variance_amount": float(abs(latest_variance)) if latest_cash_summary else 0,
@@ -743,26 +760,29 @@ def contado_new():
     if request.method == "POST":
         notes = (request.form.get("notes") or "").strip() or None
         try:
-            summary_date = _parse_datetime(request.form.get("summary_date"), "La fecha del contado", required=True)
+            summary_date = _parse_datetime(request.form.get("summary_date"), "La fecha del cierre", required=True)
             opening_amount = _parse_decimal(request.form.get("opening_amount"), "La apertura")
-            cash_amount = _parse_decimal(request.form.get("cash_amount"), "El monto en efectivo")
-            transfer_amount = _parse_decimal(request.form.get("transfer_amount"), "El monto en transferencia")
+            cash_amount = _parse_decimal(request.form.get("cash_amount"), "La venta del día")
+            withdrawal_amount = _parse_decimal(request.form.get("withdrawal_amount"), "El retiro en efectivo")
+            transfer_amount = _parse_decimal(request.form.get("transfer_amount"), "Las transferencias")
             actual_close_amount = _parse_decimal(request.form.get("actual_close_amount"), "El cierre real")
         except ValueError as exc:
             flash(str(exc), "danger")
             return redirect(url_for("igh.contado_new"))
 
-        total_amount = cash_amount + transfer_amount
+        close_values = _calculate_day_close(opening_amount, cash_amount, withdrawal_amount, transfer_amount)
+        total_amount = close_values["sales_total"]
         if total_amount <= 0:
-            flash("Debes registrar al menos un monto mayor que cero en contado.", "danger")
+            flash("Debes registrar al menos una venta o transferencia mayor que cero.", "danger")
             return redirect(url_for("igh.contado_new"))
-        expected_close_amount = opening_amount + cash_amount
+        expected_close_amount = close_values["expected_close_amount"]
         variance_amount = actual_close_amount - expected_close_amount
 
         summary = IVGCashSummary(
             summary_date=summary_date,
             opening_amount=opening_amount,
             cash_amount=cash_amount,
+            withdrawal_amount=withdrawal_amount,
             transfer_amount=transfer_amount,
             total_amount=total_amount,
             expected_close_amount=expected_close_amount,
@@ -772,7 +792,7 @@ def contado_new():
         )
         db.session.add(summary)
         db.session.commit()
-        flash("Resumen de contado registrado.", "success")
+        flash("Cierre del día registrado.", "success")
         return redirect(url_for("igh.contado"))
 
     context["summary"] = None
@@ -788,25 +808,28 @@ def contado_edit(summary_id: int):
     if request.method == "POST":
         notes = (request.form.get("notes") or "").strip() or None
         try:
-            summary_date = _parse_datetime(request.form.get("summary_date"), "La fecha del contado", required=True)
+            summary_date = _parse_datetime(request.form.get("summary_date"), "La fecha del cierre", required=True)
             opening_amount = _parse_decimal(request.form.get("opening_amount"), "La apertura")
-            cash_amount = _parse_decimal(request.form.get("cash_amount"), "El monto en efectivo")
-            transfer_amount = _parse_decimal(request.form.get("transfer_amount"), "El monto en transferencia")
+            cash_amount = _parse_decimal(request.form.get("cash_amount"), "La venta del día")
+            withdrawal_amount = _parse_decimal(request.form.get("withdrawal_amount"), "El retiro en efectivo")
+            transfer_amount = _parse_decimal(request.form.get("transfer_amount"), "Las transferencias")
             actual_close_amount = _parse_decimal(request.form.get("actual_close_amount"), "El cierre real")
         except ValueError as exc:
             flash(str(exc), "danger")
             return redirect(url_for("igh.contado_edit", summary_id=summary.id))
 
-        total_amount = cash_amount + transfer_amount
+        close_values = _calculate_day_close(opening_amount, cash_amount, withdrawal_amount, transfer_amount)
+        total_amount = close_values["sales_total"]
         if total_amount <= 0:
-            flash("Debes registrar al menos un monto mayor que cero en contado.", "danger")
+            flash("Debes registrar al menos una venta o transferencia mayor que cero.", "danger")
             return redirect(url_for("igh.contado_edit", summary_id=summary.id))
-        expected_close_amount = opening_amount + cash_amount
+        expected_close_amount = close_values["expected_close_amount"]
         variance_amount = actual_close_amount - expected_close_amount
 
         summary.summary_date = summary_date
         summary.opening_amount = opening_amount
         summary.cash_amount = cash_amount
+        summary.withdrawal_amount = withdrawal_amount
         summary.transfer_amount = transfer_amount
         summary.total_amount = total_amount
         summary.expected_close_amount = expected_close_amount
@@ -814,7 +837,7 @@ def contado_edit(summary_id: int):
         summary.variance_amount = variance_amount
         summary.notes = notes
         db.session.commit()
-        flash("Resumen de contado actualizado.", "success")
+        flash("Cierre del día actualizado.", "success")
         return redirect(url_for("igh.contado"))
 
     context["summary"] = summary
@@ -828,7 +851,7 @@ def contado_delete(summary_id: int):
     summary = _get_ivg_cash_or_404(summary_id)
     db.session.delete(summary)
     db.session.commit()
-    flash("Resumen de contado eliminado.", "success")
+    flash("Cierre del día eliminado.", "success")
     return redirect(url_for("igh.contado"))
 
 

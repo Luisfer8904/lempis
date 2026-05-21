@@ -105,10 +105,11 @@ class IVGSale(db.Model, TimestampMixin):
 
 class IVGCashSummary(db.Model, TimestampMixin):
     """
-    Resumen de ventas de contado.
-    Registra el total del día y cómo se distribuyó entre efectivo y transferencia.
+    Cierre del día para ventas de contado.
     La apertura normalmente corresponde al cierre real del día anterior.
-    El cierre esperado se calcula con apertura + efectivo.
+    La venta del día registra el total vendido en efectivo durante la jornada.
+    Las transferencias se registran aparte porque no ingresan a caja física.
+    El retiro registra el efectivo que sale de caja antes del cierre esperado.
     La diferencia muestra sobrante (>0) o faltante (<0).
     """
     __tablename__ = "ivg_contado"
@@ -118,6 +119,7 @@ class IVGCashSummary(db.Model, TimestampMixin):
     opening_amount = Column(Numeric(12, 2), default=0, nullable=False)
     total_amount = Column(Numeric(12, 2), default=0, nullable=False)
     cash_amount = Column(Numeric(12, 2), default=0, nullable=False)
+    withdrawal_amount = Column(Numeric(12, 2), default=0, nullable=False)
     transfer_amount = Column(Numeric(12, 2), default=0, nullable=False)
     expected_close_amount = Column(Numeric(12, 2), default=0, nullable=False)
     actual_close_amount = Column(Numeric(12, 2), default=0, nullable=False)

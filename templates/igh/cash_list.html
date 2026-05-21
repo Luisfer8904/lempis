@@ -1,11 +1,11 @@
 {% extends "igh/_layout.html" %}
-{% block title %}Contado IVG — {{ company_name }}{% endblock %}
-{% block heading %}Contado IVG{% endblock %}
+{% block title %}Cierre del día IVG — {{ company_name }}{% endblock %}
+{% block heading %}Cierre del día IVG{% endblock %}
 
 {% block actions %}
   <a href="{{ url_for('igh.contado_new') }}"
      class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
-    + Registrar contado
+    + Registrar cierre del día
   </a>
 {% endblock %}
 
@@ -14,8 +14,8 @@
   <div class="saas-list-card__header">
     <div class="flex items-start justify-between gap-4">
       <div>
-        <h2 class="text-lg font-semibold text-slate-900">Resúmenes de contado</h2>
-        <p class="text-sm text-slate-500 mt-1">Apertura, cierre y diferencia diaria de caja para ventas de contado.</p>
+        <h2 class="text-lg font-semibold text-slate-900">Cierres del día</h2>
+        <p class="text-sm text-slate-500 mt-1">Apertura, venta del día, transferencias, retiro en efectivo y cierre diario de caja.</p>
       </div>
       <div class="text-sm text-slate-500 whitespace-nowrap">{{ summaries|length }} resumen(es)</div>
     </div>
@@ -26,9 +26,10 @@
       <tr>
         <th class="min-w-[160px]">Fecha</th>
         <th class="text-right min-w-[120px]">Apertura</th>
-        <th class="text-right min-w-[130px]">Total contado</th>
-        <th class="text-right min-w-[120px]">Efectivo</th>
-        <th class="text-right min-w-[130px]">Transferencia</th>
+        <th class="text-right min-w-[120px]">Venta del día</th>
+        <th class="text-right min-w-[140px]">Venta + apertura</th>
+        <th class="text-right min-w-[150px]">Retiro en efectivo</th>
+        <th class="text-right min-w-[130px]">Transferencias</th>
         <th class="text-right min-w-[140px]">Cierre esperado</th>
         <th class="text-right min-w-[120px]">Cierre real</th>
         <th class="text-right min-w-[140px]">Sobrante / faltante</th>
@@ -41,8 +42,9 @@
       <tr class="hover:bg-slate-50">
         <td class="text-sm text-slate-600 align-middle">{{ summary.summary_date.strftime('%d/%m/%Y %H:%M') if summary.summary_date else '—' }}</td>
         <td class="text-right font-medium align-middle">HNL {{ "{:,.2f}".format(summary.opening_amount or 0) }}</td>
-        <td class="text-right font-semibold align-middle">HNL {{ "{:,.2f}".format(summary.total_amount or 0) }}</td>
         <td class="text-right font-medium text-emerald-700 align-middle">HNL {{ "{:,.2f}".format(summary.cash_amount or 0) }}</td>
+        <td class="text-right font-semibold align-middle">HNL {{ "{:,.2f}".format((summary.opening_amount or 0) + (summary.cash_amount or 0)) }}</td>
+        <td class="text-right font-medium text-rose-700 align-middle">HNL {{ "{:,.2f}".format(summary.withdrawal_amount or 0) }}</td>
         <td class="text-right font-medium text-indigo-700 align-middle">HNL {{ "{:,.2f}".format(summary.transfer_amount or 0) }}</td>
         <td class="text-right font-medium align-middle">HNL {{ "{:,.2f}".format(summary.expected_close_amount or 0) }}</td>
         <td class="text-right font-medium align-middle">HNL {{ "{:,.2f}".format(summary.actual_close_amount or 0) }}</td>
@@ -56,7 +58,7 @@
           {% if igh_can_delete_records %}
             <form method="POST" action="{{ url_for('igh.contado_delete', summary_id=summary.id) }}" class="inline">
               <button type="submit"
-                      onclick="return confirm('¿Eliminar este resumen de contado?')"
+                      onclick="return confirm('¿Eliminar este cierre del día?')"
                       class="text-rose-600 hover:underline text-sm">
                 Eliminar
               </button>
@@ -66,8 +68,8 @@
       </tr>
       {% else %}
       <tr>
-        <td colspan="10" class="px-6 py-10 text-center text-slate-500">
-          No hay resúmenes de contado registrados todavía.
+        <td colspan="11" class="px-6 py-10 text-center text-slate-500">
+          No hay cierres del día registrados todavía.
         </td>
       </tr>
       {% endfor %}
