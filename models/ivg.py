@@ -44,6 +44,9 @@ class IVGUser(db.Model, TimestampMixin):
     def is_admin(self) -> bool:
         return self.role == "admin"
 
+    def is_cajero(self) -> bool:
+        return self.role == "cajero"
+
 
 class IVGClient(db.Model, TimestampMixin):
     __tablename__ = "ivg_clientes"

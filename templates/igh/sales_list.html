@@ -10,7 +10,16 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+<div class="saas-list-card">
+  <div class="saas-list-card__header">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-900">Facturas crédito</h2>
+        <p class="text-sm text-slate-500 mt-1">Registro de ventas individuales a crédito y su saldo pendiente.</p>
+      </div>
+      <div class="text-sm text-slate-500 whitespace-nowrap">{{ sales|length }} factura(s)</div>
+    </div>
+  </div>
   <div class="overflow-x-auto">
   <table class="saas-table w-full min-w-[980px]">
     <thead>
@@ -60,5 +69,4 @@
   </table>
   </div>
 </div>
-<p class="text-sm text-slate-500 mt-3">{{ sales|length }} factura(s) registradas.</p>
 {% endblock %}

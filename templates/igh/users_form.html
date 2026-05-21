@@ -10,6 +10,7 @@
 
 {% block content %}
 <form method="POST" class="bg-white p-6 rounded-xl shadow-sm border max-w-2xl">
+  {% set is_superadmin_editor = igh_current_user and igh_current_user.is_superadmin() %}
   <div class="grid md:grid-cols-2 gap-4">
     <div>
       <label class="block text-sm font-medium mb-1">Usuario *</label>
@@ -22,13 +23,17 @@
     <div>
       <label class="block text-sm font-medium mb-1">Nombre completo</label>
       <input name="full_name" value="{{ user.full_name if user else '' }}"
-             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+             {% if user and not is_superadmin_editor %}readonly{% endif %}
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500
+                    {% if user and not is_superadmin_editor %}bg-slate-100 cursor-not-allowed{% endif %}" />
     </div>
 
     <div>
       <label class="block text-sm font-medium mb-1">Correo</label>
       <input type="email" name="email" value="{{ user.email if user else '' }}"
-             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+             {% if user and not is_superadmin_editor %}readonly{% endif %}
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500
+                    {% if user and not is_superadmin_editor %}bg-slate-100 cursor-not-allowed{% endif %}" />
     </div>
     <div>
       <label class="block text-sm font-medium mb-1">
@@ -40,20 +45,29 @@
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
     </div>
 
-    <div>
-      <label class="block text-sm font-medium mb-1">Rol</label>
-      <select name="role"
-              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
-        {% for role_code, role_name in [('superadmin', 'Super administrador'), ('admin', 'Administrador'), ('cajero', 'Cajero')] %}
-          <option value="{{ role_code }}"
-                  {% if (user and user.role == role_code) or (not user and role_code == 'cajero') %}selected{% endif %}>
-            {{ role_name }}
-          </option>
-        {% endfor %}
-      </select>
-    </div>
+    {% if is_superadmin_editor %}
+      <div>
+        <label class="block text-sm font-medium mb-1">Rol</label>
+        <select name="role"
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+          {% for role_code, role_name in [('superadmin', 'Super administrador'), ('admin', 'Administrador'), ('cajero', 'Cajero')] %}
+            <option value="{{ role_code }}"
+                    {% if (user and user.role == role_code) or (not user and role_code == 'cajero') %}selected{% endif %}>
+              {{ role_name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+    {% elif user %}
+      <div>
+        <label class="block text-sm font-medium mb-1">Rol</label>
+        <input value="{{ 'Administrador' if user.role == 'admin' else 'Cajero' if user.role == 'cajero' else user.role }}"
+               readonly
+               class="w-full px-3 py-2 border rounded-lg bg-slate-100 cursor-not-allowed text-slate-600" />
+      </div>
+    {% endif %}
 
-    {% if user %}
+    {% if user and is_superadmin_editor %}
       <div class="md:col-span-2">
         <label class="flex items-center gap-2 text-sm">
           <input type="checkbox" name="is_active" {% if user.is_active %}checked{% endif %} />
@@ -63,9 +77,15 @@
     {% endif %}
   </div>
 
+  {% if user and not is_superadmin_editor %}
+    <div class="mt-5 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-700">
+      Como administrador puedes cambiar tu clave y la del cajero, pero no el rol ni el estado de los usuarios.
+    </div>
+  {% endif %}
+
   <div class="flex gap-3 mt-6 pt-6 border-t">
     <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
-      {{ 'Guardar cambios' if user else 'Crear usuario' }}
+      {{ 'Actualizar clave' if user and not is_superadmin_editor else 'Guardar cambios' if user else 'Crear usuario' }}
     </button>
     <a href="{{ url_for('igh.usuarios') }}"
        class="border px-6 py-2 rounded-lg hover:bg-slate-50">Cancelar</a>

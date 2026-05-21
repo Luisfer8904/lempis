@@ -3,7 +3,7 @@
 {% block heading %}Usuarios IVG{% endblock %}
 
 {% block actions %}
-  {% if igh_can_manage_users %}
+  {% if igh_can_create_users %}
     <a href="{{ url_for('igh.usuarios_new') }}"
        class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
       + Agregar usuario
@@ -12,16 +12,25 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+<div class="bg-white rounded-xl shadow-sm border">
+  <div class="px-5 sm:px-6 py-5 border-b">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-900">Equipo IVG</h2>
+        <p class="text-sm text-slate-500 mt-1">Accesos operativos del módulo, con edición limitada según el rol.</p>
+      </div>
+      <div class="text-sm text-slate-500 whitespace-nowrap">{{ users|length }} usuario(s)</div>
+    </div>
+  </div>
   <div class="overflow-x-auto">
-  <table class="saas-table w-full min-w-[860px]">
+  <table class="saas-table w-full min-w-[980px]">
     <thead>
       <tr>
-        <th>Usuario</th>
-        <th>Nombre</th>
-        <th>Rol</th>
-        <th>Estado</th>
-        <th>Último acceso</th>
+        <th class="min-w-[190px]">Usuario</th>
+        <th class="min-w-[220px]">Nombre</th>
+        <th class="min-w-[140px]">Rol</th>
+        <th class="min-w-[130px]">Estado</th>
+        <th class="min-w-[190px]">Último acceso</th>
         {% if igh_can_manage_users %}
           <th class="text-right">Acciones</th>
         {% endif %}
@@ -30,9 +39,12 @@
     <tbody>
       {% for u in users %}
       <tr class="hover:bg-slate-50">
-        <td class="font-medium min-w-[180px]">{{ u.username }}</td>
-        <td class="text-sm min-w-[220px]">{{ u.full_name or '—' }}</td>
-        <td>
+        <td class="font-medium">
+          <div class="font-semibold text-slate-900">{{ u.username }}</div>
+          <div class="text-xs text-slate-400 mt-1">{{ u.email or 'Sin correo' }}</div>
+        </td>
+        <td class="text-sm">{{ u.full_name or '—' }}</td>
+        <td class="align-middle">
           <span class="text-xs px-2 py-1 rounded
                        {% if u.role == 'superadmin' %}bg-amber-100 text-amber-700
                        {% elif u.role == 'admin' %}bg-indigo-100 text-indigo-700
@@ -40,20 +52,26 @@
             {{ u.role }}
           </span>
         </td>
-        <td>
+        <td class="align-middle">
           {% if u.is_active %}
             <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Activo</span>
           {% else %}
             <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">Inactivo</span>
           {% endif %}
         </td>
-        <td class="text-sm text-slate-500 min-w-[180px]">
+        <td class="text-sm text-slate-500">
           {{ u.last_login_at.strftime('%d/%m/%Y %H:%M') if u.last_login_at else 'Nunca' }}
         </td>
         {% if igh_can_manage_users %}
           <td class="text-right whitespace-nowrap">
-            <a href="{{ url_for('igh.usuarios_edit', user_id=u.id) }}"
-               class="text-indigo-600 hover:underline text-sm">Editar</a>
+            {% if igh_current_user and (igh_current_user.is_superadmin() or (igh_current_user.is_admin() and (u.id == igh_current_user.id or u.role == 'cajero'))) %}
+              <a href="{{ url_for('igh.usuarios_edit', user_id=u.id) }}"
+                 class="text-indigo-600 hover:underline text-sm">
+                {{ 'Cambiar clave' if igh_current_user.is_admin() and not igh_current_user.is_superadmin() else 'Editar' }}
+              </a>
+            {% else %}
+              <span class="text-sm text-slate-300">—</span>
+            {% endif %}
           </td>
         {% endif %}
       </tr>
@@ -62,5 +80,4 @@
   </table>
   </div>
 </div>
-<p class="text-sm text-slate-500 mt-3">{{ users|length }} usuario(s) IVG.</p>
 {% endblock %}

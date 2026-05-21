@@ -10,15 +10,24 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+<div class="saas-list-card">
+  <div class="saas-list-card__header">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-900">Cartera de clientes</h2>
+        <p class="text-sm text-slate-500 mt-1">Clientes vigentes para facturación crédito y seguimiento de cobros.</p>
+      </div>
+      <div class="text-sm text-slate-500 whitespace-nowrap">{{ clients|length }} cliente(s)</div>
+    </div>
+  </div>
   <div class="overflow-x-auto">
-  <table class="saas-table w-full min-w-[900px]">
+  <table class="saas-table w-full min-w-[960px]">
     <thead>
       <tr>
-        <th>Cliente</th>
-        <th>Razón social</th>
-        <th>Contacto</th>
-        <th>Ciudad</th>
+        <th class="min-w-[260px]">Cliente</th>
+        <th class="min-w-[260px]">Razón social</th>
+        <th class="min-w-[260px]">Contacto</th>
+        <th class="min-w-[160px]">Ciudad</th>
         <th class="text-right">Acciones</th>
       </tr>
     </thead>
@@ -54,5 +63,4 @@
   </table>
   </div>
 </div>
-<p class="text-sm text-slate-500 mt-3">{{ clients|length }} cliente(s) IVG.</p>
 {% endblock %}

@@ -55,6 +55,32 @@ def igh_superadmin_required(fn):
     return wrapper
 
 
+def _can_create_ivg_users(user: IVGUser | None) -> bool:
+    return bool(user and user.is_superadmin())
+
+
+def _can_edit_ivg_user(actor: IVGUser | None, target: IVGUser | None) -> bool:
+    if actor is None or target is None:
+        return False
+    if actor.is_superadmin():
+        return True
+    if actor.is_admin():
+        if target.id == actor.id:
+            return True
+        return target.is_cajero()
+    return False
+
+
+def _can_view_ivg_user(actor: IVGUser | None, target: IVGUser | None) -> bool:
+    if actor is None or target is None:
+        return False
+    if actor.is_superadmin():
+        return True
+    if actor.is_admin():
+        return not target.is_superadmin()
+    return False
+
+
 def _safe_count(model) -> int:
     if not _table_exists(model):
         return 0
@@ -175,7 +201,8 @@ def _base_context():
     return {
         "igh_user": current_igh_user.username if current_igh_user else session.get("igh_user"),
         "igh_current_user": current_igh_user,
-        "igh_can_manage_users": bool(current_igh_user and current_igh_user.is_superadmin()),
+        "igh_can_create_users": _can_create_ivg_users(current_igh_user),
+        "igh_can_manage_users": bool(current_igh_user and (current_igh_user.is_superadmin() or current_igh_user.is_admin())),
         "company_name": "Inversiones Guevara Herrera",
         "ivg_counts": {
             "users": _safe_count(IVGUser),
@@ -308,9 +335,7 @@ def usuarios():
     users = []
     if _table_exists(IVGUser):
         query = IVGUser.query.order_by(IVGUser.created_at.asc())
-        if current_user and current_user.is_admin():
-            query = query.filter(IVGUser.role != "superadmin")
-        users = query.all()
+        users = [user for user in query.all() if _can_view_ivg_user(current_user, user)]
     context = _base_context()
     context["users"] = users
     return render_template("igh/users_list.html", **context)
@@ -361,16 +386,20 @@ def usuarios_new():
 
 @igh_bp.route("/usuarios/<int:user_id>/edit", methods=["GET", "POST"])
 @igh_login_required
-@igh_superadmin_required
 def usuarios_edit(user_id: int):
     user = _get_ivg_user_or_404(user_id)
     context = _base_context()
+    actor = context["igh_current_user"]
+
+    if not _can_edit_ivg_user(actor, user):
+        abort(403)
 
     if request.method == "POST":
-        user.full_name = (request.form.get("full_name") or "").strip() or None
-        user.email = (request.form.get("email") or "").strip().lower() or None
-        user.role = request.form.get("role") or user.role
-        user.is_active = bool(request.form.get("is_active"))
+        if actor and actor.is_superadmin():
+            user.full_name = (request.form.get("full_name") or "").strip() or None
+            user.email = (request.form.get("email") or "").strip().lower() or None
+            user.role = request.form.get("role") or user.role
+            user.is_active = bool(request.form.get("is_active"))
 
         new_password = request.form.get("password") or ""
         if new_password:
@@ -380,7 +409,14 @@ def usuarios_edit(user_id: int):
             user.set_password(new_password)
 
         db.session.commit()
-        flash(f"Usuario IVG {user.username} actualizado.", "success")
+        flash(
+            (
+                f"Clave de {user.username} actualizada."
+                if actor and actor.is_admin() and not actor.is_superadmin()
+                else f"Usuario IVG {user.username} actualizado."
+            ),
+            "success",
+        )
         return redirect(url_for("igh.usuarios"))
 
     context["user"] = user

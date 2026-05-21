@@ -11,6 +11,7 @@ input:focus, select:focus, textarea:focus {
 table.saas-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: auto;
 }
 table.saas-table th,
 table.saas-table td {
@@ -19,14 +20,36 @@ table.saas-table td {
   text-align: left;
   vertical-align: top;
 }
+table.saas-table th:first-child,
+table.saas-table td:first-child {
+  padding-left: 1.5rem;
+}
+table.saas-table th:last-child,
+table.saas-table td:last-child {
+  padding-right: 1.5rem;
+}
 table.saas-table th {
   background: #f8fafc;
   font-weight: 600;
   font-size: 0.85rem;
   color: #475569;
+  white-space: nowrap;
 }
 
 table.saas-table td {
   white-space: normal;
   word-break: break-word;
+}
+
+.saas-list-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  overflow: hidden;
+}
+
+.saas-list-card__header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
 }
