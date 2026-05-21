@@ -8,26 +8,26 @@
   <p class="text-slate-500">{{ company_name }} — seguimiento diario de facturas crédito, cobros y cierre de contado.</p>
 </section>
 
-<section class="grid md:grid-cols-4 gap-4 mb-6">
-  <div class="bg-white p-5 rounded-xl shadow-sm border">
-    <div class="text-slate-500 text-sm">Facturas pendientes</div>
-    <div class="text-3xl font-bold">{{ ivg_counts.pending_invoices }}</div>
+<section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+  <div class="bg-white p-4 sm:p-5 rounded-xl shadow-sm border">
+    <div class="text-slate-500 text-xs sm:text-sm">Facturas pendientes</div>
+    <div class="text-2xl sm:text-3xl font-bold mt-1">{{ ivg_counts.pending_invoices }}</div>
     <a href="{{ url_for('igh.ventas') }}" class="text-xs text-indigo-600 hover:underline">Ver cartera →</a>
   </div>
-  <div class="bg-white p-5 rounded-xl shadow-sm border">
-    <div class="text-slate-500 text-sm">Cobros del mes</div>
-    <div class="text-3xl font-bold">HNL {{ "{:,.2f}".format(ivg_metrics.collections_month_total) }}</div>
+  <div class="bg-white p-4 sm:p-5 rounded-xl shadow-sm border">
+    <div class="text-slate-500 text-xs sm:text-sm">Cobros del mes</div>
+    <div class="text-xl sm:text-3xl font-bold mt-1">HNL {{ "{:,.2f}".format(ivg_metrics.collections_month_total) }}</div>
     <a href="{{ url_for('igh.pagos') }}" class="text-xs text-indigo-600 hover:underline">Ver cobros →</a>
   </div>
-  <div class="bg-white p-5 rounded-xl shadow-sm border">
-    <div class="text-slate-500 text-sm">Ventas del mes</div>
-    <div class="text-3xl font-bold">HNL {{ "{:,.2f}".format(ivg_metrics.sales_month_total) }}</div>
+  <div class="bg-white p-4 sm:p-5 rounded-xl shadow-sm border">
+    <div class="text-slate-500 text-xs sm:text-sm">Ventas del mes</div>
+    <div class="text-xl sm:text-3xl font-bold mt-1">HNL {{ "{:,.2f}".format(ivg_metrics.sales_month_total) }}</div>
     <a href="{{ url_for('igh.reportes') }}" class="text-xs text-indigo-600 hover:underline">Ver detalle →</a>
   </div>
-  <div class="bg-white p-5 rounded-xl shadow-sm border">
-    <div class="text-slate-500 text-sm">Por cobrar</div>
-    <div class="text-3xl font-bold">HNL {{ "{:,.2f}".format(ivg_metrics.receivable_total) }}</div>
-    <p class="text-xs text-slate-500 mt-2">Saldo pendiente de facturas a crédito.</p>
+  <div class="bg-white p-4 sm:p-5 rounded-xl shadow-sm border">
+    <div class="text-slate-500 text-xs sm:text-sm">Por cobrar</div>
+    <div class="text-xl sm:text-3xl font-bold mt-1 text-amber-700">HNL {{ "{:,.2f}".format(ivg_metrics.receivable_total) }}</div>
+    <p class="text-xs text-slate-500 mt-1">Saldo pendiente crédito.</p>
   </div>
 </section>
 

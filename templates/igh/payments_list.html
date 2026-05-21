@@ -21,34 +21,40 @@
     </div>
   </div>
   <div class="overflow-x-auto">
-  <table class="saas-table w-full min-w-[980px]">
+  <table class="saas-table w-full min-w-[1040px]">
     <thead>
       <tr>
-        <th>Fecha</th>
-        <th>Factura crédito</th>
-        <th>Cliente</th>
-        <th>Tipo</th>
-        <th>Método</th>
-        <th>Categoría</th>
-        <th>Monto</th>
+        <th class="min-w-[160px]">Fecha</th>
+        <th class="min-w-[140px]">Factura</th>
+        <th class="min-w-[220px]">Cliente</th>
+        <th class="min-w-[100px]">Tipo</th>
+        <th class="min-w-[120px]">Método</th>
+        <th class="min-w-[130px]">Categoría</th>
+        <th class="text-right min-w-[130px]">Monto</th>
         <th class="text-right">Acciones</th>
       </tr>
     </thead>
     <tbody>
       {% for payment in payments %}
       <tr class="hover:bg-slate-50">
-        <td class="text-sm min-w-[170px]">{{ payment.payment_date.strftime('%d/%m/%Y %H:%M') if payment.payment_date else '—' }}</td>
-        <td class="font-mono text-xs min-w-[130px]">{{ payment.sale.reference_number or ('FACT-' ~ payment.sale.id) if payment.sale else '—' }}</td>
-        <td class="font-medium min-w-[240px]">{{ payment.sale.client.name if payment.sale and payment.sale.client else '—' }}</td>
-        <td>
-          <span class="text-xs px-2 py-1 rounded {% if payment.payment_kind == 'pago' %}bg-emerald-100 text-emerald-700{% else %}bg-indigo-100 text-indigo-700{% endif %}">
+        <td class="text-sm text-slate-600 align-middle">{{ payment.payment_date.strftime('%d/%m/%Y %H:%M') if payment.payment_date else '—' }}</td>
+        <td class="font-mono text-xs text-slate-600 align-middle">
+          {{ payment.sale.reference_number or ('FACT-' ~ payment.sale.id) if payment.sale else '—' }}
+        </td>
+        <td class="font-medium align-middle">
+          <div class="font-semibold text-slate-900">{{ payment.sale.client.name if payment.sale and payment.sale.client else '—' }}</div>
+        </td>
+        <td class="align-middle">
+          <span class="inline-block text-xs px-2 py-1 rounded
+                       {% if payment.payment_kind == 'pago' %}bg-emerald-100 text-emerald-700
+                       {% else %}bg-indigo-100 text-indigo-700{% endif %}">
             {{ payment.payment_kind }}
           </span>
         </td>
-        <td class="text-sm min-w-[120px]">{{ payment.payment_method }}</td>
-        <td class="text-sm min-w-[130px]">{{ payment.category }}</td>
-        <td class="font-semibold">HNL {{ "{:,.2f}".format(payment.amount or 0) }}</td>
-        <td class="text-right whitespace-nowrap">
+        <td class="text-sm align-middle">{{ payment.payment_method }}</td>
+        <td class="text-sm align-middle">{{ payment.category }}</td>
+        <td class="text-right font-semibold text-emerald-700 align-middle">HNL {{ "{:,.2f}".format(payment.amount or 0) }}</td>
+        <td class="text-right whitespace-nowrap align-middle">
           <a href="{{ url_for('igh.pagos_edit', payment_id=payment.id) }}"
              class="text-indigo-600 hover:underline text-sm">Editar</a>
         </td>

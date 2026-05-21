@@ -12,8 +12,8 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border">
-  <div class="px-5 sm:px-6 py-5 border-b">
+<div class="saas-list-card">
+  <div class="saas-list-card__header">
     <div class="flex items-start justify-between gap-4">
       <div>
         <h2 class="text-lg font-semibold text-slate-900">Equipo IVG</h2>
@@ -26,11 +26,11 @@
   <table class="saas-table w-full min-w-[980px]">
     <thead>
       <tr>
-        <th class="min-w-[190px]">Usuario</th>
+        <th class="min-w-[210px]">Usuario</th>
         <th class="min-w-[220px]">Nombre</th>
-        <th class="min-w-[140px]">Rol</th>
-        <th class="min-w-[130px]">Estado</th>
-        <th class="min-w-[190px]">Último acceso</th>
+        <th class="min-w-[120px]">Rol</th>
+        <th class="min-w-[110px]">Estado</th>
+        <th class="min-w-[180px]">Último acceso</th>
         {% if igh_can_manage_users %}
           <th class="text-right">Acciones</th>
         {% endif %}
@@ -39,13 +39,13 @@
     <tbody>
       {% for u in users %}
       <tr class="hover:bg-slate-50">
-        <td class="font-medium">
+        <td class="align-middle">
           <div class="font-semibold text-slate-900">{{ u.username }}</div>
           <div class="text-xs text-slate-400 mt-1">{{ u.email or 'Sin correo' }}</div>
         </td>
-        <td class="text-sm">{{ u.full_name or '—' }}</td>
+        <td class="text-sm align-middle">{{ u.full_name or '—' }}</td>
         <td class="align-middle">
-          <span class="text-xs px-2 py-1 rounded
+          <span class="inline-block text-xs px-2 py-1 rounded
                        {% if u.role == 'superadmin' %}bg-amber-100 text-amber-700
                        {% elif u.role == 'admin' %}bg-indigo-100 text-indigo-700
                        {% else %}bg-emerald-100 text-emerald-700{% endif %}">
@@ -54,16 +54,16 @@
         </td>
         <td class="align-middle">
           {% if u.is_active %}
-            <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Activo</span>
+            <span class="inline-block text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Activo</span>
           {% else %}
-            <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">Inactivo</span>
+            <span class="inline-block text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">Inactivo</span>
           {% endif %}
         </td>
-        <td class="text-sm text-slate-500">
+        <td class="text-sm text-slate-500 align-middle">
           {{ u.last_login_at.strftime('%d/%m/%Y %H:%M') if u.last_login_at else 'Nunca' }}
         </td>
         {% if igh_can_manage_users %}
-          <td class="text-right whitespace-nowrap">
+          <td class="text-right whitespace-nowrap align-middle">
             {% if igh_current_user and (igh_current_user.is_superadmin() or (igh_current_user.is_admin() and (u.id == igh_current_user.id or u.role == 'cajero'))) %}
               <a href="{{ url_for('igh.usuarios_edit', user_id=u.id) }}"
                  class="text-indigo-600 hover:underline text-sm">

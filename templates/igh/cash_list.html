@@ -21,36 +21,36 @@
     </div>
   </div>
   <div class="overflow-x-auto">
-  <table class="saas-table w-full min-w-[1200px]">
+  <table class="saas-table w-full min-w-[1280px]">
     <thead>
       <tr>
-        <th>Fecha</th>
-        <th>Apertura</th>
-        <th>Total contado</th>
-        <th>Efectivo</th>
-        <th>Transferencia</th>
-        <th>Cierre esperado</th>
-        <th>Cierre real</th>
-        <th>Sobrante / faltante</th>
-        <th>Notas</th>
+        <th class="min-w-[160px]">Fecha</th>
+        <th class="text-right min-w-[120px]">Apertura</th>
+        <th class="text-right min-w-[130px]">Total contado</th>
+        <th class="text-right min-w-[120px]">Efectivo</th>
+        <th class="text-right min-w-[130px]">Transferencia</th>
+        <th class="text-right min-w-[140px]">Cierre esperado</th>
+        <th class="text-right min-w-[120px]">Cierre real</th>
+        <th class="text-right min-w-[140px]">Sobrante / faltante</th>
+        <th class="min-w-[200px]">Notas</th>
         <th class="text-right">Acciones</th>
       </tr>
     </thead>
     <tbody>
       {% for summary in summaries %}
       <tr class="hover:bg-slate-50">
-        <td class="text-sm min-w-[170px]">{{ summary.summary_date.strftime('%d/%m/%Y %H:%M') if summary.summary_date else '—' }}</td>
-        <td class="font-medium">HNL {{ "{:,.2f}".format(summary.opening_amount or 0) }}</td>
-        <td class="font-semibold">HNL {{ "{:,.2f}".format(summary.total_amount or 0) }}</td>
-        <td class="text-emerald-700 font-medium">HNL {{ "{:,.2f}".format(summary.cash_amount or 0) }}</td>
-        <td class="text-indigo-700 font-medium">HNL {{ "{:,.2f}".format(summary.transfer_amount or 0) }}</td>
-        <td class="font-medium">HNL {{ "{:,.2f}".format(summary.expected_close_amount or 0) }}</td>
-        <td class="font-medium">HNL {{ "{:,.2f}".format(summary.actual_close_amount or 0) }}</td>
-        <td class="font-medium {% if (summary.variance_amount or 0) < 0 %}text-rose-600{% elif (summary.variance_amount or 0) > 0 %}text-emerald-600{% endif %}">
+        <td class="text-sm text-slate-600 align-middle">{{ summary.summary_date.strftime('%d/%m/%Y %H:%M') if summary.summary_date else '—' }}</td>
+        <td class="text-right font-medium align-middle">HNL {{ "{:,.2f}".format(summary.opening_amount or 0) }}</td>
+        <td class="text-right font-semibold align-middle">HNL {{ "{:,.2f}".format(summary.total_amount or 0) }}</td>
+        <td class="text-right font-medium text-emerald-700 align-middle">HNL {{ "{:,.2f}".format(summary.cash_amount or 0) }}</td>
+        <td class="text-right font-medium text-indigo-700 align-middle">HNL {{ "{:,.2f}".format(summary.transfer_amount or 0) }}</td>
+        <td class="text-right font-medium align-middle">HNL {{ "{:,.2f}".format(summary.expected_close_amount or 0) }}</td>
+        <td class="text-right font-medium align-middle">HNL {{ "{:,.2f}".format(summary.actual_close_amount or 0) }}</td>
+        <td class="text-right font-semibold align-middle {% if (summary.variance_amount or 0) < 0 %}text-rose-600{% elif (summary.variance_amount or 0) > 0 %}text-emerald-600{% else %}text-slate-500{% endif %}">
           HNL {{ "{:,.2f}".format(summary.variance_amount or 0) }}
         </td>
-        <td class="text-sm text-slate-500 min-w-[260px]">{{ summary.notes or '—' }}</td>
-        <td class="text-right whitespace-nowrap">
+        <td class="text-sm text-slate-500 align-middle">{{ summary.notes or '—' }}</td>
+        <td class="text-right whitespace-nowrap align-middle">
           <a href="{{ url_for('igh.contado_edit', summary_id=summary.id) }}"
              class="text-indigo-600 hover:underline text-sm">Editar</a>
         </td>

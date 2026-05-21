@@ -21,31 +21,34 @@
     </div>
   </div>
   <div class="overflow-x-auto">
-  <table class="saas-table w-full min-w-[960px]">
+  <table class="saas-table w-full min-w-[980px]">
     <thead>
       <tr>
-        <th class="min-w-[260px]">Cliente</th>
-        <th class="min-w-[260px]">Razón social</th>
-        <th class="min-w-[260px]">Contacto</th>
-        <th class="min-w-[160px]">Ciudad</th>
+        <th class="min-w-[240px]">Cliente</th>
+        <th class="min-w-[220px]">Razón social</th>
+        <th class="min-w-[240px]">Contacto</th>
+        <th class="min-w-[140px]">Ciudad</th>
         <th class="text-right">Acciones</th>
       </tr>
     </thead>
     <tbody>
       {% for client in clients %}
       <tr class="hover:bg-slate-50">
-        <td class="font-medium min-w-[260px]">
-          <a href="{{ url_for('igh.clientes_detail', client_id=client.id) }}" class="text-slate-900 hover:text-indigo-700 hover:underline">
-            {{ client.name }}
+        <td class="align-middle">
+          <a href="{{ url_for('igh.clientes_detail', client_id=client.id) }}" class="block hover:text-indigo-700">
+            <div class="font-semibold text-slate-900">{{ client.name }}</div>
+            {% if client.tax_id %}
+              <div class="text-xs text-slate-400 mt-1 font-mono">RTN: {{ client.tax_id }}</div>
+            {% endif %}
           </a>
         </td>
-        <td class="text-sm min-w-[260px]">{{ client.legal_name or '—' }}</td>
-        <td class="text-sm text-slate-600 min-w-[240px]">
-          <div>{{ client.phone or '—' }}</div>
-          <div class="text-xs text-slate-400">{{ client.email or '—' }}</div>
+        <td class="text-sm align-middle">{{ client.legal_name or '—' }}</td>
+        <td class="text-sm align-middle">
+          <div class="text-slate-700">{{ client.phone or '—' }}</div>
+          <div class="text-xs text-slate-400 mt-1">{{ client.email or '—' }}</div>
         </td>
-        <td class="text-sm min-w-[150px]">{{ client.city or '—' }}</td>
-        <td class="text-right whitespace-nowrap">
+        <td class="text-sm align-middle">{{ client.city or '—' }}</td>
+        <td class="text-right whitespace-nowrap align-middle">
           <a href="{{ url_for('igh.clientes_detail', client_id=client.id) }}"
              class="text-slate-600 hover:underline text-sm mr-3">Ver</a>
           <a href="{{ url_for('igh.clientes_edit', client_id=client.id) }}"
