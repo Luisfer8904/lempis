@@ -54,13 +54,19 @@
           <a href="{{ url_for('igh.clientes_edit', client_id=client.id) }}"
              class="text-indigo-600 hover:underline text-sm mr-3">Editar</a>
           {% if igh_can_delete_records %}
-            <form method="POST" action="{{ url_for('igh.clientes_delete', client_id=client.id) }}" class="inline">
-              <button type="submit"
-                      onclick="return confirm('¿Eliminar este cliente?')"
-                      class="text-rose-600 hover:underline text-sm">
-                Eliminar
-              </button>
-            </form>
+            {% if client.can_delete %}
+              <form method="POST" action="{{ url_for('igh.clientes_delete', client_id=client.id) }}" class="inline">
+                <button type="submit"
+                        onclick="return confirm('¿Eliminar este cliente?')"
+                        class="text-rose-600 hover:underline text-sm">
+                  Eliminar
+                </button>
+              </form>
+            {% else %}
+              <span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-500">
+                Con historial
+              </span>
+            {% endif %}
           {% endif %}
         </td>
       </tr>

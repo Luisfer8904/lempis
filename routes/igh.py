@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import wraps
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
 from sqlalchemy import func, inspect
 from sqlalchemy.exc import IntegrityError
 
@@ -215,6 +215,19 @@ def _latest_cash_summary():
     return (
         IVGCashSummary.query.order_by(IVGCashSummary.summary_date.desc(), IVGCashSummary.id.desc()).first()
     )
+
+
+def _client_delete_block_reason(client: IVGClient | None) -> str | None:
+    if client is None:
+        return "El cliente no existe."
+
+    has_sales = _table_exists(IVGSale) and IVGSale.query.filter_by(client_id=client.id).first() is not None
+    has_agenda = _table_exists(IVGAgendaItem) and IVGAgendaItem.query.filter_by(client_id=client.id).first() is not None
+
+    if has_sales or has_agenda:
+        return "No puedes eliminar este cliente porque ya tiene facturas, cobros o historial asociado."
+
+    return None
 
 
 def _calculate_day_close(opening_amount: Decimal, cash_amount: Decimal, withdrawal_amount: Decimal, transfer_amount: Decimal):
@@ -604,6 +617,8 @@ def usuarios_delete(user_id: int):
 @igh_login_required
 def clientes():
     clients = IVGClient.query.order_by(IVGClient.created_at.desc()).all() if _table_exists(IVGClient) else []
+    for client in clients:
+        client.can_delete = _client_delete_block_reason(client) is None
     context = _base_context()
     context["clients"] = clients
     return render_template("igh/clients_list.html", **context)
@@ -639,6 +654,8 @@ def clientes_detail(client_id: int):
         "client": client,
         "client_sales": sales,
         "client_payments": payments,
+        "client_can_delete": _client_delete_block_reason(client) is None,
+        "client_delete_block_reason": _client_delete_block_reason(client),
         "client_pending_sales": pending_sales,
         "client_paid_sales": paid_sales,
         "client_metrics": {
@@ -719,15 +736,23 @@ def clientes_edit(client_id: int):
 @igh_admin_required
 def clientes_delete(client_id: int):
     client = _get_ivg_client_or_404(client_id)
+    block_reason = _client_delete_block_reason(client)
 
     if request.method == "GET":
-        flash("La eliminación de clientes debe hacerse desde el botón de la lista.", "warning")
-        return redirect(url_for("igh.clientes"))
+        if block_reason:
+            flash(block_reason, "warning")
+            return redirect(url_for("igh.clientes_detail", client_id=client.id))
 
-    has_sales = _table_exists(IVGSale) and IVGSale.query.filter_by(client_id=client.id).first() is not None
-    has_agenda = _table_exists(IVGAgendaItem) and IVGAgendaItem.query.filter_by(client_id=client.id).first() is not None
-    if has_sales or has_agenda:
-        flash("No puedes eliminar este cliente porque ya tiene facturas, cobros o historial asociado.", "danger")
+        context = _base_context()
+        context.update({
+            "client": client,
+            "client_can_delete": True,
+            "client_delete_block_reason": None,
+        })
+        return render_template("igh/client_delete_confirm.html", **context)
+
+    if block_reason:
+        flash(block_reason, "danger")
         return redirect(url_for("igh.clientes_detail", client_id=client.id))
 
     client_name = client.name
@@ -737,6 +762,11 @@ def clientes_delete(client_id: int):
     except IntegrityError:
         db.session.rollback()
         flash("No se pudo eliminar el cliente porque tiene movimientos relacionados.", "danger")
+        return redirect(url_for("igh.clientes_detail", client_id=client.id))
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Error eliminando cliente IVG %s", client.id)
+        flash("No se pudo eliminar el cliente por un error interno.", "danger")
         return redirect(url_for("igh.clientes_detail", client_id=client.id))
 
     flash(f"Cliente IVG {client_name} eliminado.", "success")

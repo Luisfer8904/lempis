@@ -6,12 +6,30 @@
   <a href="{{ url_for('igh.pagos_new') }}" class="border px-4 py-2 rounded-lg hover:bg-slate-50 text-sm">Nuevo cobro</a>
   <a href="{{ url_for('igh.ventas_new') }}" class="border px-4 py-2 rounded-lg hover:bg-slate-50 text-sm">Nueva factura</a>
   <a href="{{ url_for('igh.clientes_edit', client_id=client.id) }}" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">Editar cliente</a>
+  {% if igh_can_delete_records %}
+    {% if client_can_delete %}
+      <form method="POST" action="{{ url_for('igh.clientes_delete', client_id=client.id) }}" class="inline">
+        <button type="submit"
+                onclick="return confirm('¿Eliminar este cliente?')"
+                class="border border-rose-200 text-rose-700 px-4 py-2 rounded-lg hover:bg-rose-50 text-sm font-medium">
+          Eliminar cliente
+        </button>
+      </form>
+    {% else %}
+      <span class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-500">
+        Cliente con historial
+      </span>
+    {% endif %}
+  {% endif %}
 {% endblock %}
 
 {% block content %}
 <section class="mb-6">
   <h2 class="text-2xl font-bold mb-1">{{ client.name }}</h2>
   <p class="text-slate-500">Ficha comercial y seguimiento de cartera del cliente.</p>
+  {% if client_delete_block_reason %}
+    <p class="mt-2 text-sm text-slate-500">{{ client_delete_block_reason }}</p>
+  {% endif %}
 </section>
 
 <section class="bg-white rounded-xl border shadow-sm p-6 mb-6">
