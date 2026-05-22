@@ -39,6 +39,12 @@
   </div>
   <div class="flex gap-2">
     {% if compra.status == 'received' %}
+      <form method="POST" action="{{ url_for('compras.repair_inventory', purchase_id=compra.id) }}"
+            onsubmit="return confirm('¿Reprocesar inventario de esta compra? Solo corregirá líneas recibidas que hayan quedado sin lote.');">
+        <button class="border border-indigo-500 text-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-50 text-sm">
+          Reprocesar inventario
+        </button>
+      </form>
       <form method="POST" action="{{ url_for('compras.void', purchase_id=compra.id) }}"
             onsubmit="return confirm('¿Anular esta compra? Se revertirá el stock añadido a los lotes.');">
         <button class="border border-rose-500 text-rose-600 px-4 py-2 rounded-lg hover:bg-rose-50 text-sm">

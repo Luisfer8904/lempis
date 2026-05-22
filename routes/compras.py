@@ -24,6 +24,7 @@ from services.permissions import tenant_required
 from services.purchase_service import (
     create_purchase, update_purchase_draft, finalize_purchase,
     void_purchase, register_payment, next_purchase_number, PurchaseError,
+    repair_received_purchase_inventory,
 )
 
 compras_bp = Blueprint("compras", __name__, url_prefix="/app/compras")
@@ -163,6 +164,25 @@ def receive(purchase_id):
     try:
         finalize_purchase(inv)
         flash(f"Compra {inv.number} recibida. Inventario actualizado.", "success")
+    except PurchaseError as e:
+        flash(str(e), "danger")
+    return redirect(url_for("compras.detail", purchase_id=inv.id))
+
+
+@compras_bp.route("/<int:purchase_id>/repair-inventory", methods=["POST"])
+@login_required
+@tenant_required
+def repair_inventory(purchase_id):
+    inv = _get_or_404(purchase_id)
+    try:
+        repaired = repair_received_purchase_inventory(inv)
+        if repaired:
+            flash(
+                f"Inventario reprocesado. Se corrigieron {repaired} línea(s) sin lote y el stock fue sincronizado.",
+                "success",
+            )
+        else:
+            flash("No había líneas pendientes por reparar en esta compra.", "info")
     except PurchaseError as e:
         flash(str(e), "danger")
     return redirect(url_for("compras.detail", purchase_id=inv.id))

@@ -176,18 +176,19 @@ def finalize_purchase(purchase: Purchase) -> Purchase:
 
         qty = Decimal(item.quantity or 0)
 
-        if product.track_batches and item.batch_number:
-            # Crear o reusar lote
-            batch = _get_or_create_batch(product, item)
+        if product.track_batches:
+            # Crear o reusar lote. Si no escribieron número, generar uno automático
+            # para que la compra igualmente alimente inventario.
+            batch = _get_or_create_batch(product, item, purchase)
             # Sumar al lote (initial + qty, remaining + qty)
             batch.initial_quantity = Decimal(batch.initial_quantity or 0) + qty
             batch.remaining_quantity = Decimal(batch.remaining_quantity or 0) + qty
             batch.cost = Decimal(item.unit_cost or 0)  # actualiza último costo
+            db.session.flush()
             item.batch_id = batch.id
 
         # Actualizar stock del producto
         if product.track_batches:
-            db.session.flush()
             recompute_product_stock(product)
         else:
             product.stock = int((product.stock or 0) + qty)
@@ -206,14 +207,61 @@ def finalize_purchase(purchase: Purchase) -> Purchase:
     return purchase
 
 
-def _get_or_create_batch(product: Product, item: PurchaseItem) -> ProductBatch:
+def repair_received_purchase_inventory(purchase: Purchase) -> int:
+    """
+    Repara compras ya marcadas como 'received' que quedaron sin reflejar stock
+    porque alguna línea de producto con lotes no obtuvo batch_id al recibirla.
+
+    Solo corrige líneas sin batch_id. No duplica las que ya fueron aplicadas.
+    Devuelve cuántas líneas fueron reparadas.
+    """
+    if purchase.status != "received":
+        raise PurchaseError("Solo se puede reprocesar inventario en compras recibidas.")
+
+    repaired = 0
+    touched_products: set[int] = set()
+
+    for item in purchase.items:
+        if not item.product_id or item.batch_id:
+            continue
+
+        product = db.session.get(Product, item.product_id)
+        if product is None:
+            continue
+
+        if not product.track_batches:
+            continue
+
+        qty = Decimal(item.quantity or 0)
+        batch = _get_or_create_batch(product, item, purchase)
+        batch.initial_quantity = Decimal(batch.initial_quantity or 0) + qty
+        batch.remaining_quantity = Decimal(batch.remaining_quantity or 0) + qty
+        batch.cost = Decimal(item.unit_cost or 0)
+        db.session.flush()
+        item.batch_id = batch.id
+        touched_products.add(product.id)
+        repaired += 1
+
+    for product_id in touched_products:
+        product = db.session.get(Product, product_id)
+        if product is not None:
+            recompute_product_stock(product)
+
+    db.session.commit()
+    return repaired
+
+
+def _get_or_create_batch(product: Product, item: PurchaseItem, purchase: Purchase) -> ProductBatch:
     """Si ya existe un lote con el mismo número en este producto, lo reusa.
     Si no, crea uno nuevo. Inicializa con quantity=0 (luego sumamos en finalize)."""
+    batch_number = (item.batch_number or "").strip() or f"AUTO-{purchase.number}-{item.id or 'X'}"
+    item.batch_number = batch_number
+
     # Buscar lote existente directamente en DB para no depender del caché de la relación
     existing = ProductBatch.query.filter_by(
         tenant_id=product.tenant_id,
         product_id=product.id,
-        batch_number=item.batch_number,
+        batch_number=batch_number,
     ).first()
     if existing:
         if item.manufacturing_date:
@@ -225,7 +273,7 @@ def _get_or_create_batch(product: Product, item: PurchaseItem) -> ProductBatch:
     new_batch = ProductBatch(
         tenant_id=product.tenant_id,
         product_id=product.id,
-        batch_number=item.batch_number,
+        batch_number=batch_number,
         manufacturing_date=item.manufacturing_date,
         expiration_date=item.expiration_date,
         initial_quantity=Decimal(0),
