@@ -41,6 +41,18 @@
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
     </div>
 
+    <div>
+      <label class="block text-sm font-medium mb-1">Categoría de precio</label>
+      {% set price_tier = cliente.preferred_price_tier if cliente else 'general' %}
+      <select name="preferred_price_tier"
+              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+        <option value="general" {% if price_tier == 'general' %}selected{% endif %}>General</option>
+        <option value="mayorista" {% if price_tier == 'mayorista' %}selected{% endif %}>Mayorista</option>
+        <option value="especial" {% if price_tier == 'especial' %}selected{% endif %}>Especial</option>
+      </select>
+      <p class="text-xs text-slate-500 mt-1">Se usa por defecto al facturar, pero puede cambiarse en la venta.</p>
+    </div>
+
     <div class="md:col-span-2">
       <label class="block text-sm font-medium mb-1">Dirección</label>
       <textarea name="address" rows="2"

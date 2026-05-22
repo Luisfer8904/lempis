@@ -150,7 +150,7 @@
     {% else %}
       <div class="text-center py-8 text-slate-400">
         <div class="text-5xl mb-2">🧾</div>
-        <p>Aún no tienes facturas. <a href="{{ url_for('facturas.new') }}" class="text-indigo-600 hover:underline">Crear la primera</a>.</p>
+        <p>Aún no tienes facturas. <a href="{{ url_for('pos.index') }}" class="text-indigo-600 hover:underline">Crear la primera</a>.</p>
       </div>
     {% endif %}
   </div>
@@ -239,7 +239,7 @@
     </li>
     <li class="flex items-center gap-2">
       {% if invoices_count > 0 %}✅{% else %}⬜{% endif %}
-      <a href="{{ url_for('facturas.new') }}" class="text-indigo-600 hover:underline">
+      <a href="{{ url_for('pos.index') }}" class="text-indigo-600 hover:underline">
         Crea tu primera factura
       </a>
     </li>

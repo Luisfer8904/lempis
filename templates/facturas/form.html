@@ -43,6 +43,7 @@
           <option value="">— Consumidor final —</option>
           {% for c in clientes %}
             <option value="{{ c.id }}"
+                    data-price-tier="{{ c.preferred_price_tier or 'general' }}"
                     {% if factura and factura.customer_id == c.id %}selected{% endif %}>
               {{ c.name }}{% if c.tax_id %} — {{ c.tax_id }}{% endif %}
             </option>
@@ -61,6 +62,16 @@
           <option value="transferencia"   {% if pm == 'transferencia' %}selected{% endif %}>Transferencia bancaria</option>
           <option value="tarjeta"         {% if pm == 'tarjeta' %}selected{% endif %}>Tarjeta crédito/débito</option>
           <option value="credito"         {% if pm == 'credito' %}selected{% endif %}>Crédito a plazo</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Categoría de precio</label>
+        {% set invoice_tier = request.form.get('price_tier') or 'general' %}
+        <select name="price_tier" id="price-tier"
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+          <option value="general" {% if invoice_tier == 'general' %}selected{% endif %}>General</option>
+          <option value="mayorista" {% if invoice_tier == 'mayorista' %}selected{% endif %}>Mayorista</option>
+          <option value="especial" {% if invoice_tier == 'especial' %}selected{% endif %}>Especial</option>
         </select>
       </div>
       <div id="terms-row" {% if not factura or factura.payment_method != 'credito' %}style="display:none"{% endif %}>
@@ -171,7 +182,9 @@
         {% for p in productos %}
           <option value="{{ p.id }}"
                   data-name="{{ p.name }}"
-                  data-price="{{ p.price }}"
+                  data-price-general="{{ p.price }}"
+                  data-price-mayorista="{{ p.price_wholesale }}"
+                  data-price-especial="{{ p.price_special }}"
                   data-tax="{{ (p.tax_config.rate if p.tax_config else 15) }}"
                   data-batches="{{ '1' if p.track_batches else '0' }}">
             {{ p.sku }} — {{ p.name }}
@@ -211,6 +224,20 @@
 <script>
 const tenantCurrency = "{{ tenant.currency }}";
 const itemsBody = document.getElementById("items-body");
+const isEditMode = {{ 'true' if factura else 'false' }};
+
+function getSelectedTier() {
+  return document.getElementById("price-tier")?.value || "general";
+}
+
+function getOptionTierPrice(opt, tier) {
+  const general = parseFloat(opt.dataset.priceGeneral || 0) || 0;
+  const mayorista = parseFloat(opt.dataset.priceMayorista || general) || general;
+  const especial = parseFloat(opt.dataset.priceEspecial || general) || general;
+  if (tier === "mayorista") return mayorista;
+  if (tier === "especial") return especial;
+  return general;
+}
 
 function addLine() {
   const tpl = document.getElementById("line-template");
@@ -231,7 +258,7 @@ function onProductChange(select) {
 
   if (opt.value) {
     row.querySelector(".item-desc").value = opt.dataset.name;
-    row.querySelector(".item-price").value = parseFloat(opt.dataset.price).toFixed(2);
+    row.querySelector(".item-price").value = getOptionTierPrice(opt, getSelectedTier()).toFixed(2);
     row.querySelector(".item-tax").value = parseFloat(opt.dataset.tax).toFixed(2);
     row.querySelector(".item-product-id").value = opt.value;
 
@@ -247,6 +274,31 @@ function onProductChange(select) {
     batchSelect.classList.add("hidden");
   }
   recalc();
+}
+
+function applyTierToExistingLines() {
+  const tier = getSelectedTier();
+  document.querySelectorAll(".item-row").forEach(row => {
+    const select = row.querySelector(".item-product");
+    if (!select || !select.value) return;
+    const opt = select.options[select.selectedIndex];
+    row.querySelector(".item-price").value = getOptionTierPrice(opt, tier).toFixed(2);
+  });
+  recalc();
+}
+
+function syncTierFromCustomer(keepExistingPrices = false) {
+  const customerSelect = document.getElementById("customer-select");
+  const tierSelect = document.getElementById("price-tier");
+  const opt = customerSelect?.options[customerSelect.selectedIndex];
+  if (opt?.dataset?.priceTier && tierSelect) {
+    tierSelect.value = opt.dataset.priceTier;
+  } else if (tierSelect) {
+    tierSelect.value = "general";
+  }
+  if (!keepExistingPrices) {
+    applyTierToExistingLines();
+  }
 }
 
 function loadBatches(productId, batchSelect) {
@@ -302,12 +354,20 @@ document.getElementById("payment-method").addEventListener("change", e => {
   document.getElementById("terms-row").style.display =
     e.target.value === "credito" ? "block" : "none";
 });
+document.getElementById("price-tier").addEventListener("change", applyTierToExistingLines);
+document.getElementById("customer-select").addEventListener("change", () => syncTierFromCustomer(false));
 
 // Si no hay líneas al cargar, agregar una vacía
 if (!itemsBody.children.length) {
   addLine();
 } else {
   recalc();
+}
+
+if (isEditMode) {
+  syncTierFromCustomer(true);
+} else {
+  syncTierFromCustomer(false);
 }
 </script>
 {% endblock %}

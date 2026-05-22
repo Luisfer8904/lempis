@@ -48,6 +48,8 @@ class Product(db.Model, TimestampMixin):
     )
 
     price = Column(Numeric(12, 2), nullable=False, default=0)
+    price_wholesale = Column(Numeric(12, 2), nullable=False, default=0)
+    price_special = Column(Numeric(12, 2), nullable=False, default=0)
     cost = Column(Numeric(12, 2), default=0)
     stock = Column(Integer, default=0)
     track_stock = Column(Boolean, default=True)
@@ -84,6 +86,14 @@ class Product(db.Model, TimestampMixin):
         """Devuelve el lote a consumir por FIFO (más próximo a vencer con stock)."""
         actives = self.active_batches()
         return actives[0] if actives else None
+
+    def price_for_tier(self, tier: str | None):
+        """Devuelve el precio correspondiente a la categoría comercial elegida."""
+        if tier == "mayorista":
+            return self.price_wholesale if self.price_wholesale is not None else self.price
+        if tier == "especial":
+            return self.price_special if self.price_special is not None else self.price
+        return self.price
 
     def __repr__(self):
         return f"<Product {self.sku} {self.name}>"
@@ -173,6 +183,11 @@ class Customer(db.Model, TimestampMixin):
     phone = Column(String(40))
     address = Column(Text)
     city = Column(String(80))
+    preferred_price_tier = Column(
+        Enum("general", "mayorista", "especial", name="customer_price_tier"),
+        nullable=False,
+        default="general",
+    )
     country_code = Column(String(2), ForeignKey("lempis_paises.code"))
 
     notes = Column(Text)

@@ -1,0 +1,53 @@
+{% extends "app/_layout.html" %}
+{% block title %}Nueva venta — {{ APP_NAME }}{% endblock %}
+{% block heading %}Nueva venta{% endblock %}
+
+{% block actions %}
+<div class="flex items-center gap-3 text-sm">
+  <span class="text-slate-500">Próxima factura:</span>
+  <span class="font-mono font-bold text-indigo-600">{{ next_number }}</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+  <div class="mb-6">
+    <h2 class="text-3xl font-black tracking-[-0.03em] text-slate-900">Elige cómo vender</h2>
+    <p class="text-slate-500 mt-2">Usa venta rápida para mostrador o una factura detallada cuando necesites más control.</p>
+  </div>
+
+  <div class="grid lg:grid-cols-2 gap-6">
+    <a href="{{ url_for('pos.quick_sale') }}"
+       class="group bg-white rounded-2xl border border-emerald-200 p-7 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition">
+      <div class="flex items-center justify-between mb-5">
+        <span class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-2xl">⚡</span>
+        <span class="text-xs uppercase tracking-[0.22em] text-emerald-600 font-semibold">Mostrador</span>
+      </div>
+      <h3 class="text-2xl font-bold text-slate-900 mb-2">Venta rápida</h3>
+      <p class="text-slate-600 leading-relaxed">
+        Busca productos al instante, agrégalos al carrito y cobra en pocos pasos.
+      </p>
+      <div class="mt-6 flex items-center justify-between">
+        <span class="text-sm text-slate-500">Ideal para tienda o caja</span>
+        <span class="text-emerald-700 font-semibold group-hover:translate-x-1 transition-transform">Abrir →</span>
+      </div>
+    </a>
+
+    <a href="{{ url_for('facturas.new') }}"
+       class="group bg-white rounded-2xl border border-indigo-200 p-7 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition">
+      <div class="flex items-center justify-between mb-5">
+        <span class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-100 text-2xl">🧾</span>
+        <span class="text-xs uppercase tracking-[0.22em] text-indigo-600 font-semibold">Detalle</span>
+      </div>
+      <h3 class="text-2xl font-bold text-slate-900 mb-2">Venta detallada</h3>
+      <p class="text-slate-600 leading-relaxed">
+        Construye la factura línea por línea, ajusta precios, impuestos y crédito con más control.
+      </p>
+      <div class="mt-6 flex items-center justify-between">
+        <span class="text-sm text-slate-500">Ideal para facturas complejas</span>
+        <span class="text-indigo-700 font-semibold group-hover:translate-x-1 transition-transform">Abrir →</span>
+      </div>
+    </a>
+  </div>
+</div>
+{% endblock %}

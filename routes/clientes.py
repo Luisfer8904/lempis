@@ -115,6 +115,7 @@ def _populate_from_form(cliente: Customer) -> None:
     cliente.phone = (request.form.get("phone") or "").strip() or None
     cliente.address = (request.form.get("address") or "").strip() or None
     cliente.city = (request.form.get("city") or "").strip() or None
+    cliente.preferred_price_tier = request.form.get("preferred_price_tier") or "general"
     cliente.country_code = (request.form.get("country_code") or "").strip() or None
     cliente.notes = (request.form.get("notes") or "").strip() or None
     cliente.is_active = bool(request.form.get("is_active"))

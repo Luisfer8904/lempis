@@ -250,6 +250,8 @@ def _populate_from_form(prod: Product) -> None:
     prod.description = (request.form.get("description") or "").strip() or None
     prod.kind = request.form.get("kind") or "product"
     prod.price = _safe_decimal(request.form.get("price"))
+    prod.price_wholesale = _safe_decimal(request.form.get("price_wholesale"))
+    prod.price_special = _safe_decimal(request.form.get("price_special"))
     prod.cost = _safe_decimal(request.form.get("cost"))
     prod.stock = int(request.form.get("stock") or 0)
     prod.track_stock = bool(request.form.get("track_stock"))

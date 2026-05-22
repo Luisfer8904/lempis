@@ -98,9 +98,22 @@
     </div>
 
     <div>
-      <label class="block text-sm font-medium mb-1">Precio de venta *</label>
+      <label class="block text-sm font-medium mb-1">Precio general *</label>
       <input type="number" step="0.01" min="0" name="price" required
              value="{{ '%.2f'|format(producto.price) if producto else '0.00' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Precio mayorista</label>
+      <input type="number" step="0.01" min="0" name="price_wholesale"
+             value="{{ '%.2f'|format(producto.price_wholesale) if producto and producto.price_wholesale is not none else ('%.2f'|format(producto.price) if producto else '0.00') }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right" />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">Precio especial</label>
+      <input type="number" step="0.01" min="0" name="price_special"
+             value="{{ '%.2f'|format(producto.price_special) if producto and producto.price_special is not none else ('%.2f'|format(producto.price) if producto else '0.00') }}"
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right" />
     </div>
     <div>

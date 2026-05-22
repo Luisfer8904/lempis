@@ -4,6 +4,9 @@
 
 {% block actions %}
 <div class="flex items-center gap-3 text-sm">
+  <a href="{{ url_for('pos.index') }}" class="text-slate-600 hover:text-slate-900 text-sm">
+    ← Elegir modo
+  </a>
   <span class="text-slate-500">Próxima factura:</span>
   <span class="font-mono font-bold text-indigo-600">{{ next_number }}</span>
 </div>
@@ -27,20 +30,27 @@
   {# ============================ LADO IZQUIERDO: productos ============================ #}
   <div class="lg:col-span-3 flex flex-col gap-4">
 
-    <form method="GET" class="flex gap-2">
-      <input type="search" name="q" value="{{ q }}"
-             placeholder="🔍 Buscar producto por nombre o SKU..."
-             class="flex-1 px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white" />
+    <form method="GET" class="relative" onsubmit="return false;">
+      <input type="search" id="product-search" name="q" value="{{ q }}"
+             placeholder="🔍 Buscar producto por nombre, SKU o categoría — filtra mientras escribes"
+             autocomplete="off"
+             class="w-full px-4 py-3 pr-12 border rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white text-sm" />
       {% if selected_category %}
         <input type="hidden" name="category_id" value="{{ selected_category }}" />
       {% endif %}
-      <button class="bg-slate-700 text-white px-5 py-2 rounded-xl hover:bg-slate-800">Buscar</button>
+      <button type="button" id="clear-search"
+              onclick="document.getElementById('product-search').value=''; filterProducts(); this.classList.add('hidden');"
+              class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-lg"
+              title="Limpiar búsqueda">✕</button>
     </form>
+    <p id="search-empty" class="hidden text-center py-6 text-sm text-slate-500">
+      🔎 Ningún producto coincide con tu búsqueda.
+    </p>
 
     {# Tabs de categorías estilo Treinta #}
     {% if categorias %}
     <div class="flex flex-wrap gap-2 overflow-x-auto pb-1">
-      <a href="{{ url_for('pos.index', q=q) }}"
+      <a href="{{ url_for('pos.quick_sale', q=q) }}"
          class="px-4 py-1.5 rounded-full text-sm whitespace-nowrap
                 {% if not selected_category %}
                   bg-amber-400 text-slate-900 font-medium
@@ -50,7 +60,7 @@
         Todos
       </a>
       {% for c in categorias %}
-        <a href="{{ url_for('pos.index', q=q, category_id=c.id) }}"
+        <a href="{{ url_for('pos.quick_sale', q=q, category_id=c.id) }}"
            class="px-4 py-1.5 rounded-full text-sm whitespace-nowrap flex items-center gap-2
                   {% if selected_category == c.id %}
                     bg-amber-400 text-slate-900 font-medium
@@ -68,19 +78,22 @@
 
     {# Grid de productos #}
     {% if productos %}
-      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3" id="products-grid">
         {% for p in productos %}
           <button type="button"
                   data-id="{{ p.id }}"
                   data-name="{{ p.name }}"
                   data-sku="{{ p.sku }}"
-                  data-price="{{ p.price }}"
+                  data-price-general="{{ p.price }}"
+                  data-price-mayorista="{{ p.price_wholesale }}"
+                  data-price-especial="{{ p.price_special }}"
                   data-tax="{{ (p.tax_config.rate if p.tax_config else 15) }}"
                   data-image="{{ p.image_url or '' }}"
                   data-stock="{{ p.stock if p.track_stock else '' }}"
+                  data-search="{{ (p.name ~ ' ' ~ p.sku ~ ' ' ~ (p.category.name if p.category else '')) | lower }}"
                   onclick="addToCart(this)"
                   class="bg-white rounded-xl border hover:border-indigo-400 hover:shadow-md transition
-                         text-left overflow-hidden flex flex-col cursor-pointer"
+                         text-left overflow-hidden flex flex-col cursor-pointer product-card"
                   {% if p.track_stock and p.stock <= 0 %}disabled{% endif %}>
             <div class="aspect-square bg-slate-50 flex items-center justify-center overflow-hidden">
               {% if p.image_url %}
@@ -93,7 +106,7 @@
             </div>
             <div class="p-2.5">
               <p class="font-medium text-sm leading-tight line-clamp-2">{{ p.name }}</p>
-              <p class="text-base font-bold mt-1">$ {{ '%.2f'|format(p.price) }}</p>
+              <p class="text-base font-bold mt-1 product-price-label">$ {{ '%.2f'|format(p.price) }}</p>
               {% if p.track_stock %}
                 {% if p.stock <= 0 %}
                   <p class="text-xs text-rose-600 mt-0.5">Agotado</p>
@@ -144,13 +157,34 @@
       <div class="border-t p-4 space-y-3 bg-slate-50">
         <div>
           <label class="block text-xs font-medium text-slate-600 mb-1">Cliente</label>
-          <select name="customer_id"
+          <select name="customer_id" id="customer-select"
                   class="w-full px-3 py-2 text-sm border rounded-lg bg-white">
             <option value="">— Consumidor final —</option>
             {% for c in clientes %}
-              <option value="{{ c.id }}">{{ c.name }}{% if c.tax_id %} — {{ c.tax_id }}{% endif %}</option>
+              <option value="{{ c.id }}" data-price-tier="{{ c.preferred_price_tier or 'general' }}">
+                {{ c.name }}{% if c.tax_id %} — {{ c.tax_id }}{% endif %}
+              </option>
             {% endfor %}
           </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Tarifa de venta</label>
+          <div class="grid grid-cols-3 gap-1.5 bg-white p-1 rounded-lg border" id="tier-chips">
+            <button type="button" data-tier="general"
+                    class="tier-chip px-2 py-1.5 text-xs font-semibold rounded-md transition">
+              General
+            </button>
+            <button type="button" data-tier="mayorista"
+                    class="tier-chip px-2 py-1.5 text-xs font-semibold rounded-md transition">
+              Mayorista
+            </button>
+            <button type="button" data-tier="especial"
+                    class="tier-chip px-2 py-1.5 text-xs font-semibold rounded-md transition">
+              Especial
+            </button>
+          </div>
+          <input type="hidden" name="price_tier" id="price-tier" value="general" />
+          <p class="text-[11px] text-slate-400 mt-1" id="tier-hint">Se ajusta automáticamente según el cliente; puedes cambiarla aquí.</p>
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-600 mb-1">Método de pago</label>
@@ -201,21 +235,55 @@
 
 <script>
 const TENANT_CURRENCY = "{{ tenant.currency }}";
-const cart = new Map();  // product_id -> {id, name, sku, price, tax, qty, image}
+const cart = new Map();
 
 function fmt(n) { return TENANT_CURRENCY + " " + Number(n).toFixed(2); }
+function getSelectedTier() {
+  return document.getElementById('price-tier')?.value || 'general';
+}
+
+function setSelectedTier(tier) {
+  const hidden = document.getElementById('price-tier');
+  if (!hidden) return;
+  hidden.value = tier;
+  // pintar chips
+  document.querySelectorAll('.tier-chip').forEach(chip => {
+    const active = chip.dataset.tier === tier;
+    chip.classList.toggle('bg-indigo-600', active);
+    chip.classList.toggle('text-white', active);
+    chip.classList.toggle('shadow-sm', active);
+    chip.classList.toggle('text-slate-600', !active);
+    chip.classList.toggle('hover:bg-slate-100', !active);
+  });
+}
+
+function getPriceForTier(source, tier) {
+  const general = parseFloat(source.dataset?.priceGeneral ?? source.general ?? 0) || 0;
+  const mayorista = parseFloat(source.dataset?.priceMayorista ?? source.mayorista ?? general) || general;
+  const especial = parseFloat(source.dataset?.priceEspecial ?? source.especial ?? general) || general;
+  if (tier === 'mayorista') return mayorista;
+  if (tier === 'especial') return especial;
+  return general;
+}
 
 function addToCart(btn) {
   const id = btn.dataset.id;
+  const tier = getSelectedTier();
   const existing = cart.get(id);
   if (existing) {
     existing.qty += 1;
+    existing.price = getPriceForTier(existing.basePrices, tier);
   } else {
     cart.set(id, {
       id,
       name: btn.dataset.name,
       sku: btn.dataset.sku,
-      price: parseFloat(btn.dataset.price),
+      basePrices: {
+        general: btn.dataset.priceGeneral,
+        mayorista: btn.dataset.priceMayorista,
+        especial: btn.dataset.priceEspecial,
+      },
+      price: getPriceForTier(btn, tier),
       tax: parseFloat(btn.dataset.tax) || 15,
       image: btn.dataset.image,
       qty: 1,
@@ -245,6 +313,63 @@ function clearCart() {
   if (!confirm('¿Vaciar el carrito?')) return;
   cart.clear();
   renderCart();
+}
+
+function applyPriceTierToCart() {
+  const tier = getSelectedTier();
+  const tierLabel = {general: '', mayorista: 'Mayorista', especial: 'Especial'}[tier] || '';
+  cart.forEach(item => {
+    item.price = getPriceForTier(item.basePrices, tier);
+  });
+  document.querySelectorAll('.product-card').forEach(card => {
+    const priceLabel = card.querySelector('.product-price-label');
+    if (priceLabel) {
+      priceLabel.textContent = '$ ' + getPriceForTier(card, tier).toFixed(2);
+    }
+    let tag = card.querySelector('.tier-tag');
+    if (tierLabel) {
+      if (!tag) {
+        tag = document.createElement('span');
+        tag.className = 'tier-tag inline-block mt-1 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded';
+        const priceEl = card.querySelector('.product-price-label');
+        priceEl?.parentNode?.insertBefore(tag, priceEl.nextSibling);
+      }
+      tag.textContent = tierLabel;
+      tag.classList.toggle('bg-indigo-100', tier === 'mayorista');
+      tag.classList.toggle('text-indigo-700', tier === 'mayorista');
+      tag.classList.toggle('bg-rose-100', tier === 'especial');
+      tag.classList.toggle('text-rose-700', tier === 'especial');
+    } else if (tag) {
+      tag.remove();
+    }
+  });
+  renderCart();
+}
+
+function syncTierFromCustomer() {
+  const customerSelect = document.getElementById('customer-select');
+  const opt = customerSelect?.options[customerSelect.selectedIndex];
+  const tier = opt?.dataset?.priceTier || 'general';
+  setSelectedTier(tier);
+  applyPriceTierToCart();
+}
+
+function filterProducts() {
+  const input = document.getElementById('product-search');
+  const term = (input?.value || '').trim().toLowerCase();
+  let visible = 0;
+  document.querySelectorAll('.product-card').forEach(card => {
+    const haystack = card.dataset.search || '';
+    const match = !term || haystack.includes(term);
+    card.classList.toggle('hidden', !match);
+    if (match) visible += 1;
+  });
+  // botón limpiar
+  const clearBtn = document.getElementById('clear-search');
+  if (clearBtn) clearBtn.classList.toggle('hidden', !term);
+  // mensaje "sin resultados"
+  const emptyMsg = document.getElementById('search-empty');
+  if (emptyMsg) emptyMsg.classList.toggle('hidden', visible !== 0 || !term);
 }
 
 function renderCart() {
@@ -315,6 +440,20 @@ document.getElementById('payment-method').addEventListener('change', e => {
     e.target.value === 'credito' ? 'block' : 'none';
 });
 
+document.getElementById('customer-select')?.addEventListener('change', syncTierFromCustomer);
+document.getElementById('product-search')?.addEventListener('input', filterProducts);
+
+// Chips de tarifa
+document.querySelectorAll('.tier-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    setSelectedTier(chip.dataset.tier);
+    applyPriceTierToCart();
+  });
+});
+
+setSelectedTier('general');
+syncTierFromCustomer();
+filterProducts();
 renderCart();
 </script>
 {% endblock %}

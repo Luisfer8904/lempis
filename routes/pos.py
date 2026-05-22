@@ -25,6 +25,15 @@ pos_bp = Blueprint("pos", __name__, url_prefix="/app/venta")
 @tenant_required
 def index():
     tenant = current_tenant()
+    _, next_number = next_invoice_number(tenant)
+    return render_template("pos/chooser.html", tenant=tenant, next_number=next_number)
+
+
+@pos_bp.route("/rapida")
+@login_required
+@tenant_required
+def quick_sale():
+    tenant = current_tenant()
     q = (request.args.get("q") or "").strip()
     category_id = request.args.get("category_id", type=int)
 
@@ -61,6 +70,13 @@ def index():
     )
 
 
+@pos_bp.route("/detallada")
+@login_required
+@tenant_required
+def detailed_sale():
+    return redirect(url_for("facturas.new"))
+
+
 @pos_bp.route("/cobrar", methods=["POST"])
 @login_required
 @tenant_required
@@ -71,7 +87,7 @@ def cobrar():
         items_data = _parse_cart()
         if not items_data:
             flash("Agrega al menos un producto al carrito.", "warning")
-            return redirect(url_for("pos.index"))
+            return redirect(url_for("pos.quick_sale"))
 
         customer_id = request.form.get("customer_id")
         customer = None
@@ -94,7 +110,7 @@ def cobrar():
         return redirect(url_for("facturas.detail", invoice_id=inv.id))
     except CAIError as e:
         flash(str(e), "danger")
-        return redirect(url_for("pos.index"))
+        return redirect(url_for("pos.quick_sale"))
 
 
 def _parse_cart() -> list[dict]:

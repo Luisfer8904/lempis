@@ -1027,15 +1027,30 @@ def pagos():
 def pagos_new():
     context = _base_context()
     context["credit_sales"] = IVGSale.query.filter(IVGSale.balance_due > 0).order_by(IVGSale.sale_date.desc()).all() if _table_exists(IVGSale) else []
+    context["form_data"] = {
+        "sale_id": "",
+        "payment_kind": "abono",
+        "payment_method": "",
+        "amount": "",
+        "payment_date": _format_datetime_local(datetime.utcnow()),
+        "notes": "",
+    }
 
     if request.method == "POST":
+        context["form_data"] = {
+            "sale_id": request.form.get("sale_id") or "",
+            "payment_kind": (request.form.get("payment_kind") or "abono").strip(),
+            "payment_method": (request.form.get("payment_method") or "").strip(),
+            "amount": request.form.get("amount") or "",
+            "payment_date": request.form.get("payment_date") or "",
+            "notes": request.form.get("notes") or "",
+        }
         try:
             sale_id = int(request.form.get("sale_id") or "0")
         except ValueError:
             sale_id = 0
         payment_kind = (request.form.get("payment_kind") or "abono").strip()
         payment_method = (request.form.get("payment_method") or "").strip()
-        category = (request.form.get("category") or "herbicidas").strip()
         notes = (request.form.get("notes") or "").strip() or None
 
         try:
@@ -1043,27 +1058,32 @@ def pagos_new():
             payment_date = _parse_datetime(request.form.get("payment_date"), "La fecha de pago", required=True)
         except ValueError as exc:
             flash(str(exc), "danger")
-            return redirect(url_for("igh.pagos_new"))
+            context["payment"] = None
+            return render_template("igh/payments_form.html", **context)
 
         sale = db.session.get(IVGSale, sale_id) if sale_id else None
         if sale is None:
             flash("Debes seleccionar una factura de crédito válida.", "danger")
-            return redirect(url_for("igh.pagos_new"))
+            context["payment"] = None
+            return render_template("igh/payments_form.html", **context)
         if amount <= 0:
             flash("El monto debe ser mayor que cero.", "danger")
-            return redirect(url_for("igh.pagos_new"))
+            context["payment"] = None
+            return render_template("igh/payments_form.html", **context)
         if Decimal(sale.balance_due or 0) <= 0:
             flash("La factura seleccionada ya no tiene saldo pendiente.", "warning")
-            return redirect(url_for("igh.pagos_new"))
+            context["payment"] = None
+            return render_template("igh/payments_form.html", **context)
         if amount > Decimal(sale.balance_due or 0):
             flash("El monto supera el saldo pendiente de la factura.", "danger")
-            return redirect(url_for("igh.pagos_new"))
+            context["payment"] = None
+            return render_template("igh/payments_form.html", **context)
 
         payment = IVGPayment(
             sale_id=sale.id,
             payment_kind=payment_kind,
             payment_method=payment_method,
-            category=category or sale.category,
+            category=sale.category,
             amount=amount,
             payment_date=payment_date,
             notes=notes,
@@ -1086,15 +1106,30 @@ def pagos_edit(payment_id: int):
     old_sale = payment.sale
     context = _base_context()
     context["credit_sales"] = IVGSale.query.order_by(IVGSale.sale_date.desc()).all() if _table_exists(IVGSale) else []
+    context["form_data"] = {
+        "sale_id": str(payment.sale_id or ""),
+        "payment_kind": payment.payment_kind or "abono",
+        "payment_method": payment.payment_method or "",
+        "amount": payment.amount if payment.amount is not None else "",
+        "payment_date": _format_datetime_local(payment.payment_date),
+        "notes": payment.notes or "",
+    }
 
     if request.method == "POST":
+        context["form_data"] = {
+            "sale_id": request.form.get("sale_id") or "",
+            "payment_kind": (request.form.get("payment_kind") or payment.payment_kind).strip(),
+            "payment_method": (request.form.get("payment_method") or payment.payment_method).strip(),
+            "amount": request.form.get("amount") or "",
+            "payment_date": request.form.get("payment_date") or "",
+            "notes": request.form.get("notes") or "",
+        }
         try:
             sale_id = int(request.form.get("sale_id") or "0")
         except ValueError:
             sale_id = 0
         payment_kind = (request.form.get("payment_kind") or payment.payment_kind).strip()
         payment_method = (request.form.get("payment_method") or payment.payment_method).strip()
-        category = (request.form.get("category") or payment.category).strip()
         notes = (request.form.get("notes") or "").strip() or None
 
         try:
@@ -1102,20 +1137,23 @@ def pagos_edit(payment_id: int):
             payment_date = _parse_datetime(request.form.get("payment_date"), "La fecha de pago", required=True)
         except ValueError as exc:
             flash(str(exc), "danger")
-            return redirect(url_for("igh.pagos_edit", payment_id=payment.id))
+            context["payment"] = payment
+            return render_template("igh/payments_form.html", **context)
 
         sale = db.session.get(IVGSale, sale_id) if sale_id else None
         if sale is None:
             flash("Debes seleccionar una factura de crédito válida.", "danger")
-            return redirect(url_for("igh.pagos_edit", payment_id=payment.id))
+            context["payment"] = payment
+            return render_template("igh/payments_form.html", **context)
         if amount <= 0:
             flash("El monto debe ser mayor que cero.", "danger")
-            return redirect(url_for("igh.pagos_edit", payment_id=payment.id))
+            context["payment"] = payment
+            return render_template("igh/payments_form.html", **context)
 
         payment.sale_id = sale.id
         payment.payment_kind = payment_kind
         payment.payment_method = payment_method
-        payment.category = category or sale.category
+        payment.category = sale.category
         payment.amount = amount
         payment.payment_date = payment_date
         payment.notes = notes
