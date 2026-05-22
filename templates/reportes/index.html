@@ -91,31 +91,64 @@
   </section>
 </div>
 
-{# ===== Métodos de pago ===== #}
-<section class="bg-white p-6 rounded-xl shadow-sm border">
-  <h3 class="text-lg font-semibold mb-4">Distribución por método de pago</h3>
-  {% if payment_methods %}
-    <div class="grid md:grid-cols-2 gap-6 items-center">
-      <div style="height:240px">
-        <canvas id="paymentChart"></canvas>
-      </div>
-      <div class="space-y-2">
-        {% set labels = {'efectivo': 'Efectivo', 'transferencia': 'Transferencia', 'tarjeta': 'Tarjeta', 'credito': 'Crédito'} %}
-        {% for pm in payment_methods %}
-          <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
-            <span class="font-medium">{{ labels.get(pm.method, pm.method) }}</span>
-            <div class="text-right">
-              <div class="text-sm text-slate-500">{{ pm.count }} factura(s)</div>
-              <div class="font-mono font-semibold">{{ '%.2f'|format(pm.total) }}</div>
-            </div>
-          </div>
-        {% endfor %}
-      </div>
+<div class="grid lg:grid-cols-2 gap-6">
+  {# ===== Métodos de pago ===== #}
+  <section class="bg-white p-6 rounded-xl shadow-sm border">
+    <div class="mb-4">
+      <h3 class="text-lg font-semibold">Distribución por método de pago</h3>
+      <p class="text-sm text-slate-500">Gráfico del mes actual: {{ current_month_label }}</p>
     </div>
-  {% else %}
-    <p class="text-center text-slate-400 py-8">Sin datos aún</p>
-  {% endif %}
-</section>
+    {% if payment_methods %}
+      <div class="grid md:grid-cols-2 gap-6 items-center">
+        <div style="height:240px">
+          <canvas id="paymentChart"></canvas>
+        </div>
+        <div class="space-y-2">
+          {% set labels = {'efectivo': 'Efectivo', 'transferencia': 'Transferencia', 'tarjeta': 'Tarjeta', 'credito': 'Crédito'} %}
+          {% for pm in payment_methods %}
+            <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
+              <span class="font-medium">{{ labels.get(pm.method, pm.method) }}</span>
+              <div class="text-right">
+                <div class="text-sm text-slate-500">{{ pm.count }} factura(s)</div>
+                <div class="font-mono font-semibold">{{ '%.2f'|format(pm.total) }}</div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% else %}
+      <p class="text-center text-slate-400 py-8">Sin datos del mes actual</p>
+    {% endif %}
+  </section>
+
+  {# ===== Ventas por categoría ===== #}
+  <section class="bg-white p-6 rounded-xl shadow-sm border">
+    <div class="mb-4">
+      <h3 class="text-lg font-semibold">Distribución de ventas por categoría</h3>
+      <p class="text-sm text-slate-500">Gráfico del mes actual: {{ current_month_label }}</p>
+    </div>
+    {% if sales_by_category %}
+      <div class="grid md:grid-cols-2 gap-6 items-center">
+        <div style="height:240px">
+          <canvas id="categoryChart"></canvas>
+        </div>
+        <div class="space-y-2">
+          {% for category in sales_by_category %}
+            <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
+              <span class="font-medium">{{ category.category }}</span>
+              <div class="text-right">
+                <div class="text-sm text-slate-500">{{ '%.0f'|format(category.units) }} unidad(es)</div>
+                <div class="font-mono font-semibold">{{ '%.2f'|format(category.total) }}</div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% else %}
+      <p class="text-center text-slate-400 py-8">Sin ventas por categoría en el mes actual</p>
+    {% endif %}
+  </section>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
@@ -145,13 +178,38 @@ new Chart(document.getElementById('monthlyChart'), {
 
 {% if payment_methods %}
 // Métodos de pago
+const paymentMethodLabels = {
+  efectivo: 'Efectivo',
+  transferencia: 'Transferencia',
+  tarjeta: 'Tarjeta',
+  credito: 'Crédito',
+};
 new Chart(document.getElementById('paymentChart'), {
   type: 'doughnut',
   data: {
-    labels: {{ payment_methods | map(attribute='method') | list | tojson }},
+    labels: {{ payment_methods | map(attribute='method') | list | tojson }}.map(
+      method => paymentMethodLabels[method] || method
+    ),
     datasets: [{
       data: {{ payment_methods | map(attribute='total') | map('float') | list | tojson }},
       backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444'],
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom' } }
+  }
+});
+{% endif %}
+
+{% if sales_by_category %}
+new Chart(document.getElementById('categoryChart'), {
+  type: 'doughnut',
+  data: {
+    labels: {{ sales_by_category | map(attribute='category') | list | tojson }},
+    datasets: [{
+      data: {{ sales_by_category | map(attribute='total') | map('float') | list | tojson }},
+      backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#0ea5e9', '#8b5cf6'],
     }]
   },
   options: {

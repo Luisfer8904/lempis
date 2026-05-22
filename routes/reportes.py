@@ -16,7 +16,7 @@ from flask_login import login_required
 
 from models import db
 from models.invoice import Invoice, InvoiceItem
-from models.catalog import Product, Customer
+from models.catalog import Product, Customer, Category
 from services.tenant_context import current_tenant
 from services.permissions import tenant_required
 
@@ -30,6 +30,7 @@ def index():
     tenant = current_tenant()
     now = datetime.utcnow()
     year_start = datetime(now.year, 1, 1)
+    month_start = datetime(now.year, now.month, 1)
     twelve_months_ago = (now.replace(day=1) - timedelta(days=365)).replace(day=1)
 
     valid_statuses = ["issued", "paid", "partially_paid", "overdue"]
@@ -111,7 +112,7 @@ def index():
         .all()
     )
 
-    # -------- Métodos de pago --------
+    # -------- Métodos de pago (mes actual) --------
     payment_methods = (
         db.session.query(
             Invoice.payment_method.label("method"),
@@ -121,9 +122,29 @@ def index():
         .filter(
             Invoice.tenant_id == tenant.id,
             Invoice.status.in_(valid_statuses),
-            Invoice.issue_date >= year_start,
+            Invoice.issue_date >= month_start,
         )
         .group_by(Invoice.payment_method)
+        .all()
+    )
+
+    # -------- Ventas por categoría (mes actual) --------
+    sales_by_category = (
+        db.session.query(
+            func.coalesce(Category.name, "Sin categoría").label("category"),
+            func.coalesce(func.sum(InvoiceItem.subtotal), 0).label("total"),
+            func.coalesce(func.sum(InvoiceItem.quantity), 0).label("units"),
+        )
+        .join(Invoice, Invoice.id == InvoiceItem.invoice_id)
+        .join(Product, Product.id == InvoiceItem.product_id)
+        .outerjoin(Category, Category.id == Product.category_id)
+        .filter(
+            Product.tenant_id == tenant.id,
+            Invoice.status.in_(valid_statuses),
+            Invoice.issue_date >= month_start,
+        )
+        .group_by(func.coalesce(Category.name, "Sin categoría"))
+        .order_by(func.sum(InvoiceItem.subtotal).desc())
         .all()
     )
 
@@ -157,8 +178,10 @@ def index():
         top_products=top_products,
         top_customers=top_customers,
         payment_methods=payment_methods,
+        sales_by_category=sales_by_category,
         revenue_year=float(summary_q.revenue_year or 0),
         invoices_year=summary_q.invoices_year or 0,
         pending_total=float(pending_q or 0),
         year=now.year,
+        current_month_label=f"{month_names[now.month - 1]} {now.year}",
     )
