@@ -1,0 +1,282 @@
+{% extends "app/_layout.html" %}
+{% block title %}{{ cliente.name }} — Clientes{% endblock %}
+{% block heading %}Cliente{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('clientes.list') }}" class="border px-4 py-2 rounded-lg hover:bg-slate-50 text-sm">
+  ← Clientes
+</a>
+<a href="{{ url_for('facturas.new') }}" class="border px-4 py-2 rounded-lg hover:bg-slate-50 text-sm">
+  Nueva factura
+</a>
+{% if summary.summary.pending_balance > 0 %}
+  <a href="{{ url_for('cobros.cliente', customer_id=cliente.id) }}" class="border px-4 py-2 rounded-lg hover:bg-slate-50 text-sm">
+    Registrar cobro
+  </a>
+{% endif %}
+<a href="{{ url_for('clientes.edit', client_id=cliente.id) }}"
+   class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
+  Editar cliente
+</a>
+{% endblock %}
+
+{% block content %}
+{% set s = summary.summary %}
+{% set m = summary.methods %}
+{% set methods = {'efectivo': 'Efectivo', 'transferencia': 'Transferencia', 'tarjeta': 'Tarjeta', 'credito': 'Crédito'} %}
+{% set statuses = {'issued': 'Emitida', 'paid': 'Pagada', 'partially_paid': 'Parcial', 'overdue': 'Vencida'} %}
+
+<section class="mb-6">
+  <h2 class="text-2xl font-bold mb-1">{{ cliente.name }}</h2>
+  <p class="text-slate-500">Ficha comercial y seguimiento de ventas, saldos y cobros del cliente.</p>
+</section>
+
+<section class="bg-white rounded-xl border shadow-sm p-6 mb-6">
+  <div class="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div class="rounded-xl border bg-slate-50 px-4 py-3">
+      <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-1">Cliente</p>
+      <p class="font-semibold text-slate-900 break-words">{{ cliente.name }}</p>
+      <p class="text-sm text-slate-500 font-mono mt-1">{{ cliente.tax_id or 'Sin RTN' }}</p>
+    </div>
+    <div class="rounded-xl border bg-slate-50 px-4 py-3">
+      <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-1">Tarifa</p>
+      <p class="font-semibold text-slate-900 break-words">{{ cliente.preferred_price_tier or 'general' }}</p>
+      <p class="text-sm text-slate-500 mt-1">{{ 'Activo' if cliente.is_active else 'Inactivo' }}</p>
+    </div>
+    <div class="rounded-xl border bg-slate-50 px-4 py-3">
+      <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-1">Contacto</p>
+      <p class="font-semibold text-slate-900 break-words">{{ cliente.phone or 'Sin teléfono' }}</p>
+      <p class="text-sm text-slate-500 break-all mt-1">{{ cliente.email or 'Sin correo' }}</p>
+    </div>
+    <div class="rounded-xl border bg-slate-50 px-4 py-3">
+      <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-1">Ubicación</p>
+      <p class="font-semibold text-slate-900 break-words">{{ cliente.city or 'Sin ciudad' }}</p>
+      <p class="text-sm text-slate-500 truncate mt-1">{{ cliente.address or 'Sin dirección' }}</p>
+    </div>
+  </div>
+</section>
+
+<section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+  <div class="bg-white p-4 sm:p-5 rounded-xl border shadow-sm">
+    <p class="text-slate-500 text-xs sm:text-sm">Facturas</p>
+    <p class="text-2xl sm:text-3xl font-bold">{{ invoices|length }}</p>
+  </div>
+  <div class="bg-white p-4 sm:p-5 rounded-xl border shadow-sm">
+    <p class="text-slate-500 text-xs sm:text-sm">Pendientes</p>
+    <p class="text-2xl sm:text-3xl font-bold text-amber-700">{{ pending_invoices|length }}</p>
+  </div>
+  <div class="bg-white p-4 sm:p-5 rounded-xl border shadow-sm">
+    <p class="text-slate-500 text-xs sm:text-sm">Saldo pendiente</p>
+    <p class="text-xl sm:text-3xl font-bold text-amber-700">{{ tenant.currency }} {{ "{:,.2f}".format(s.pending_balance) }}</p>
+  </div>
+  <div class="bg-white p-4 sm:p-5 rounded-xl border shadow-sm">
+    <p class="text-slate-500 text-xs sm:text-sm">Compras contado</p>
+    <p class="text-xl sm:text-3xl font-bold text-emerald-700">{{ tenant.currency }} {{ "{:,.2f}".format(s.cash_total) }}</p>
+  </div>
+</section>
+
+<section class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
+  <div class="bg-white p-4 rounded-xl border shadow-sm">
+    <p class="text-slate-500 text-sm">Efectivo</p>
+    <p class="font-mono text-2xl font-bold">{{ tenant.currency }} {{ "{:,.2f}".format(m.efectivo.total) }}</p>
+    <p class="text-xs text-slate-500">{{ m.efectivo.count }} factura(s)</p>
+  </div>
+  <div class="bg-white p-4 rounded-xl border shadow-sm">
+    <p class="text-slate-500 text-sm">Transferencia</p>
+    <p class="font-mono text-2xl font-bold">{{ tenant.currency }} {{ "{:,.2f}".format(m.transferencia.total) }}</p>
+    <p class="text-xs text-slate-500">{{ m.transferencia.count }} factura(s)</p>
+  </div>
+  <div class="bg-white p-4 rounded-xl border shadow-sm">
+    <p class="text-slate-500 text-sm">Tarjeta</p>
+    <p class="font-mono text-2xl font-bold">{{ tenant.currency }} {{ "{:,.2f}".format(m.tarjeta.total) }}</p>
+    <p class="text-xs text-slate-500">{{ m.tarjeta.count }} factura(s)</p>
+  </div>
+</section>
+
+<section class="grid lg:grid-cols-3 gap-6 mb-6">
+  <div class="lg:col-span-2 saas-list-card">
+    <div class="saas-list-card__header">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h3 class="text-lg font-semibold text-slate-900">Facturas pendientes</h3>
+          <p class="text-sm text-slate-500 mt-1">Facturas de crédito con saldo abierto.</p>
+        </div>
+        <div class="text-sm text-slate-500 whitespace-nowrap">{{ pending_invoices|length }} factura(s)</div>
+      </div>
+    </div>
+    <div class="saas-list-card__table-wrap overflow-x-auto">
+      <table class="saas-table w-full min-w-[820px]">
+        <thead>
+          <tr>
+            <th class="min-w-[120px]">Fecha</th>
+            <th class="min-w-[150px]">Referencia</th>
+            <th class="min-w-[120px]">Método</th>
+            <th class="text-right min-w-[130px]">Total</th>
+            <th class="text-right min-w-[130px]">Saldo</th>
+            <th class="min-w-[110px]">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for inv in pending_invoices %}
+          <tr class="hover:bg-slate-50">
+            <td class="text-sm text-slate-600 align-middle">{{ inv.issue_date.strftime('%d/%m/%Y') if inv.issue_date else '—' }}</td>
+            <td class="font-mono text-xs text-indigo-600 align-middle">
+              <a href="{{ url_for('facturas.detail', invoice_id=inv.id) }}" class="hover:underline">{{ inv.number }}</a>
+            </td>
+            <td class="text-sm align-middle">{{ methods.get(inv.payment_method, inv.payment_method) }}</td>
+            <td class="text-right font-semibold align-middle">{{ tenant.currency }} {{ "{:,.2f}".format(inv.total or 0) }}</td>
+            <td class="text-right font-semibold text-amber-700 align-middle">{{ tenant.currency }} {{ "{:,.2f}".format(inv.amount_due or 0) }}</td>
+            <td class="align-middle">
+              <span class="inline-block text-xs px-2 py-1 rounded {% if inv.status == 'overdue' %}bg-rose-100 text-rose-700{% elif inv.status == 'partially_paid' %}bg-indigo-100 text-indigo-700{% else %}bg-slate-200 text-slate-700{% endif %}">
+                {{ statuses.get(inv.status, inv.status) }}
+              </span>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">Este cliente no tiene facturas pendientes.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-xl border shadow-sm p-6">
+    <h3 class="text-lg font-semibold mb-4">Cobros pendientes</h3>
+    <div class="space-y-3">
+      {% for inv in pending_invoices %}
+      <div class="rounded-xl border px-4 py-3">
+        <p class="font-medium text-slate-900">{{ inv.number }}</p>
+        <p class="text-xs text-slate-500 mt-1">Crédito · vence {{ inv.due_date.strftime('%d/%m/%Y') if inv.due_date else 'sin fecha' }}</p>
+        <p class="text-lg font-bold text-amber-700 mt-2">{{ tenant.currency }} {{ "{:,.2f}".format(inv.amount_due or 0) }}</p>
+      </div>
+      {% else %}
+      <p class="text-sm text-slate-500">Este cliente no tiene cobros pendientes.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<div class="saas-list-card mb-6">
+  <div class="saas-list-card__header">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h3 class="text-lg font-semibold text-slate-900">Historial de compras contado</h3>
+        <p class="text-sm text-slate-500 mt-1">Facturas pagadas con efectivo, transferencia o tarjeta.</p>
+      </div>
+      <div class="text-sm text-slate-500 whitespace-nowrap">{{ cash_invoices|length }} factura(s)</div>
+    </div>
+  </div>
+  <div class="saas-list-card__table-wrap overflow-x-auto">
+    <table class="saas-table w-full min-w-[820px]">
+      <thead>
+        <tr>
+          <th class="min-w-[120px]">Fecha</th>
+          <th class="min-w-[150px]">Factura</th>
+          <th class="min-w-[120px]">Método</th>
+          <th class="text-right min-w-[130px]">Total</th>
+          <th class="min-w-[110px]">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in cash_invoices %}
+        <tr class="hover:bg-slate-50">
+          <td class="text-sm text-slate-600 align-middle">{{ inv.issue_date.strftime('%d/%m/%Y') if inv.issue_date else '—' }}</td>
+          <td class="font-mono text-xs text-indigo-600 align-middle">
+            <a href="{{ url_for('facturas.detail', invoice_id=inv.id) }}" class="hover:underline">{{ inv.number }}</a>
+          </td>
+          <td class="text-sm align-middle">{{ methods.get(inv.payment_method, inv.payment_method) }}</td>
+          <td class="text-right font-semibold align-middle">{{ tenant.currency }} {{ "{:,.2f}".format(inv.total or 0) }}</td>
+          <td class="align-middle"><span class="inline-block text-xs px-2 py-1 rounded bg-emerald-100 text-emerald-700">{{ statuses.get(inv.status, inv.status) }}</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Este cliente no tiene compras de contado todavía.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="saas-list-card mb-6">
+  <div class="saas-list-card__header">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h3 class="text-lg font-semibold text-slate-900">Historial de facturas crédito pagadas</h3>
+        <p class="text-sm text-slate-500 mt-1">Facturas a crédito cerradas y sin saldo pendiente.</p>
+      </div>
+      <div class="text-sm text-slate-500 whitespace-nowrap">{{ paid_invoices|length }} factura(s)</div>
+    </div>
+  </div>
+  <div class="saas-list-card__table-wrap overflow-x-auto">
+    <table class="saas-table w-full min-w-[820px]">
+      <thead>
+        <tr>
+          <th class="min-w-[120px]">Fecha</th>
+          <th class="min-w-[150px]">Factura</th>
+          <th class="text-right min-w-[130px]">Total</th>
+          <th class="text-right min-w-[130px]">Saldo</th>
+          <th class="min-w-[110px]">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in paid_invoices %}
+        <tr class="hover:bg-slate-50">
+          <td class="text-sm text-slate-600 align-middle">{{ inv.issue_date.strftime('%d/%m/%Y') if inv.issue_date else '—' }}</td>
+          <td class="font-mono text-xs text-indigo-600 align-middle">
+            <a href="{{ url_for('facturas.detail', invoice_id=inv.id) }}" class="hover:underline">{{ inv.number }}</a>
+          </td>
+          <td class="text-right font-semibold align-middle">{{ tenant.currency }} {{ "{:,.2f}".format(inv.total or 0) }}</td>
+          <td class="text-right font-semibold text-slate-500 align-middle">{{ tenant.currency }} {{ "{:,.2f}".format(inv.amount_due or 0) }}</td>
+          <td class="align-middle"><span class="inline-block text-xs px-2 py-1 rounded bg-emerald-100 text-emerald-700">Pagada</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Este cliente no tiene facturas crédito pagadas todavía.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="saas-list-card">
+  <div class="saas-list-card__header">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h3 class="text-lg font-semibold text-slate-900">Historial de cobros y abonos</h3>
+        <p class="text-sm text-slate-500 mt-1">Pagos aplicados a facturas de crédito del cliente.</p>
+      </div>
+      <div class="text-sm text-slate-500 whitespace-nowrap">{{ payments|length }} movimiento(s)</div>
+    </div>
+  </div>
+  <div class="saas-list-card__table-wrap overflow-x-auto">
+    <table class="saas-table w-full min-w-[820px]">
+      <thead>
+        <tr>
+          <th class="min-w-[120px]">Fecha</th>
+          <th class="min-w-[150px]">Factura</th>
+          <th class="min-w-[120px]">Método</th>
+          <th class="min-w-[160px]">Referencia</th>
+          <th class="text-right min-w-[140px]">Monto</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for payment in payments %}
+        <tr class="hover:bg-slate-50">
+          <td class="text-sm text-slate-600 align-middle">{{ payment.paid_at.strftime('%d/%m/%Y') if payment.paid_at else '—' }}</td>
+          <td class="font-mono text-xs text-indigo-600 align-middle">
+            {% if payment.invoice %}
+              <a href="{{ url_for('facturas.detail', invoice_id=payment.invoice.id) }}" class="hover:underline">{{ payment.invoice.number }}</a>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td class="text-sm align-middle">{{ methods.get(payment.payment_method, payment.payment_method) }}</td>
+          <td class="text-sm text-slate-500 align-middle">{{ payment.reference or '—' }}</td>
+          <td class="text-right font-semibold text-emerald-700 align-middle">{{ tenant.currency }} {{ "{:,.2f}".format(payment.amount or 0) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Sin cobros registrados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

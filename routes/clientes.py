@@ -10,7 +10,7 @@ from sqlalchemy import or_
 from models import db
 from models.catalog import Customer
 from models.country import Country
-from models.invoice import Invoice
+from models.invoice import Invoice, InvoicePayment
 from services.tenant_context import current_tenant
 from services.permissions import tenant_required
 from services.plan_limits import check_can_create_customer, PlanLimitError
@@ -49,6 +49,61 @@ def list():
     clientes = query.order_by(Customer.name.asc()).all()
     summaries = _customer_summaries(tenant, clientes)
     return render_template("clientes/list.html", clientes=clientes, q=q, summaries=summaries)
+
+
+@clientes_bp.route("/<int:client_id>")
+@login_required
+@tenant_required
+def detail(client_id):
+    tenant = current_tenant()
+    cliente = _get_or_404(client_id)
+    update_overdue_invoices(tenant.id)
+
+    invoices = (
+        Invoice.query
+        .filter(
+            Invoice.tenant_id == tenant.id,
+            Invoice.customer_id == cliente.id,
+            Invoice.status.notin_(["draft", "void"]),
+        )
+        .order_by(Invoice.issue_date.desc())
+        .all()
+    )
+    pending_invoices = [
+        inv for inv in invoices
+        if inv.payment_method == "credito" and inv.amount_due > 0
+    ]
+    paid_invoices = [
+        inv for inv in invoices
+        if inv.payment_method == "credito" and inv.amount_due <= 0
+    ]
+    cash_invoices = [
+        inv for inv in invoices
+        if inv.payment_method in ("efectivo", "transferencia", "tarjeta")
+    ]
+    payments = (
+        InvoicePayment.query
+        .join(Invoice, Invoice.id == InvoicePayment.invoice_id)
+        .filter(
+            InvoicePayment.tenant_id == tenant.id,
+            Invoice.customer_id == cliente.id,
+        )
+        .order_by(InvoicePayment.paid_at.desc())
+        .all()
+    )
+    summary = _customer_summaries(tenant, [cliente]).get(cliente.id, _empty_summary())
+
+    return render_template(
+        "clientes/detail.html",
+        cliente=cliente,
+        invoices=invoices,
+        pending_invoices=pending_invoices,
+        paid_invoices=paid_invoices,
+        cash_invoices=cash_invoices,
+        payments=payments,
+        summary=summary,
+        tenant=tenant,
+    )
 
 
 @clientes_bp.route("/new", methods=["GET", "POST"])

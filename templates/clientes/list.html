@@ -48,7 +48,8 @@
         {% set m = data.methods %}
         <tr class="hover:bg-slate-50">
           <td>
-            <div class="font-medium">{{ c.name }}</div>
+            <a href="{{ url_for('clientes.detail', client_id=c.id) }}"
+               class="font-medium text-indigo-700 hover:underline">{{ c.name }}</a>
             <div class="text-xs text-slate-500 font-mono">{{ c.tax_id or 'Sin RTN' }}</div>
             <div class="mt-1">
               <span class="text-[11px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">
@@ -103,6 +104,8 @@
             {% endif %}
           </td>
           <td class="text-right whitespace-nowrap">
+            <a href="{{ url_for('clientes.detail', client_id=c.id) }}"
+               class="text-slate-700 hover:underline text-sm mr-2">Ver ficha</a>
             {% if s.pending_balance > 0 %}
               <a href="{{ url_for('cobros.cliente', customer_id=c.id) }}"
                  class="text-emerald-700 hover:underline text-sm mr-2">Cobros</a>
