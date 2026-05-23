@@ -96,18 +96,24 @@ def cobrar():
                 id=customer_id, tenant_id=tenant.id,
             ).first()
 
+        payment_method = request.form.get("payment_method", "efectivo")
+        notes = _notes_with_cash_details(request.form.get("notes", ""), payment_method)
+
         inv = issue_invoice(
             tenant=tenant,
             customer=customer,
             items_data=items_data,
-            payment_method=request.form.get("payment_method", "efectivo"),
+            payment_method=payment_method,
             payment_terms_days=int(request.form.get("payment_terms_days") or 0),
-            notes=request.form.get("notes", ""),
+            notes=notes,
             issued_by_user_id=current_user.id,
             status="issued",
         )
         flash(f"Venta {inv.number} emitida correctamente.", "success")
-        return redirect(url_for("facturas.detail", invoice_id=inv.id))
+        detail_args = {"invoice_id": inv.id}
+        if request.form.get("print_invoice") == "1":
+            detail_args["print"] = 1
+        return redirect(url_for("facturas.detail", **detail_args))
     except CAIError as e:
         flash(str(e), "danger")
         return redirect(url_for("pos.quick_sale"))
@@ -135,3 +141,29 @@ def _parse_cart() -> list[dict]:
             "batch_id": None,  # FIFO automático
         })
     return items
+
+
+def _notes_with_cash_details(notes: str, payment_method: str) -> str:
+    """Agrega recibido/cambio a las notas de la factura cuando la venta es en efectivo."""
+    base = (notes or "").strip()
+    if payment_method != "efectivo":
+        return base
+
+    received = _money_or_none(request.form.get("cash_received"))
+    change = _money_or_none(request.form.get("cash_change"))
+    if received is None:
+        return base
+
+    cash_lines = [f"Efectivo recibido: {received:.2f}"]
+    if change is not None:
+        cash_lines.append(f"Cambio entregado: {change:.2f}")
+
+    cash_note = "\n".join(cash_lines)
+    return f"{base}\n\n{cash_note}" if base else cash_note
+
+
+def _money_or_none(value: str | None) -> Decimal | None:
+    try:
+        return Decimal(str(value or "").strip()).quantize(Decimal("0.01"))
+    except Exception:
+        return None

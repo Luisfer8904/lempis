@@ -248,4 +248,11 @@
     {% endif %}
   </div>
 </div>
+{% if request.args.get('print') == '1' %}
+  <script>
+    window.addEventListener('load', () => {
+      setTimeout(() => window.print(), 250);
+    });
+  </script>
+{% endif %}
 {% endblock %}

@@ -64,6 +64,19 @@
           <option value="credito"         {% if pm == 'credito' %}selected{% endif %}>Crédito a plazo</option>
         </select>
       </div>
+      <div id="cash-row" class="rounded-lg border bg-slate-50 p-3">
+        <label class="block text-sm font-medium mb-1">Efectivo recibido</label>
+        <input type="number" step="0.01" min="0" name="cash_received" id="cash-received"
+               class="w-full px-3 py-2 border rounded-lg text-right font-mono"
+               placeholder="0.00" />
+        <input type="hidden" name="cash_change" id="cash-change-input" value="0.00" />
+        <input type="hidden" name="print_invoice" id="print-invoice" value="0" />
+        <div class="flex justify-between text-xs mt-2">
+          <span class="text-slate-500">Cambio</span>
+          <span id="cash-change" class="font-mono font-semibold text-emerald-700">{{ tenant.currency }} 0.00</span>
+        </div>
+        <p id="cash-warning" class="hidden text-xs text-rose-600 mt-1">El efectivo recibido no cubre el total.</p>
+      </div>
       <div>
         <label class="block text-sm font-medium mb-1">Categoría de precio</label>
         {% set invoice_tier = request.form.get('price_tier') or 'general' %}
@@ -347,12 +360,55 @@ function recalc() {
   document.getElementById("sum-tax").textContent      = taxTotal.toFixed(2);
   document.getElementById("sum-discount").textContent = discTotal.toFixed(2);
   document.getElementById("sum-total").textContent    = tenantCurrency + " " + total.toFixed(2);
+  updatePaymentFields();
 }
 
 // Mostrar/ocultar plazo de crédito
-document.getElementById("payment-method").addEventListener("change", e => {
-  document.getElementById("terms-row").style.display =
-    e.target.value === "credito" ? "block" : "none";
+function currentInvoiceTotal() {
+  const raw = document.getElementById("sum-total").textContent.replace(tenantCurrency, "").trim();
+  return parseFloat(raw) || 0;
+}
+
+function updatePaymentFields() {
+  const method = document.getElementById("payment-method").value;
+  document.getElementById("cash-row").style.display = method === "efectivo" ? "block" : "none";
+  document.getElementById("terms-row").style.display = method === "credito" ? "block" : "none";
+  updateCashChange();
+}
+
+function updateCashChange() {
+  const total = currentInvoiceTotal();
+  const receivedInput = document.getElementById("cash-received");
+  const received = parseFloat(receivedInput.value) || 0;
+  const change = Math.max(received - total, 0);
+  document.getElementById("cash-change").textContent = tenantCurrency + " " + change.toFixed(2);
+  document.getElementById("cash-change-input").value = change.toFixed(2);
+  document.getElementById("cash-warning").classList.toggle("hidden", !receivedInput.value || received >= total);
+}
+
+document.getElementById("payment-method").addEventListener("change", updatePaymentFields);
+document.getElementById("cash-received").addEventListener("input", updateCashChange);
+document.getElementById("invoice-form").addEventListener("submit", e => {
+  const action = e.submitter?.value || "draft";
+  if (action !== "emit") {
+    document.getElementById("print-invoice").value = "0";
+    return;
+  }
+
+  const method = document.getElementById("payment-method").value;
+  const total = currentInvoiceTotal();
+  if (method === "efectivo") {
+    const received = parseFloat(document.getElementById("cash-received").value) || 0;
+    if (received < total) {
+      e.preventDefault();
+      updateCashChange();
+      document.getElementById("cash-received").focus();
+      return;
+    }
+  }
+
+  document.getElementById("print-invoice").value =
+    ["efectivo", "transferencia", "tarjeta"].includes(method) && confirm("¿Quieres imprimir la factura?") ? "1" : "0";
 });
 document.getElementById("price-tier").addEventListener("change", applyTierToExistingLines);
 document.getElementById("customer-select").addEventListener("change", () => syncTierFromCustomer(false));
@@ -369,5 +425,6 @@ if (isEditMode) {
 } else {
   syncTierFromCustomer(false);
 }
+updatePaymentFields();
 </script>
 {% endblock %}

@@ -86,7 +86,7 @@ def new():
         try:
             inv = _create_from_form(tenant)
             flash(f"Factura {inv.number} {'emitida' if inv.status == 'issued' else 'guardada como borrador'}.", "success")
-            return redirect(url_for("facturas.detail", invoice_id=inv.id))
+            return redirect(_invoice_detail_url(inv))
         except CAIError as e:
             flash(str(e), "danger")
             return redirect(url_for("configuracion.facturacion"))
@@ -134,14 +134,17 @@ def edit(invoice_id):
                 items_data=items,
                 payment_method=request.form.get("payment_method"),
                 payment_terms_days=request.form.get("payment_terms_days", 0),
-                notes=request.form.get("notes", ""),
+                notes=_notes_with_cash_details(
+                    request.form.get("notes", ""),
+                    request.form.get("payment_method", "efectivo"),
+                ),
                 status=request.form.get("status", "draft"),
             )
             # Si pasó a issued, asignar número definitivo
             if request.form.get("action") == "emit":
                 _emit_draft(inv, tenant)
             flash(f"Factura {inv.number} actualizada.", "success")
-            return redirect(url_for("facturas.detail", invoice_id=inv.id))
+            return redirect(_invoice_detail_url(inv))
         except CAIError as e:
             flash(str(e), "danger")
 
@@ -287,13 +290,15 @@ def _create_from_form(tenant) -> Invoice:
     action = request.form.get("action", "draft")
     status = "issued" if action == "emit" else "draft"
 
+    payment_method = request.form.get("payment_method", "efectivo")
+
     return issue_invoice(
         tenant=tenant,
         customer=customer,
         items_data=items,
-        payment_method=request.form.get("payment_method", "efectivo"),
+        payment_method=payment_method,
         payment_terms_days=request.form.get("payment_terms_days", 0),
-        notes=request.form.get("notes", ""),
+        notes=_notes_with_cash_details(request.form.get("notes", ""), payment_method),
         issued_by_user_id=current_user.id,
         status=status,
     )
@@ -314,3 +319,36 @@ def _emit_draft(inv: Invoice, tenant) -> None:
     inv.emisor_address = tenant.address
     tenant.next_invoice_number = correlativo + 1
     db.session.commit()
+
+
+def _invoice_detail_url(inv: Invoice) -> str:
+    args = {"invoice_id": inv.id}
+    if request.form.get("print_invoice") == "1":
+        args["print"] = 1
+    return url_for("facturas.detail", **args)
+
+
+def _notes_with_cash_details(notes: str, payment_method: str) -> str:
+    """Agrega recibido/cambio a las notas de la factura cuando la venta es en efectivo."""
+    base = (notes or "").strip()
+    if payment_method != "efectivo":
+        return base
+
+    received = _money_or_none(request.form.get("cash_received"))
+    change = _money_or_none(request.form.get("cash_change"))
+    if received is None:
+        return base
+
+    cash_lines = [f"Efectivo recibido: {received:.2f}"]
+    if change is not None:
+        cash_lines.append(f"Cambio entregado: {change:.2f}")
+
+    cash_note = "\n".join(cash_lines)
+    return f"{base}\n\n{cash_note}" if base else cash_note
+
+
+def _money_or_none(value: str | None) -> Decimal | None:
+    try:
+        return Decimal(str(value or "").strip()).quantize(Decimal("0.01"))
+    except Exception:
+        return None
