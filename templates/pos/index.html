@@ -196,19 +196,9 @@
             <option value="credito">📋 Crédito</option>
           </select>
         </div>
-        <div id="cash-row" class="rounded-lg border bg-white p-3">
-          <label class="block text-xs font-medium text-slate-600 mb-1">Efectivo recibido</label>
-          <input type="number" step="0.01" min="0" name="cash_received" id="cash-received"
-                 class="w-full px-3 py-2 text-sm border rounded-lg text-right font-mono"
-                 placeholder="0.00" />
-          <input type="hidden" name="cash_change" id="cash-change-input" value="0.00" />
-          <input type="hidden" name="print_invoice" id="print-invoice" value="0" />
-          <div class="flex justify-between text-xs mt-2">
-            <span class="text-slate-500">Cambio</span>
-            <span id="cash-change" class="font-mono font-semibold text-emerald-700">{{ tenant.currency }} 0.00</span>
-          </div>
-          <p id="cash-warning" class="hidden text-xs text-rose-600 mt-1">El efectivo recibido no cubre el total.</p>
-        </div>
+        <input type="hidden" name="cash_received" id="cash-received-input" value="" />
+        <input type="hidden" name="cash_change" id="cash-change-input" value="0.00" />
+        <input type="hidden" name="print_invoice" id="print-invoice" value="0" />
         <div id="terms-row" style="display:none">
           <label class="block text-xs font-medium text-slate-600 mb-1">Días de crédito</label>
           <select name="payment_terms_days"
@@ -246,9 +236,51 @@
   </div>
 </div>
 
+<div id="checkout-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/50 px-4">
+  <div class="w-full max-w-md rounded-xl bg-white shadow-xl border">
+    <div class="px-5 py-4 border-b">
+      <h3 class="text-lg font-semibold text-slate-900">Confirmar cobro</h3>
+      <p class="text-sm text-slate-500" id="checkout-modal-method">Método de pago</p>
+    </div>
+    <div class="px-5 py-4 space-y-4">
+      <div class="flex justify-between items-center rounded-lg bg-slate-50 px-4 py-3">
+        <span class="text-sm text-slate-500">Total a cobrar</span>
+        <span class="font-mono text-xl font-bold text-indigo-600" id="checkout-modal-total">{{ tenant.currency }} 0.00</span>
+      </div>
+      <div id="checkout-cash-fields" class="space-y-2">
+        <label class="block text-sm font-medium text-slate-700">Efectivo recibido</label>
+        <input type="number" step="0.01" min="0" id="cash-received-modal"
+               class="w-full px-3 py-3 border rounded-lg text-right font-mono text-lg focus:ring-2 focus:ring-indigo-500"
+               placeholder="0.00" />
+        <div class="flex justify-between rounded-lg border px-4 py-3">
+          <span class="text-sm text-slate-500">Cambio</span>
+          <span id="cash-change-modal" class="font-mono font-bold text-emerald-700">{{ tenant.currency }} 0.00</span>
+        </div>
+        <p id="cash-warning" class="hidden text-sm text-rose-600">El efectivo recibido no cubre el total.</p>
+      </div>
+      <label class="flex items-center gap-3 rounded-lg border px-4 py-3 cursor-pointer hover:bg-slate-50">
+        <input type="checkbox" id="print-invoice-modal" class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+        <span class="text-sm font-medium text-slate-700">Imprimir factura al finalizar</span>
+      </label>
+    </div>
+    <div class="px-5 py-4 border-t flex justify-end gap-2">
+      <button type="button" id="checkout-cancel"
+              class="px-4 py-2 rounded-lg border text-slate-700 hover:bg-slate-50">
+        Cancelar
+      </button>
+      <button type="button" id="checkout-confirm"
+              class="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700">
+        Finalizar cobro
+      </button>
+    </div>
+  </div>
+</div>
+
 <script>
 const TENANT_CURRENCY = "{{ tenant.currency }}";
 const cart = new Map();
+let checkoutConfirmed = false;
+let pendingSubmitter = null;
 
 function fmt(n) { return TENANT_CURRENCY + " " + Number(n).toFixed(2); }
 function getCartTotals() {
@@ -461,41 +493,79 @@ function renderCart() {
 // Toggle plazo crédito
 function updatePaymentFields() {
   const method = document.getElementById('payment-method').value;
-  const cashRow = document.getElementById('cash-row');
   const termsRow = document.getElementById('terms-row');
-  cashRow.style.display = method === 'efectivo' ? 'block' : 'none';
   termsRow.style.display = method === 'credito' ? 'block' : 'none';
-  updateCashChange();
 }
 
-function updateCashChange() {
+function cashChangeFromModal() {
   const total = getCartTotals().total;
-  const receivedInput = document.getElementById('cash-received');
+  const receivedInput = document.getElementById('cash-received-modal');
   const received = parseFloat(receivedInput.value) || 0;
   const change = Math.max(received - total, 0);
-  document.getElementById('cash-change').textContent = fmt(change);
-  document.getElementById('cash-change-input').value = change.toFixed(2);
+  document.getElementById('cash-change-modal').textContent = fmt(change);
   document.getElementById('cash-warning').classList.toggle('hidden', !receivedInput.value || received >= total);
+  return { received, change, total };
+}
+
+function openCheckoutModal() {
+  const method = document.getElementById('payment-method').value;
+  const methods = {
+    efectivo: 'Efectivo',
+    transferencia: 'Transferencia',
+    tarjeta: 'Tarjeta',
+    credito: 'Crédito',
+  };
+  document.getElementById('checkout-modal-method').textContent = methods[method] || 'Método de pago';
+  document.getElementById('checkout-modal-total').textContent = fmt(getCartTotals().total);
+  document.getElementById('checkout-cash-fields').classList.toggle('hidden', method !== 'efectivo');
+  document.getElementById('print-invoice-modal').checked = method !== 'credito';
+  document.getElementById('checkout-modal').classList.remove('hidden');
+  document.getElementById('checkout-modal').classList.add('flex');
+  if (method === 'efectivo') {
+    const cashInput = document.getElementById('cash-received-modal');
+    cashInput.value = '';
+    cashChangeFromModal();
+    setTimeout(() => cashInput.focus(), 50);
+  }
+}
+
+function closeCheckoutModal() {
+  document.getElementById('checkout-modal').classList.add('hidden');
+  document.getElementById('checkout-modal').classList.remove('flex');
+}
+
+function confirmCheckout() {
+  const method = document.getElementById('payment-method').value;
+  const cash = cashChangeFromModal();
+  if (method === 'efectivo' && cash.received < cash.total) {
+    document.getElementById('cash-received-modal').focus();
+    return;
+  }
+
+  document.getElementById('cash-received-input').value = method === 'efectivo' ? cash.received.toFixed(2) : '';
+  document.getElementById('cash-change-input').value = method === 'efectivo' ? cash.change.toFixed(2) : '0.00';
+  document.getElementById('print-invoice').value = document.getElementById('print-invoice-modal').checked ? '1' : '0';
+
+  checkoutConfirmed = true;
+  closeCheckoutModal();
+  const form = document.getElementById('checkout-form');
+  if (pendingSubmitter) form.requestSubmit(pendingSubmitter);
+  else form.requestSubmit();
 }
 
 document.getElementById('payment-method').addEventListener('change', updatePaymentFields);
-document.getElementById('cash-received').addEventListener('input', updateCashChange);
+document.getElementById('cash-received-modal').addEventListener('input', cashChangeFromModal);
+document.getElementById('checkout-cancel').addEventListener('click', closeCheckoutModal);
+document.getElementById('checkout-confirm').addEventListener('click', confirmCheckout);
 document.getElementById('checkout-form').addEventListener('submit', e => {
   const method = document.getElementById('payment-method').value;
-  const total = getCartTotals().total;
-  const printInput = document.getElementById('print-invoice');
-
-  if (method === 'efectivo') {
-    const received = parseFloat(document.getElementById('cash-received').value) || 0;
-    if (received < total) {
-      e.preventDefault();
-      updateCashChange();
-      document.getElementById('cash-received').focus();
-      return;
-    }
+  if (!checkoutConfirmed && method !== 'credito') {
+    e.preventDefault();
+    pendingSubmitter = e.submitter;
+    openCheckoutModal();
+    return;
   }
-
-  printInput.value = ['efectivo', 'transferencia', 'tarjeta'].includes(method) && confirm('¿Quieres imprimir la factura?') ? '1' : '0';
+  checkoutConfirmed = false;
 });
 
 document.getElementById('customer-select')?.addEventListener('change', syncTierFromCustomer);
