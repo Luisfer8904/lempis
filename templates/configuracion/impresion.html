@@ -1,0 +1,106 @@
+{% extends "app/_layout.html" %}
+{% block title %}Configuración — Impresión{% endblock %}
+{% block heading %}Configuración{% endblock %}
+
+{% block content %}
+{% include "configuracion/_tabs.html" %}
+
+<form method="POST" class="space-y-6 max-w-4xl">
+  <div class="bg-white p-6 rounded-xl shadow-sm border">
+    <h2 class="text-lg font-semibold mb-1">Impresora de recibos</h2>
+    <p class="text-sm text-slate-500 mb-5">
+      Esta configuración aplica para tickets de mostrador, recibos rápidos y documentos que salen en impresora térmica.
+    </p>
+
+    <div class="grid md:grid-cols-2 gap-4">
+      <label class="md:col-span-2 flex items-start gap-3 p-4 rounded-lg border bg-slate-50">
+        <input type="checkbox" name="thermal_printer_enabled" value="1"
+               {% if settings.thermal_printer_enabled %}checked{% endif %}
+               class="mt-1 accent-indigo-600" />
+        <div>
+          <p class="font-medium text-slate-900">Usar impresora térmica para recibos</p>
+          <p class="text-sm text-slate-500">Actívalo cuando tu impresora de recibos sea térmica.</p>
+        </div>
+      </label>
+
+      <div>
+        <label class="block text-sm font-medium mb-1">Formato de venta rápida</label>
+        <select name="quick_sale_format"
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+          <option value="thermal_receipt" {% if settings.quick_sale_format == 'thermal_receipt' %}selected{% endif %}>
+            Recibo térmico
+          </option>
+          <option value="letter" {% if settings.quick_sale_format == 'letter' %}selected{% endif %}>
+            Carta
+          </option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-1">Ancho del recibo térmico</label>
+        <select name="receipt_paper_width"
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+          <option value="80mm" {% if settings.receipt_paper_width == '80mm' %}selected{% endif %}>80 mm</option>
+          <option value="58mm" {% if settings.receipt_paper_width == '58mm' %}selected{% endif %}>58 mm</option>
+        </select>
+      </div>
+
+      <div class="md:col-span-2">
+        <label class="block text-sm font-medium mb-1">Formato de recibo de pago</label>
+        <select name="payment_receipt_format"
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+          <option value="thermal_receipt" {% if settings.payment_receipt_format == 'thermal_receipt' %}selected{% endif %}>
+            Recibo térmico
+          </option>
+          <option value="letter" {% if settings.payment_receipt_format == 'letter' %}selected{% endif %}>
+            Carta
+          </option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white p-6 rounded-xl shadow-sm border">
+    <h2 class="text-lg font-semibold mb-1">Impresora de documentos</h2>
+    <p class="text-sm text-slate-500 mb-5">
+      Esta configuración aplica para facturas detalladas, copias de carta y documentos que salen en impresora normal.
+    </p>
+
+    <div class="grid md:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Formato de venta detallada</label>
+        <select name="detailed_sale_format"
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+          <option value="letter" {% if settings.detailed_sale_format == 'letter' %}selected{% endif %}>Carta</option>
+          <option value="thermal_receipt" {% if settings.detailed_sale_format == 'thermal_receipt' %}selected{% endif %}>Recibo térmico</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-1">Tamaño de papel para documentos</label>
+        <select name="document_page_format"
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+          <option value="letter" {% if settings.document_page_format == 'letter' %}selected{% endif %}>Carta</option>
+          <option value="a4" {% if settings.document_page_format == 'a4' %}selected{% endif %}>A4</option>
+          <option value="half_letter" {% if settings.document_page_format == 'half_letter' %}selected{% endif %}>Media carta</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-slate-700">
+    <p class="font-medium text-slate-900 mb-1">Cómo queda la operación</p>
+    <ul class="space-y-1">
+      <li>Venta rápida: normalmente usa recibo térmico.</li>
+      <li>Venta detallada: normalmente usa carta.</li>
+      <li>Recibos de cobro: pueden salir en térmica o carta según tu flujo.</li>
+    </ul>
+  </div>
+
+  <div class="flex gap-3">
+    <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+      Guardar configuración
+    </button>
+  </div>
+</form>
+{% endblock %}

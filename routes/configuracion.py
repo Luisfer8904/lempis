@@ -8,6 +8,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required
 
 from models import db
+from models.printing import TenantPrintSettings
 from services.tenant_context import current_tenant
 from services.permissions import admin_required, tenant_required
 
@@ -19,6 +20,15 @@ configuracion_bp = Blueprint("configuracion", __name__, url_prefix="/app/configu
 @tenant_required
 def index():
     return redirect(url_for("configuracion.empresa"))
+
+
+def _get_print_settings(tenant):
+    settings = TenantPrintSettings.query.filter_by(tenant_id=tenant.id).first()
+    if settings is None:
+        settings = TenantPrintSettings(tenant_id=tenant.id)
+        db.session.add(settings)
+        db.session.flush()
+    return settings
 
 
 @configuracion_bp.route("/empresa", methods=["GET", "POST"])
@@ -124,3 +134,25 @@ def sar():
         return redirect(url_for("configuracion.sar"))
 
     return render_template("configuracion/sar.html", tenant=tenant)
+
+
+@configuracion_bp.route("/impresion", methods=["GET", "POST"])
+@login_required
+@admin_required
+@tenant_required
+def impresion():
+    tenant = current_tenant()
+    settings = _get_print_settings(tenant)
+
+    if request.method == "POST":
+        settings.quick_sale_format = (request.form.get("quick_sale_format") or "thermal_receipt").strip()
+        settings.detailed_sale_format = (request.form.get("detailed_sale_format") or "letter").strip()
+        settings.payment_receipt_format = (request.form.get("payment_receipt_format") or "thermal_receipt").strip()
+        settings.receipt_paper_width = (request.form.get("receipt_paper_width") or "80mm").strip()
+        settings.document_page_format = (request.form.get("document_page_format") or "letter").strip()
+        settings.thermal_printer_enabled = bool(request.form.get("thermal_printer_enabled"))
+        db.session.commit()
+        flash("Configuración de impresión actualizada.", "success")
+        return redirect(url_for("configuracion.impresion"))
+
+    return render_template("configuracion/impresion.html", tenant=tenant, settings=settings)

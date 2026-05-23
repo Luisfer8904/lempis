@@ -21,6 +21,7 @@ from models.catalog import Customer, Product, Category, ProductBatch  # noqa: E4
 from models.invoice import Invoice, InvoiceItem, InvoicePayment  # noqa: E402,F401
 from models.country import Country, TaxConfig          # noqa: E402,F401
 from models.audit import AuditLog                      # noqa: E402,F401
+from models.printing import TenantPrintSettings        # noqa: E402,F401
 from models.suppliers import Supplier                  # noqa: E402,F401
 from models.purchases import Purchase, PurchaseItem    # noqa: E402,F401
 from models.ivg import IVGAgendaItem, IVGCashSummary, IVGClient, IVGPayment, IVGProduct, IVGSale, IVGUser  # noqa: E402,F401
