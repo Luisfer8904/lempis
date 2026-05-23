@@ -24,106 +24,85 @@
   </div>
 </form>
 
-<div class="bg-white rounded-xl shadow-sm border overflow-hidden overflow-x-auto">
-  {% if clientes %}
-    <table class="saas-table w-full min-w-[1120px]">
-      <thead>
-        <tr>
-          <th>Cliente</th>
-          <th>Contacto</th>
-          <th class="text-right">Compras contado</th>
-          <th class="text-right">Efectivo</th>
-          <th class="text-right">Transferencia</th>
-          <th class="text-right">Tarjeta</th>
-          <th class="text-right">Saldo pendiente</th>
-          <th class="text-right">Última factura</th>
-          <th>Estado</th>
-          <th class="text-right">Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for c in clientes %}
-        {% set data = summaries.get(c.id) %}
-        {% set s = data.summary %}
-        {% set m = data.methods %}
-        <tr class="hover:bg-slate-50">
-          <td>
+{% if clientes %}
+  <div class="space-y-3">
+    {% for c in clientes %}
+    {% set data = summaries.get(c.id) %}
+    {% set s = data.summary %}
+    <article class="bg-white rounded-xl border shadow-sm p-4 hover:border-indigo-200 hover:shadow-md transition">
+      <div class="grid xl:grid-cols-[minmax(260px,1.2fr)_minmax(190px,.8fr)_minmax(340px,1.3fr)_auto] gap-4 items-center">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
             <a href="{{ url_for('clientes.detail', client_id=c.id) }}"
-               class="font-medium text-indigo-700 hover:underline">{{ c.name }}</a>
-            <div class="text-xs text-slate-500 font-mono">{{ c.tax_id or 'Sin RTN' }}</div>
-            <div class="mt-1">
-              <span class="text-[11px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">
-                {{ c.preferred_price_tier or 'general' }}
-              </span>
-              {% if c.city %}<span class="text-xs text-slate-500 ml-1">{{ c.city }}</span>{% endif %}
-            </div>
-          </td>
-          <td class="text-sm">
-            <div>{{ c.phone or '—' }}</div>
-            <div class="text-xs text-slate-500">{{ c.email or '—' }}</div>
-          </td>
-          <td class="text-right">
-            <div class="font-mono font-semibold">{{ tenant.currency }} {{ '%.2f'|format(s.cash_total) }}</div>
-            <div class="text-xs text-slate-500">{{ s.cash_count }} factura(s)</div>
-          </td>
-          <td class="text-right">
-            <div class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(m.efectivo.total) }}</div>
-            <div class="text-xs text-slate-500">{{ m.efectivo.count }}</div>
-          </td>
-          <td class="text-right">
-            <div class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(m.transferencia.total) }}</div>
-            <div class="text-xs text-slate-500">{{ m.transferencia.count }}</div>
-          </td>
-          <td class="text-right">
-            <div class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(m.tarjeta.total) }}</div>
-            <div class="text-xs text-slate-500">{{ m.tarjeta.count }}</div>
-          </td>
-          <td class="text-right">
-            <div class="font-mono font-semibold {% if s.pending_balance > 0 %}text-rose-700{% else %}text-emerald-700{% endif %}">
-              {{ tenant.currency }} {{ '%.2f'|format(s.pending_balance) }}
-            </div>
-            <div class="text-xs {% if s.overdue_balance > 0 %}text-rose-600{% else %}text-slate-500{% endif %}">
-              Vencido {{ tenant.currency }} {{ '%.2f'|format(s.overdue_balance) }}
-            </div>
-          </td>
-          <td class="text-right">
-            {% if s.last_invoice_number %}
-              <div class="font-mono text-sm">{{ s.last_invoice_number }}</div>
-              <div class="text-xs text-slate-500">
-                {{ s.last_invoice_date }} · {{ tenant.currency }} {{ '%.2f'|format(s.last_invoice_total) }}
-              </div>
-            {% else %}
-              <span class="text-sm text-slate-400">Sin facturas</span>
-            {% endif %}
-          </td>
-          <td>
+               class="text-lg font-semibold text-slate-900 hover:text-indigo-700 hover:underline">
+              {{ c.name }}
+            </a>
             {% if c.is_active %}
               <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Activo</span>
             {% else %}
               <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">Inactivo</span>
             {% endif %}
-          </td>
-          <td class="text-right whitespace-nowrap">
-            <a href="{{ url_for('clientes.detail', client_id=c.id) }}"
-               class="text-slate-700 hover:underline text-sm mr-2">Ver ficha</a>
-            {% if s.pending_balance > 0 %}
-              <a href="{{ url_for('cobros.cliente', customer_id=c.id) }}"
-                 class="text-emerald-700 hover:underline text-sm mr-2">Cobros</a>
+          </div>
+          <div class="mt-1 text-sm text-slate-500">
+            <span class="font-mono">{{ c.tax_id or 'Sin RTN' }}</span>
+            {% if c.city %}<span> · {{ c.city }}</span>{% endif %}
+          </div>
+          <div class="mt-2">
+            <span class="text-[11px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">
+              {{ c.preferred_price_tier or 'general' }}
+            </span>
+          </div>
+        </div>
+
+        <div class="text-sm text-slate-600">
+          <p class="font-medium text-slate-800">{{ c.phone or 'Sin teléfono' }}</p>
+          <p class="text-xs text-slate-500 break-all">{{ c.email or 'Sin correo' }}</p>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div class="rounded-lg bg-slate-50 px-3 py-2">
+            <p class="text-xs text-slate-500">Contado</p>
+            <p class="font-mono font-semibold text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(s.cash_total) }}</p>
+          </div>
+          <div class="rounded-lg bg-slate-50 px-3 py-2">
+            <p class="text-xs text-slate-500">Pendiente</p>
+            <p class="font-mono font-semibold {% if s.pending_balance > 0 %}text-rose-700{% else %}text-emerald-700{% endif %}">
+              {{ tenant.currency }} {{ '%.2f'|format(s.pending_balance) }}
+            </p>
+          </div>
+          <div class="rounded-lg bg-slate-50 px-3 py-2 col-span-2 sm:col-span-1">
+            <p class="text-xs text-slate-500">Última factura</p>
+            {% if s.last_invoice_number %}
+              <p class="font-mono font-semibold text-slate-900 truncate">{{ s.last_invoice_number }}</p>
+              <p class="text-xs text-slate-500">{{ s.last_invoice_date }}</p>
+            {% else %}
+              <p class="text-sm text-slate-400">Sin facturas</p>
             {% endif %}
-            <a href="{{ url_for('clientes.edit', client_id=c.id) }}"
-               class="text-indigo-600 hover:underline text-sm">Editar</a>
-            <form method="POST" action="{{ url_for('clientes.delete', client_id=c.id) }}"
-                  class="inline ml-2"
-                  onsubmit="return confirm('¿Eliminar cliente {{ c.name }}? Esta acción no se puede deshacer.');">
-              <button class="text-rose-600 hover:underline text-sm">Eliminar</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+          </div>
+        </div>
+
+        <div class="flex xl:flex-col gap-2 justify-end">
+          <a href="{{ url_for('clientes.detail', client_id=c.id) }}"
+             class="inline-flex justify-center rounded-lg border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Ver ficha
+          </a>
+          {% if s.pending_balance > 0 %}
+            <a href="{{ url_for('cobros.cliente', customer_id=c.id) }}"
+               class="inline-flex justify-center rounded-lg border border-emerald-200 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50">
+              Cobros
+            </a>
+          {% endif %}
+          <a href="{{ url_for('clientes.edit', client_id=c.id) }}"
+             class="inline-flex justify-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+            Editar
+          </a>
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
   {% else %}
-    <div class="text-center py-16">
+    <div class="bg-white rounded-xl shadow-sm border text-center py-16">
       <div class="text-6xl mb-3">👥</div>
       <p class="text-slate-500 mb-4">
         {% if q %}
@@ -137,8 +116,7 @@
         Crear el primer cliente
       </a>
     </div>
-  {% endif %}
-</div>
+{% endif %}
 
 {% if clientes %}
   <p class="text-sm text-slate-500 mt-3">{{ clientes|length }} cliente(s)</p>
