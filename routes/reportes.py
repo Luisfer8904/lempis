@@ -18,7 +18,7 @@ from models import db
 from models.invoice import Invoice, InvoiceItem
 from models.catalog import Product, Customer, Category
 from services.tenant_context import current_tenant
-from services.permissions import tenant_required
+from services.permissions import permission_required, tenant_required
 
 reportes_bp = Blueprint("reportes", __name__, url_prefix="/app/reportes")
 
@@ -26,6 +26,7 @@ reportes_bp = Blueprint("reportes", __name__, url_prefix="/app/reportes")
 @reportes_bp.route("/")
 @login_required
 @tenant_required
+@permission_required("reports.view")
 def index():
     tenant = current_tenant()
     now = datetime.utcnow()

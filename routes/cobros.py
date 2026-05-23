@@ -17,7 +17,7 @@ from models import db
 from models.invoice import Invoice, InvoicePayment
 from models.catalog import Customer
 from services.tenant_context import current_tenant
-from services.permissions import tenant_required
+from services.permissions import permission_required, tenant_required
 from services.receivables import (
     record_invoice_payment, revert_payment,
     customer_balances, aging_summary, update_overdue_invoices,
@@ -30,6 +30,7 @@ cobros_bp = Blueprint("cobros", __name__, url_prefix="/app/cobros")
 @cobros_bp.route("/")
 @login_required
 @tenant_required
+@permission_required("receivables.view")
 def index():
     tenant = current_tenant()
     update_overdue_invoices(tenant.id)
@@ -46,6 +47,7 @@ def index():
 @cobros_bp.route("/cliente/<int:customer_id>")
 @login_required
 @tenant_required
+@permission_required("receivables.view")
 def cliente(customer_id):
     tenant = current_tenant()
     update_overdue_invoices(tenant.id)
@@ -78,6 +80,7 @@ def cliente(customer_id):
 @cobros_bp.route("/factura/<int:invoice_id>/abono", methods=["POST"])
 @login_required
 @tenant_required
+@permission_required("receivables.manage")
 def abonar(invoice_id):
     tenant = current_tenant()
     inv = Invoice.query.filter_by(id=invoice_id, tenant_id=tenant.id).first_or_404()
@@ -107,6 +110,7 @@ def abonar(invoice_id):
 @cobros_bp.route("/pago/<int:payment_id>/recibo.pdf")
 @login_required
 @tenant_required
+@permission_required("receivables.view")
 def recibo_pdf(payment_id):
     """Genera el PDF del recibo de pago."""
     from services.receipt_generator import generate_payment_receipt_pdf
@@ -123,6 +127,7 @@ def recibo_pdf(payment_id):
 @cobros_bp.route("/export-aging.csv")
 @login_required
 @tenant_required
+@permission_required("receivables.view")
 def export_aging():
     """Exporta el reporte aging de cuentas por cobrar como CSV (abre en Excel)."""
     import csv
@@ -194,6 +199,7 @@ def export_aging():
 @cobros_bp.route("/pago/<int:payment_id>/revertir", methods=["POST"])
 @login_required
 @tenant_required
+@permission_required("receivables.manage")
 def revertir(payment_id):
     tenant = current_tenant()
     p = InvoicePayment.query.filter_by(id=payment_id, tenant_id=tenant.id).first_or_404()

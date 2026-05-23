@@ -1,11 +1,91 @@
 """
-Decoradores de autorización: roles + verificación de tenant.
+Decoradores de autorización: roles, permisos y verificación de tenant.
 """
+import json
 from functools import wraps
 from flask import abort, redirect, url_for, flash, session
 from flask_login import current_user, logout_user
 
 from services.tenant_context import current_tenant
+
+
+PERMISSION_GROUPS = [
+    ("Ventas", [
+        ("sales.view", "Ver facturas y ventas"),
+        ("sales.create", "Crear ventas y facturas"),
+        ("sales.manage", "Anular o eliminar facturas"),
+    ]),
+    ("Clientes", [
+        ("customers.view", "Ver clientes"),
+        ("customers.manage", "Crear y editar clientes"),
+        ("customers.delete", "Eliminar clientes"),
+    ]),
+    ("Inventario", [
+        ("products.view", "Ver productos e inventario"),
+        ("products.manage", "Crear y editar productos/lotes"),
+        ("products.delete", "Eliminar productos/lotes"),
+    ]),
+    ("Cobros", [
+        ("receivables.view", "Ver cuentas por cobrar"),
+        ("receivables.manage", "Registrar, revertir cobros y recibos"),
+    ]),
+    ("Compras", [
+        ("purchases.view", "Ver compras y proveedores"),
+        ("purchases.manage", "Crear, recibir, pagar y anular compras"),
+    ]),
+    ("Reportes", [
+        ("reports.view", "Ver reportes"),
+    ]),
+    ("Equipo y ajustes", [
+        ("settings.manage", "Configurar empresa, facturación e impresión"),
+        ("users.manage", "Gestionar usuarios y roles"),
+    ]),
+]
+
+ALL_PERMISSIONS = [code for _, items in PERMISSION_GROUPS for code, _ in items]
+
+DEFAULT_ROLE_PERMISSIONS = {
+    "owner": ALL_PERMISSIONS,
+    "admin": ALL_PERMISSIONS,
+    "cajero": ["sales.view", "sales.create", "customers.view", "products.view"],
+    "vendedor": [
+        "sales.view", "sales.create", "customers.view", "customers.manage",
+        "products.view", "receivables.view",
+    ],
+    "contador": [
+        "sales.view", "customers.view", "products.view", "receivables.view",
+        "receivables.manage", "purchases.view", "reports.view",
+    ],
+    "viewer": ["sales.view", "customers.view", "products.view", "receivables.view", "purchases.view", "reports.view"],
+}
+
+
+def role_permissions_for(tenant_id: int, role) -> set[str]:
+    if role is None:
+        return set()
+    from models.user import RolePermission
+    custom = RolePermission.query.filter_by(tenant_id=tenant_id, role_id=role.id).first()
+    if custom:
+        try:
+            return set(json.loads(custom.permissions or "[]")) & set(ALL_PERMISSIONS)
+        except (TypeError, ValueError):
+            return set()
+    return set(DEFAULT_ROLE_PERMISSIONS.get(role.code, []))
+
+
+def user_permissions(user) -> set[str]:
+    if not user or not getattr(user, "is_active", False):
+        return set()
+    if user.is_owner or user.has_role("owner"):
+        return set(ALL_PERMISSIONS)
+    perms = set()
+    for role in user.roles:
+        perms |= role_permissions_for(user.tenant_id, role)
+    return perms
+
+
+def user_has_permission(user, permission: str) -> bool:
+    return permission in user_permissions(user)
 
 
 def role_required(*role_codes):
@@ -34,6 +114,21 @@ def admin_required(fn):
             return abort(403)
         return fn(*args, **kwargs)
     return wrapper
+
+
+def permission_required(permission: str):
+    """Permite acceso si el usuario tiene el permiso indicado."""
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            if not current_user.is_authenticated:
+                return redirect(url_for("auth.login"))
+            if current_user.has_permission(permission):
+                return fn(*args, **kwargs)
+            flash("No tienes permiso para realizar esta acción.", "danger")
+            return abort(403)
+        return wrapper
+    return decorator
 
 
 def superadmin_required(fn):

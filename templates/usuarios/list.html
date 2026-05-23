@@ -7,6 +7,10 @@
    class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
   + Agregar usuario
 </a>
+<a href="{{ url_for('usuarios.roles') }}"
+   class="border px-4 py-2 rounded-lg hover:bg-slate-50 text-sm font-medium ml-2">
+  Roles y permisos
+</a>
 {% endblock %}
 
 {% block content %}

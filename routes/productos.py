@@ -10,7 +10,7 @@ from models import db
 from models.catalog import Product, Category
 from models.country import TaxConfig
 from services.tenant_context import current_tenant
-from services.permissions import tenant_required
+from services.permissions import permission_required, tenant_required
 from services.plan_limits import check_can_create_product, PlanLimitError
 from services.uploads import save_product_image, delete_product_image
 
@@ -35,6 +35,7 @@ def _safe_decimal(value, default="0") -> Decimal:
 @productos_bp.route("/")
 @login_required
 @tenant_required
+@permission_required("products.view")
 def list():
     tenant = current_tenant()
     q = (request.args.get("q") or "").strip()
@@ -64,6 +65,7 @@ def list():
 @productos_bp.route("/new", methods=["GET", "POST"])
 @login_required
 @tenant_required
+@permission_required("products.manage")
 def new():
     tenant = current_tenant()
 
@@ -101,6 +103,7 @@ def new():
 @productos_bp.route("/<int:product_id>")
 @login_required
 @tenant_required
+@permission_required("products.view")
 def detail(product_id):
     """Vista detalle del producto: info, lotes, últimas compras y ventas."""
     from models.invoice import Invoice, InvoiceItem
@@ -183,6 +186,7 @@ def detail(product_id):
 @productos_bp.route("/<int:product_id>/edit", methods=["GET", "POST"])
 @login_required
 @tenant_required
+@permission_required("products.manage")
 def edit(product_id):
     prod = _get_or_404(product_id)
     tenant = current_tenant()
@@ -221,6 +225,7 @@ def edit(product_id):
 @productos_bp.route("/<int:product_id>/delete", methods=["POST"])
 @login_required
 @tenant_required
+@permission_required("products.delete")
 def delete(product_id):
     prod = _get_or_404(product_id)
     name = prod.name
@@ -235,6 +240,7 @@ def delete(product_id):
 @productos_bp.route("/recompute-stocks", methods=["POST"])
 @login_required
 @tenant_required
+@permission_required("products.manage")
 def recompute_stocks():
     """Recalcula el stock de todos los productos del tenant sumando sus lotes."""
     from services.inventory import recompute_all_stocks

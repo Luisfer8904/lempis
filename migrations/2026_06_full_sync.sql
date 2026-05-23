@@ -200,6 +200,30 @@ CREATE TABLE IF NOT EXISTS lempis_pagos_facturas (
   CONSTRAINT fk_lempis_pagos_user FOREIGN KEY (received_by_user_id) REFERENCES lempis_usuarios(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ===== Roles y permisos personalizables =====
+CREATE TABLE IF NOT EXISTS lempis_roles_permisos (
+  id INT NOT NULL AUTO_INCREMENT,
+  tenant_id INT NOT NULL,
+  role_id INT NOT NULL,
+  permissions TEXT NOT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  PRIMARY KEY (id),
+  INDEX idx_lempis_roles_permisos_tenant (tenant_id),
+  INDEX idx_lempis_roles_permisos_role (role_id),
+  UNIQUE KEY uq_lempis_roles_permisos_tenant_role (tenant_id, role_id),
+  CONSTRAINT fk_lempis_roles_permisos_tenant
+    FOREIGN KEY (tenant_id) REFERENCES lempis_empresas(id) ON DELETE CASCADE,
+  CONSTRAINT fk_lempis_roles_permisos_role
+    FOREIGN KEY (role_id) REFERENCES lempis_roles(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO lempis_roles (code, name, description, created_at, updated_at)
+SELECT 'cajero', 'Cajero', 'Registra ventas de mostrador y consulta productos/clientes.', NOW(), NOW()
+WHERE NOT EXISTS (
+  SELECT 1 FROM lempis_roles WHERE code = 'cajero'
+);
+
 -- Limpiar helper
 DROP PROCEDURE IF EXISTS lempis_add_column_if_missing;
 

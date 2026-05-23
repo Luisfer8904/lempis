@@ -12,7 +12,7 @@ from models.catalog import Customer
 from models.country import Country
 from models.invoice import Invoice, InvoicePayment
 from services.tenant_context import current_tenant
-from services.permissions import tenant_required
+from services.permissions import permission_required, tenant_required
 from services.plan_limits import check_can_create_customer, PlanLimitError
 from services.receivables import update_overdue_invoices
 
@@ -31,6 +31,7 @@ def _get_or_404(client_id: int) -> Customer:
 @clientes_bp.route("/")
 @login_required
 @tenant_required
+@permission_required("customers.view")
 def list():
     tenant = current_tenant()
     q = (request.args.get("q") or "").strip()
@@ -54,6 +55,7 @@ def list():
 @clientes_bp.route("/<int:client_id>")
 @login_required
 @tenant_required
+@permission_required("customers.view")
 def detail(client_id):
     tenant = current_tenant()
     cliente = _get_or_404(client_id)
@@ -109,6 +111,7 @@ def detail(client_id):
 @clientes_bp.route("/new", methods=["GET", "POST"])
 @login_required
 @tenant_required
+@permission_required("customers.manage")
 def new():
     tenant = current_tenant()
 
@@ -139,6 +142,7 @@ def new():
 @clientes_bp.route("/<int:client_id>/edit", methods=["GET", "POST"])
 @login_required
 @tenant_required
+@permission_required("customers.manage")
 def edit(client_id):
     cliente = _get_or_404(client_id)
     if request.method == "POST":
@@ -159,6 +163,7 @@ def edit(client_id):
 @clientes_bp.route("/<int:client_id>/delete", methods=["POST"])
 @login_required
 @tenant_required
+@permission_required("customers.delete")
 def delete(client_id):
     cliente = _get_or_404(client_id)
     name = cliente.name
@@ -171,6 +176,7 @@ def delete(client_id):
 @clientes_bp.route("/<int:client_id>/resumen")
 @login_required
 @tenant_required
+@permission_required("customers.view")
 def resumen(client_id):
     """Resumen comercial usado al seleccionar cliente en facturación/POS."""
     tenant = current_tenant()

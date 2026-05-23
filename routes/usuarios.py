@@ -11,12 +11,22 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 
 from models import db
-from models.user import User, Role, UserRole
+import json
+
+from models.user import User, Role, UserRole, RolePermission
 from services.tenant_context import current_tenant
-from services.permissions import admin_required, tenant_required
+from services.permissions import (
+    ALL_PERMISSIONS,
+    DEFAULT_ROLE_PERMISSIONS,
+    PERMISSION_GROUPS,
+    permission_required,
+    role_permissions_for,
+    tenant_required,
+)
 from services.plan_limits import check_can_add_user, PlanLimitError
 
 usuarios_bp = Blueprint("usuarios", __name__, url_prefix="/app/usuarios")
+TEAM_ROLE_CODES = ["admin", "cajero", "vendedor", "contador", "viewer"]
 
 
 def _get_or_404(user_id: int) -> User:
@@ -29,18 +39,59 @@ def _get_or_404(user_id: int) -> User:
 
 @usuarios_bp.route("/")
 @login_required
-@admin_required
 @tenant_required
+@permission_required("users.manage")
 def list():
     tenant = current_tenant()
     users = User.query.filter_by(tenant_id=tenant.id).order_by(User.created_at.asc()).all()
     return render_template("usuarios/list.html", users=users)
 
 
+@usuarios_bp.route("/roles", methods=["GET", "POST"])
+@login_required
+@tenant_required
+@permission_required("users.manage")
+def roles():
+    tenant = current_tenant()
+    roles = Role.query.filter(Role.code.in_(TEAM_ROLE_CODES)).order_by(Role.name.asc()).all()
+
+    if request.method == "POST":
+        valid = set(ALL_PERMISSIONS)
+        for role in roles:
+            selected = [
+                p for p in request.form.getlist(f"permissions_{role.id}")
+                if p in valid
+            ]
+            custom = RolePermission.query.filter_by(tenant_id=tenant.id, role_id=role.id).first()
+            if custom is None:
+                custom = RolePermission(tenant_id=tenant.id, role_id=role.id)
+                db.session.add(custom)
+            custom.permissions = json.dumps(selected)
+        db.session.commit()
+        flash("Permisos de roles actualizados.", "success")
+        return redirect(url_for("usuarios.roles"))
+
+    role_permissions = {
+        role.id: role_permissions_for(tenant.id, role)
+        for role in roles
+    }
+    defaults = {
+        role.id: set(DEFAULT_ROLE_PERMISSIONS.get(role.code, []))
+        for role in roles
+    }
+    return render_template(
+        "usuarios/roles.html",
+        roles=roles,
+        permission_groups=PERMISSION_GROUPS,
+        role_permissions=role_permissions,
+        defaults=defaults,
+    )
+
+
 @usuarios_bp.route("/new", methods=["GET", "POST"])
 @login_required
-@admin_required
 @tenant_required
+@permission_required("users.manage")
 def new():
     tenant = current_tenant()
 
@@ -90,14 +141,14 @@ def new():
         flash(f"Usuario {email} creado. Comparte la contraseña con la persona.", "success")
         return redirect(url_for("usuarios.list"))
 
-    roles = Role.query.filter(Role.code.in_(["admin", "vendedor", "contador", "viewer"])).all()
+    roles = Role.query.filter(Role.code.in_(TEAM_ROLE_CODES)).order_by(Role.name.asc()).all()
     return render_template("usuarios/form.html", user=None, roles=roles)
 
 
 @usuarios_bp.route("/<int:user_id>/edit", methods=["GET", "POST"])
 @login_required
-@admin_required
 @tenant_required
+@permission_required("users.manage")
 def edit(user_id):
     user = _get_or_404(user_id)
     tenant = current_tenant()
@@ -127,15 +178,15 @@ def edit(user_id):
         flash(f"Usuario {user.email} actualizado.", "success")
         return redirect(url_for("usuarios.list"))
 
-    roles = Role.query.filter(Role.code.in_(["admin", "vendedor", "contador", "viewer"])).all()
+    roles = Role.query.filter(Role.code.in_(TEAM_ROLE_CODES)).order_by(Role.name.asc()).all()
     current_role = user.roles[0].code if user.roles else "vendedor"
     return render_template("usuarios/form.html", user=user, roles=roles, current_role=current_role)
 
 
 @usuarios_bp.route("/<int:user_id>/toggle", methods=["POST"])
 @login_required
-@admin_required
 @tenant_required
+@permission_required("users.manage")
 def toggle(user_id):
     user = _get_or_404(user_id)
 

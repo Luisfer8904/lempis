@@ -43,6 +43,7 @@ COUNTRIES = [
 ROLES = [
     ("owner",    "Propietario", "Creador del tenant. Acceso total."),
     ("admin",    "Administrador", "Gestiona usuarios, planes y configuración."),
+    ("cajero",   "Cajero", "Registra ventas de mostrador y consulta productos/clientes."),
     ("vendedor", "Vendedor",    "Crea facturas y gestiona clientes."),
     ("contador", "Contador",    "Acceso a reportes y exportaciones."),
     ("viewer",   "Solo lectura","Solo puede consultar."),
@@ -107,7 +108,11 @@ def seed_countries():
 def seed_roles():
     print("→ Seedeando roles...")
     for code, name, desc in ROLES:
-        if not Role.query.filter_by(code=code).first():
+        role = Role.query.filter_by(code=code).first()
+        if role:
+            role.name = name
+            role.description = desc
+        else:
             db.session.add(Role(code=code, name=name, description=desc))
 
 

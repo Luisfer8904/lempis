@@ -71,34 +71,38 @@
       {% endmacro %}
 
       {# Botón destacado de Nueva Venta (estilo Treinta) #}
-      <a href="{{ url_for('pos.index') }}"
-         class="flex items-center justify-center gap-2 px-3 py-3 mb-3
-                bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl
-                font-semibold shadow hover:shadow-md hover:from-emerald-600 hover:to-green-700">
-        💰 Nueva venta
-      </a>
+      {% if current_user.has_permission('sales.create') %}
+        <a href="{{ url_for('pos.index') }}"
+           class="flex items-center justify-center gap-2 px-3 py-3 mb-3
+                  bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl
+                  font-semibold shadow hover:shadow-md hover:from-emerald-600 hover:to-green-700">
+          💰 Nueva venta
+        </a>
+      {% endif %}
 
       {{ navlink('dashboard.home',          'Dashboard',     '🏠') }}
-      {{ navlink('facturas.list',           'Facturas',      '🧾') }}
-      {{ navlink('cobros.index',            'Por cobrar',    '💰') }}
-      {{ navlink('clientes.list',           'Clientes',      '👥') }}
-      {{ navlink('productos.list',          'Productos',     '📦') }}
-      {{ navlink('categorias.list',         'Categorías',    '🏷️') }}
+      {% if current_user.has_permission('sales.view') %}{{ navlink('facturas.list', 'Facturas', '🧾') }}{% endif %}
+      {% if current_user.has_permission('receivables.view') %}{{ navlink('cobros.index', 'Por cobrar', '💰') }}{% endif %}
+      {% if current_user.has_permission('customers.view') %}{{ navlink('clientes.list', 'Clientes', '👥') }}{% endif %}
+      {% if current_user.has_permission('products.view') %}{{ navlink('productos.list', 'Productos', '📦') }}{% endif %}
+      {% if current_user.has_permission('products.manage') %}{{ navlink('categorias.list', 'Categorías', '🏷️') }}{% endif %}
 
-      <div class="pt-3 mt-2 border-t">
-        <p class="px-3 text-[10px] text-slate-400 uppercase font-semibold mb-1">Inventario / compras</p>
-        {{ navlink('proveedores.list',      'Proveedores', '🚚') }}
-        {{ navlink('compras.list',          'Compras',     '🛒') }}
-      </div>
+      {% if current_user.has_permission('purchases.view') %}
+        <div class="pt-3 mt-2 border-t">
+          <p class="px-3 text-[10px] text-slate-400 uppercase font-semibold mb-1">Inventario / compras</p>
+          {{ navlink('proveedores.list',      'Proveedores', '🚚') }}
+          {{ navlink('compras.list',          'Compras',     '🛒') }}
+        </div>
+      {% endif %}
 
-      {{ navlink('reportes.index',          'Reportes',   '📊') }}
+      {% if current_user.has_permission('reports.view') %}{{ navlink('reportes.index', 'Reportes', '📊') }}{% endif %}
 
       <div class="pt-4 mt-4 border-t">
-        {% if current_user.is_admin() %}
+        {% if current_user.has_permission('users.manage') %}
           {{ navlink('usuarios.list',         'Equipo',        '🧑‍🤝‍🧑') }}
         {% endif %}
-        {{ navlink('configuracion.empresa', 'Configuración', '⚙️') }}
-        {{ navlink('billing.index',         'Suscripción',   '💳') }}
+        {% if current_user.has_permission('settings.manage') %}{{ navlink('configuracion.empresa', 'Configuración', '⚙️') }}{% endif %}
+        {% if current_user.is_admin() %}{{ navlink('billing.index', 'Suscripción', '💳') }}{% endif %}
         {% if current_user.is_superadmin %}
           <a href="{{ url_for('admin.index') }}"
              class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium

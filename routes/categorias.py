@@ -7,7 +7,7 @@ from flask_login import login_required
 from models import db
 from models.catalog import Category, Product
 from services.tenant_context import current_tenant
-from services.permissions import tenant_required
+from services.permissions import permission_required, tenant_required
 
 categorias_bp = Blueprint("categorias", __name__, url_prefix="/app/categorias")
 
@@ -23,6 +23,7 @@ def _get_or_404(cat_id: int) -> Category:
 @categorias_bp.route("/")
 @login_required
 @tenant_required
+@permission_required("products.manage")
 def list():
     tenant = current_tenant()
     categorias = Category.query.filter_by(tenant_id=tenant.id).order_by(Category.name).all()
@@ -36,6 +37,7 @@ def list():
 @categorias_bp.route("/new", methods=["GET", "POST"])
 @login_required
 @tenant_required
+@permission_required("products.manage")
 def new():
     if request.method == "POST":
         tenant = current_tenant()
@@ -51,6 +53,7 @@ def new():
 @categorias_bp.route("/<int:cat_id>/edit", methods=["GET", "POST"])
 @login_required
 @tenant_required
+@permission_required("products.manage")
 def edit(cat_id):
     cat = _get_or_404(cat_id)
     if request.method == "POST":
@@ -64,6 +67,7 @@ def edit(cat_id):
 @categorias_bp.route("/<int:cat_id>/delete", methods=["POST"])
 @login_required
 @tenant_required
+@permission_required("products.delete")
 def delete(cat_id):
     cat = _get_or_404(cat_id)
     name = cat.name

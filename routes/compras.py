@@ -20,7 +20,7 @@ from models.purchases import Purchase, PurchaseItem
 from models.catalog import Product
 from models.country import TaxConfig
 from services.tenant_context import current_tenant
-from services.permissions import tenant_required
+from services.permissions import permission_required, tenant_required
 from services.purchase_service import (
     create_purchase, update_purchase_draft, finalize_purchase,
     void_purchase, register_payment, next_purchase_number, PurchaseError,
@@ -43,6 +43,7 @@ def _get_or_404(purchase_id: int) -> Purchase:
 @compras_bp.route("/")
 @login_required
 @tenant_required
+@permission_required("purchases.view")
 def list():
     tenant = current_tenant()
     q = (request.args.get("q") or "").strip()
@@ -72,6 +73,7 @@ def list():
 @compras_bp.route("/new", methods=["GET", "POST"])
 @login_required
 @tenant_required
+@permission_required("purchases.manage")
 def new():
     tenant = current_tenant()
 
@@ -105,6 +107,7 @@ def new():
 @compras_bp.route("/<int:purchase_id>/edit", methods=["GET", "POST"])
 @login_required
 @tenant_required
+@permission_required("purchases.manage")
 def edit(purchase_id):
     inv = _get_or_404(purchase_id)
     tenant = current_tenant()
@@ -149,6 +152,7 @@ def edit(purchase_id):
 @compras_bp.route("/<int:purchase_id>")
 @login_required
 @tenant_required
+@permission_required("purchases.view")
 def detail(purchase_id):
     inv = _get_or_404(purchase_id)
     return render_template("compras/detail.html", compra=inv, tenant=current_tenant())
@@ -159,6 +163,7 @@ def detail(purchase_id):
 @compras_bp.route("/<int:purchase_id>/receive", methods=["POST"])
 @login_required
 @tenant_required
+@permission_required("purchases.manage")
 def receive(purchase_id):
     inv = _get_or_404(purchase_id)
     try:
@@ -172,6 +177,7 @@ def receive(purchase_id):
 @compras_bp.route("/<int:purchase_id>/repair-inventory", methods=["POST"])
 @login_required
 @tenant_required
+@permission_required("purchases.manage")
 def repair_inventory(purchase_id):
     inv = _get_or_404(purchase_id)
     try:
@@ -191,6 +197,7 @@ def repair_inventory(purchase_id):
 @compras_bp.route("/<int:purchase_id>/void", methods=["POST"])
 @login_required
 @tenant_required
+@permission_required("purchases.manage")
 def void(purchase_id):
     inv = _get_or_404(purchase_id)
     void_purchase(inv)
@@ -201,6 +208,7 @@ def void(purchase_id):
 @compras_bp.route("/<int:purchase_id>/payment", methods=["POST"])
 @login_required
 @tenant_required
+@permission_required("purchases.manage")
 def payment(purchase_id):
     inv = _get_or_404(purchase_id)
     amount = request.form.get("amount") or 0
@@ -215,6 +223,7 @@ def payment(purchase_id):
 @compras_bp.route("/<int:purchase_id>/delete", methods=["POST"])
 @login_required
 @tenant_required
+@permission_required("purchases.manage")
 def delete(purchase_id):
     inv = _get_or_404(purchase_id)
     if inv.status != "draft":

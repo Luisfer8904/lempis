@@ -18,7 +18,7 @@ from flask_login import login_required
 from models import db
 from models.catalog import Product, ProductBatch
 from services.tenant_context import current_tenant
-from services.permissions import tenant_required
+from services.permissions import permission_required, tenant_required
 
 lotes_bp = Blueprint("lotes", __name__, url_prefix="/app/productos/<int:product_id>/lotes")
 
@@ -60,6 +60,7 @@ def _parse_date(value):
 @lotes_bp.route("/")
 @login_required
 @tenant_required
+@permission_required("products.view")
 def list(product_id):
     producto = _get_product_or_404(product_id)
     lotes = (
@@ -77,6 +78,7 @@ def list(product_id):
 @lotes_bp.route("/new", methods=["GET", "POST"])
 @login_required
 @tenant_required
+@permission_required("products.manage")
 def new(product_id):
     producto = _get_product_or_404(product_id)
 
@@ -101,6 +103,7 @@ def new(product_id):
 @lotes_bp.route("/<int:batch_id>/edit", methods=["GET", "POST"])
 @login_required
 @tenant_required
+@permission_required("products.manage")
 def edit(product_id, batch_id):
     producto = _get_product_or_404(product_id)
     lote = _get_batch_or_404(product_id, batch_id)
@@ -131,6 +134,7 @@ def edit(product_id, batch_id):
 @lotes_bp.route("/<int:batch_id>/delete", methods=["POST"])
 @login_required
 @tenant_required
+@permission_required("products.delete")
 def delete(product_id, batch_id):
     producto = _get_product_or_404(product_id)
     lote = _get_batch_or_404(product_id, batch_id)

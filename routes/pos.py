@@ -14,7 +14,7 @@ from sqlalchemy import or_
 from models import db
 from models.catalog import Product, Category, Customer
 from services.tenant_context import current_tenant
-from services.permissions import tenant_required
+from services.permissions import permission_required, tenant_required
 from services.invoice_service import issue_invoice, validate_can_emit, CAIError, next_invoice_number
 
 pos_bp = Blueprint("pos", __name__, url_prefix="/app/venta")
@@ -23,6 +23,7 @@ pos_bp = Blueprint("pos", __name__, url_prefix="/app/venta")
 @pos_bp.route("/")
 @login_required
 @tenant_required
+@permission_required("sales.create")
 def index():
     tenant = current_tenant()
     _, next_number = next_invoice_number(tenant)
@@ -32,6 +33,7 @@ def index():
 @pos_bp.route("/rapida")
 @login_required
 @tenant_required
+@permission_required("sales.create")
 def quick_sale():
     tenant = current_tenant()
     q = (request.args.get("q") or "").strip()
@@ -73,6 +75,7 @@ def quick_sale():
 @pos_bp.route("/detallada")
 @login_required
 @tenant_required
+@permission_required("sales.create")
 def detailed_sale():
     return redirect(url_for("facturas.new"))
 
@@ -80,6 +83,7 @@ def detailed_sale():
 @pos_bp.route("/cobrar", methods=["POST"])
 @login_required
 @tenant_required
+@permission_required("sales.create")
 def cobrar():
     """Emite la factura con los items del carrito enviados via form."""
     tenant = current_tenant()

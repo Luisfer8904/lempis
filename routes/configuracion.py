@@ -10,7 +10,7 @@ from flask_login import login_required
 from models import db
 from models.printing import TenantPrintSettings
 from services.tenant_context import current_tenant
-from services.permissions import admin_required, tenant_required
+from services.permissions import permission_required, tenant_required
 
 configuracion_bp = Blueprint("configuracion", __name__, url_prefix="/app/configuracion")
 
@@ -18,6 +18,7 @@ configuracion_bp = Blueprint("configuracion", __name__, url_prefix="/app/configu
 @configuracion_bp.route("/")
 @login_required
 @tenant_required
+@permission_required("settings.manage")
 def index():
     return redirect(url_for("configuracion.empresa"))
 
@@ -33,8 +34,8 @@ def _get_print_settings(tenant):
 
 @configuracion_bp.route("/empresa", methods=["GET", "POST"])
 @login_required
-@admin_required
 @tenant_required
+@permission_required("settings.manage")
 def empresa():
     tenant = current_tenant()
 
@@ -57,8 +58,8 @@ def empresa():
 
 @configuracion_bp.route("/facturacion", methods=["GET", "POST"])
 @login_required
-@admin_required
 @tenant_required
+@permission_required("settings.manage")
 def facturacion():
     """Configuración del modo de facturación (Simple / SAR / etc.)."""
     from services.invoice_mode import available_modes
@@ -97,8 +98,8 @@ def facturacion():
 
 @configuracion_bp.route("/sar", methods=["GET", "POST"])
 @login_required
-@admin_required
 @tenant_required
+@permission_required("settings.manage")
 def sar():
     """Configuración específica SAR Honduras (solo aplica si modo=sar_hn)."""
     tenant = current_tenant()
@@ -138,8 +139,8 @@ def sar():
 
 @configuracion_bp.route("/impresion", methods=["GET", "POST"])
 @login_required
-@admin_required
 @tenant_required
+@permission_required("settings.manage")
 def impresion():
     tenant = current_tenant()
     settings = _get_print_settings(tenant)

@@ -11,7 +11,7 @@ from models import db
 from models.suppliers import Supplier
 from models.country import Country
 from services.tenant_context import current_tenant
-from services.permissions import tenant_required
+from services.permissions import permission_required, tenant_required
 
 proveedores_bp = Blueprint("proveedores", __name__, url_prefix="/app/proveedores")
 
@@ -32,6 +32,7 @@ def _next_code(tenant_id: int) -> str:
 @proveedores_bp.route("/")
 @login_required
 @tenant_required
+@permission_required("purchases.view")
 def list():
     tenant = current_tenant()
     q = (request.args.get("q") or "").strip()
@@ -55,6 +56,7 @@ def list():
 @proveedores_bp.route("/new", methods=["GET", "POST"])
 @login_required
 @tenant_required
+@permission_required("purchases.manage")
 def new():
     tenant = current_tenant()
     if request.method == "POST":
@@ -76,6 +78,7 @@ def new():
 @proveedores_bp.route("/<int:supplier_id>/edit", methods=["GET", "POST"])
 @login_required
 @tenant_required
+@permission_required("purchases.manage")
 def edit(supplier_id):
     s = _get_or_404(supplier_id)
     if request.method == "POST":
@@ -95,6 +98,7 @@ def edit(supplier_id):
 @proveedores_bp.route("/<int:supplier_id>/delete", methods=["POST"])
 @login_required
 @tenant_required
+@permission_required("purchases.manage")
 def delete(supplier_id):
     s = _get_or_404(supplier_id)
     if s.purchases.count() > 0:

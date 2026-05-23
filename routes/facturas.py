@@ -20,7 +20,7 @@ from models.invoice import Invoice
 from models.catalog import Customer, Product
 from models.country import TaxConfig
 from services.tenant_context import current_tenant
-from services.permissions import tenant_required
+from services.permissions import permission_required, tenant_required
 from services.invoice_service import (
     issue_invoice, update_invoice, next_invoice_number,
     validate_can_emit, CAIError,
@@ -42,6 +42,7 @@ def _get_or_404(invoice_id: int) -> Invoice:
 @facturas_bp.route("/")
 @login_required
 @tenant_required
+@permission_required("sales.view")
 def list():
     tenant = current_tenant()
     q = (request.args.get("q") or "").strip()
@@ -79,6 +80,7 @@ def list():
 @facturas_bp.route("/new", methods=["GET", "POST"])
 @login_required
 @tenant_required
+@permission_required("sales.create")
 def new():
     tenant = current_tenant()
 
@@ -118,6 +120,7 @@ def new():
 @facturas_bp.route("/<int:invoice_id>/edit", methods=["GET", "POST"])
 @login_required
 @tenant_required
+@permission_required("sales.create")
 def edit(invoice_id):
     inv = _get_or_404(invoice_id)
     tenant = current_tenant()
@@ -165,6 +168,7 @@ def edit(invoice_id):
 @facturas_bp.route("/<int:invoice_id>")
 @login_required
 @tenant_required
+@permission_required("sales.view")
 def detail(invoice_id):
     inv = _get_or_404(invoice_id)
     return render_template("facturas/detail.html", factura=inv, tenant=current_tenant())
@@ -175,6 +179,7 @@ def detail(invoice_id):
 @facturas_bp.route("/<int:invoice_id>/mark-paid", methods=["POST"])
 @login_required
 @tenant_required
+@permission_required("receivables.manage")
 def mark_paid(invoice_id):
     inv = _get_or_404(invoice_id)
     if inv.status in ("issued", "partially_paid", "overdue"):
@@ -187,6 +192,7 @@ def mark_paid(invoice_id):
 @facturas_bp.route("/<int:invoice_id>/void", methods=["POST"])
 @login_required
 @tenant_required
+@permission_required("sales.manage")
 def void(invoice_id):
     from services.invoice_service import void_invoice_and_restore_stock
     inv = _get_or_404(invoice_id)
@@ -198,6 +204,7 @@ def void(invoice_id):
 @facturas_bp.route("/<int:invoice_id>/delete", methods=["POST"])
 @login_required
 @tenant_required
+@permission_required("sales.manage")
 def delete(invoice_id):
     inv = _get_or_404(invoice_id)
     if inv.status != "draft":
@@ -214,6 +221,7 @@ def delete(invoice_id):
 @facturas_bp.route("/api/productos/<int:product_id>/lotes")
 @login_required
 @tenant_required
+@permission_required("sales.create")
 def api_lotes_de_producto(product_id):
     """Devuelve JSON con los lotes disponibles de un producto (para el form de facturas)."""
     from flask import jsonify
@@ -241,6 +249,7 @@ def api_lotes_de_producto(product_id):
 @facturas_bp.route("/<int:invoice_id>/pdf")
 @login_required
 @tenant_required
+@permission_required("sales.view")
 def pdf(invoice_id):
     from services.invoice_mode import get_provider
     inv = _get_or_404(invoice_id)

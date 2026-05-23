@@ -1,0 +1,65 @@
+{% extends "app/_layout.html" %}
+{% block title %}Roles y permisos — {{ APP_NAME }}{% endblock %}
+{% block heading %}Roles y permisos{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('usuarios.list') }}" class="text-slate-600 hover:text-slate-900 text-sm">
+  ← Equipo
+</a>
+{% endblock %}
+
+{% block content %}
+<form method="POST" class="space-y-5">
+  <div class="bg-white rounded-xl border shadow-sm p-5">
+    <h2 class="text-lg font-semibold text-slate-900">Permisos por rol</h2>
+    <p class="text-sm text-slate-500 mt-1">
+      Define qué puede hacer cada tipo de usuario. El propietario siempre conserva acceso total.
+    </p>
+  </div>
+
+  <div class="grid xl:grid-cols-2 gap-5">
+    {% for role in roles %}
+      <section class="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b flex items-start justify-between gap-3">
+          <div>
+            <h3 class="font-semibold text-slate-900">{{ role.name }}</h3>
+            <p class="text-sm text-slate-500">{{ role.description }}</p>
+          </div>
+          <span class="text-xs rounded bg-slate-100 text-slate-600 px-2 py-1 font-mono">{{ role.code }}</span>
+        </div>
+        <div class="p-5 space-y-4">
+          {% for group_name, permissions in permission_groups %}
+            <div>
+              <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">{{ group_name }}</p>
+              <div class="space-y-2">
+                {% for code, label in permissions %}
+                  <label class="flex items-start gap-3 rounded-lg border px-3 py-2 hover:bg-slate-50 cursor-pointer">
+                    <input type="checkbox"
+                           name="permissions_{{ role.id }}"
+                           value="{{ code }}"
+                           class="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                           {% if code in role_permissions[role.id] %}checked{% endif %} />
+                    <span>
+                      <span class="block text-sm font-medium text-slate-800">{{ label }}</span>
+                      <span class="block text-xs text-slate-400 font-mono">{{ code }}</span>
+                    </span>
+                  </label>
+                {% endfor %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+    {% endfor %}
+  </div>
+
+  <div class="sticky bottom-0 bg-slate-50 border-t py-4 flex justify-end gap-3">
+    <a href="{{ url_for('usuarios.list') }}" class="border px-5 py-2 rounded-lg hover:bg-white">
+      Cancelar
+    </a>
+    <button class="bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700 font-medium">
+      Guardar permisos
+    </button>
+  </div>
+</form>
+{% endblock %}

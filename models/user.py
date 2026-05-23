@@ -3,7 +3,7 @@ Usuarios y roles del SaaS.
 Cada User pertenece a un Tenant y puede tener uno o más Roles dentro de él.
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
@@ -84,6 +84,12 @@ class User(UserMixin, db.Model, TimestampMixin):
     def has_role(self, code: str) -> bool:
         return any(r.code == code for r in self.roles)
 
+    def has_permission(self, permission: str) -> bool:
+        if self.is_owner or self.has_role("owner"):
+            return True
+        from services.permissions import user_has_permission
+        return user_has_permission(self, permission)
+
     def is_admin(self) -> bool:
         return self.is_owner or self.has_role("admin") or self.has_role("owner")
 
@@ -109,3 +115,18 @@ class UserRole(db.Model, TimestampMixin):
 
     user = relationship("User", back_populates="user_roles")
     role = relationship("Role", back_populates="user_roles")
+
+
+class RolePermission(db.Model, TimestampMixin):
+    """Permisos configurables por tenant y rol."""
+    __tablename__ = "lempis_roles_permisos"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "role_id", name="uq_lempis_roles_permisos_tenant_role"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = tenant_fk()
+    role_id = Column(Integer, ForeignKey("lempis_roles.id", ondelete="CASCADE"), nullable=False, index=True)
+    permissions = Column(Text, nullable=False, default="[]")
+
+    role = relationship("Role")
