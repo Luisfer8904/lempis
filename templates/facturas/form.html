@@ -52,7 +52,6 @@
         <a href="{{ url_for('clientes.new') }}" class="text-xs text-indigo-600 hover:underline" target="_blank">
           + Crear cliente nuevo
         </a>
-        <div id="customer-info" class="hidden mt-3 rounded-lg border bg-slate-50 p-3 text-xs space-y-3"></div>
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Método de pago</label>
@@ -272,10 +271,6 @@ const isEditMode = {{ 'true' if factura else 'false' }};
 let checkoutConfirmed = false;
 let pendingSubmitter = null;
 
-function fmtMoney(n) {
-  return tenantCurrency + " " + Number(n || 0).toFixed(2);
-}
-
 function getSelectedTier() {
   return document.getElementById("price-tier")?.value || "general";
 }
@@ -349,105 +344,6 @@ function syncTierFromCustomer(keepExistingPrices = false) {
   if (!keepExistingPrices) {
     applyTierToExistingLines();
   }
-  loadCustomerInfo(customerSelect?.value || "");
-}
-
-function methodLabel(method) {
-  return {
-    efectivo: "Efectivo",
-    transferencia: "Transferencia",
-    tarjeta: "Tarjeta",
-    credito: "Crédito",
-  }[method] || method || "—";
-}
-
-function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>"']/g, ch => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  }[ch]));
-}
-
-function renderCustomerInfo(data) {
-  const panel = document.getElementById("customer-info");
-  if (!data) {
-    panel.classList.add("hidden");
-    panel.innerHTML = "";
-    return;
-  }
-
-  const c = data.customer;
-  const s = data.summary;
-  const m = data.methods;
-  const recent = data.recent_invoices || [];
-  const pendingClass = s.pending_balance > 0 ? "text-rose-700" : "text-emerald-700";
-  const contact = [c.tax_id, c.phone, c.email].filter(Boolean).map(escapeHtml).join(" · ") || "Sin datos de contacto";
-  panel.innerHTML = `
-    <div class="flex items-start justify-between gap-3">
-      <div class="min-w-0">
-        <p class="font-semibold text-slate-900 truncate">${escapeHtml(c.name)}</p>
-        <p class="text-slate-500">${contact}</p>
-        ${c.address ? `<p class="text-slate-500 truncate">${escapeHtml(c.address)}</p>` : ""}
-      </div>
-      <span class="shrink-0 rounded bg-indigo-50 px-2 py-1 font-semibold text-indigo-700">${escapeHtml(c.preferred_price_tier || "general")}</span>
-    </div>
-    <div class="grid grid-cols-2 gap-2">
-      <div class="rounded bg-white p-2 border">
-        <p class="text-slate-500">Compras contado</p>
-        <p class="font-mono font-bold text-slate-900">${fmtMoney(s.cash_total)}</p>
-        <p class="text-slate-400">${s.cash_count} factura(s)</p>
-      </div>
-      <div class="rounded bg-white p-2 border">
-        <p class="text-slate-500">Saldo pendiente</p>
-        <p class="font-mono font-bold ${pendingClass}">${fmtMoney(s.pending_balance)}</p>
-        <p class="text-slate-400">${s.pending_count} factura(s)</p>
-      </div>
-    </div>
-    <div class="grid grid-cols-3 gap-1.5">
-      <div class="rounded border bg-white p-2"><p class="text-slate-500">Efectivo</p><p class="font-mono font-semibold">${fmtMoney(m.efectivo.total)}</p></div>
-      <div class="rounded border bg-white p-2"><p class="text-slate-500">Transf.</p><p class="font-mono font-semibold">${fmtMoney(m.transferencia.total)}</p></div>
-      <div class="rounded border bg-white p-2"><p class="text-slate-500">Tarjeta</p><p class="font-mono font-semibold">${fmtMoney(m.tarjeta.total)}</p></div>
-    </div>
-    <div class="flex justify-between border-t pt-2">
-      <span class="text-slate-500">Vencido</span>
-      <strong class="font-mono text-rose-700">${fmtMoney(s.overdue_balance)}</strong>
-    </div>
-    <div class="flex justify-between">
-      <span class="text-slate-500">Última factura</span>
-      <strong class="font-mono">${s.last_invoice_number ? `${s.last_invoice_number} · ${fmtMoney(s.last_invoice_total)}` : "Sin facturas"}</strong>
-    </div>
-    ${recent.length ? `
-      <div class="border-t pt-2 space-y-1">
-        <p class="font-medium text-slate-700">Últimos movimientos</p>
-        ${recent.map(inv => `
-          <div class="flex justify-between gap-2 text-[11px]">
-            <span class="truncate">${escapeHtml(inv.number)} · ${escapeHtml(methodLabel(inv.method))}</span>
-            <span class="font-mono">${fmtMoney(inv.total)}</span>
-          </div>
-        `).join("")}
-      </div>
-    ` : ""}
-  `;
-  panel.classList.remove("hidden");
-}
-
-function loadCustomerInfo(customerId) {
-  if (!customerId) {
-    renderCustomerInfo(null);
-    return;
-  }
-  const panel = document.getElementById("customer-info");
-  panel.innerHTML = '<p class="text-slate-500">Cargando información del cliente...</p>';
-  panel.classList.remove("hidden");
-  fetch(`/app/clientes/${customerId}/resumen`)
-    .then(r => r.ok ? r.json() : Promise.reject())
-    .then(renderCustomerInfo)
-    .catch(() => {
-      panel.innerHTML = '<p class="text-rose-600">No se pudo cargar el resumen del cliente.</p>';
-    });
 }
 
 function loadBatches(productId, batchSelect) {

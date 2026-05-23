@@ -26,27 +26,75 @@
 
 <div class="bg-white rounded-xl shadow-sm border overflow-hidden overflow-x-auto">
   {% if clientes %}
-    <table class="saas-table w-full min-w-[720px]">
+    <table class="saas-table w-full min-w-[1120px]">
       <thead>
         <tr>
           <th>Cliente</th>
-          <th>RTN / ID Fiscal</th>
-          <th>Email</th>
-          <th>Teléfono</th>
+          <th>Contacto</th>
+          <th class="text-right">Compras contado</th>
+          <th class="text-right">Efectivo</th>
+          <th class="text-right">Transferencia</th>
+          <th class="text-right">Tarjeta</th>
+          <th class="text-right">Saldo pendiente</th>
+          <th class="text-right">Última factura</th>
           <th>Estado</th>
           <th class="text-right">Acciones</th>
         </tr>
       </thead>
       <tbody>
         {% for c in clientes %}
+        {% set data = summaries.get(c.id) %}
+        {% set s = data.summary %}
+        {% set m = data.methods %}
         <tr class="hover:bg-slate-50">
           <td>
             <div class="font-medium">{{ c.name }}</div>
-            {% if c.city %}<div class="text-xs text-slate-500">{{ c.city }}</div>{% endif %}
+            <div class="text-xs text-slate-500 font-mono">{{ c.tax_id or 'Sin RTN' }}</div>
+            <div class="mt-1">
+              <span class="text-[11px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">
+                {{ c.preferred_price_tier or 'general' }}
+              </span>
+              {% if c.city %}<span class="text-xs text-slate-500 ml-1">{{ c.city }}</span>{% endif %}
+            </div>
           </td>
-          <td class="font-mono text-sm">{{ c.tax_id or '—' }}</td>
-          <td class="text-sm">{{ c.email or '—' }}</td>
-          <td class="text-sm">{{ c.phone or '—' }}</td>
+          <td class="text-sm">
+            <div>{{ c.phone or '—' }}</div>
+            <div class="text-xs text-slate-500">{{ c.email or '—' }}</div>
+          </td>
+          <td class="text-right">
+            <div class="font-mono font-semibold">{{ tenant.currency }} {{ '%.2f'|format(s.cash_total) }}</div>
+            <div class="text-xs text-slate-500">{{ s.cash_count }} factura(s)</div>
+          </td>
+          <td class="text-right">
+            <div class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(m.efectivo.total) }}</div>
+            <div class="text-xs text-slate-500">{{ m.efectivo.count }}</div>
+          </td>
+          <td class="text-right">
+            <div class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(m.transferencia.total) }}</div>
+            <div class="text-xs text-slate-500">{{ m.transferencia.count }}</div>
+          </td>
+          <td class="text-right">
+            <div class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(m.tarjeta.total) }}</div>
+            <div class="text-xs text-slate-500">{{ m.tarjeta.count }}</div>
+          </td>
+          <td class="text-right">
+            <div class="font-mono font-semibold {% if s.pending_balance > 0 %}text-rose-700{% else %}text-emerald-700{% endif %}">
+              {{ tenant.currency }} {{ '%.2f'|format(s.pending_balance) }}
+            </div>
+            <div class="text-xs {% if s.overdue_balance > 0 %}text-rose-600{% else %}text-slate-500{% endif %}">
+              Vencido {{ tenant.currency }} {{ '%.2f'|format(s.overdue_balance) }}
+            </div>
+          </td>
+          <td class="text-right">
+            {% if s.last_invoice_number %}
+              <div class="font-mono text-sm">{{ s.last_invoice_number }}</div>
+              <div class="text-xs text-slate-500">
+                {{ s.last_invoice_date }} · {{ tenant.currency }} {{ '%.2f'|format(s.last_invoice_total) }}
+              </div>
+            {% else %}
+              <span class="text-sm text-slate-400">Sin facturas</span>
+            {% endif %}
+          </td>
           <td>
             {% if c.is_active %}
               <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Activo</span>
@@ -55,6 +103,10 @@
             {% endif %}
           </td>
           <td class="text-right whitespace-nowrap">
+            {% if s.pending_balance > 0 %}
+              <a href="{{ url_for('cobros.cliente', customer_id=c.id) }}"
+                 class="text-emerald-700 hover:underline text-sm mr-2">Cobros</a>
+            {% endif %}
             <a href="{{ url_for('clientes.edit', client_id=c.id) }}"
                class="text-indigo-600 hover:underline text-sm">Editar</a>
             <form method="POST" action="{{ url_for('clientes.delete', client_id=c.id) }}"
