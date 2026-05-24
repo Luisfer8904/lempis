@@ -1,29 +1,67 @@
 {% extends "app/_layout.html" %}
 {% block title %}Reportes — {{ APP_NAME }}{% endblock %}
-{% block heading %}Reportes {{ year }}{% endblock %}
+{% block heading %}Reportes{% endblock %}
 
 {% block content %}
 
-{# ===== Resumen del año ===== #}
-<section class="grid md:grid-cols-3 gap-4 mb-6">
+<form method="GET" class="bg-white rounded-xl border shadow-sm p-4 mb-6">
+  <div class="grid lg:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Desde</label>
+      <input type="date" name="desde" value="{{ desde }}"
+             class="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-slate-600 mb-1">Hasta</label>
+      <input type="date" name="hasta" value="{{ hasta }}"
+             class="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-indigo-500" />
+    </div>
+    <button class="rounded-lg bg-indigo-600 px-5 py-2.5 font-medium text-white hover:bg-indigo-700">
+      Generar reporte
+    </button>
+  </div>
+  <p class="mt-3 text-sm text-slate-500">
+    Periodo seleccionado: <span class="font-medium text-slate-700">{{ period_label }}</span>
+  </p>
+</form>
+
+{# ===== Resumen del periodo ===== #}
+<section class="grid md:grid-cols-4 gap-4 mb-6">
   <div class="bg-white p-5 rounded-xl shadow-sm border">
-    <p class="text-sm text-slate-500">Ingresos del año</p>
-    <p class="text-2xl font-bold text-indigo-600">{{ tenant.currency }} {{ '%.2f'|format(revenue_year) }}</p>
+    <p class="text-sm text-slate-500">Ingresos del periodo</p>
+    <p class="text-2xl font-bold text-indigo-600">{{ tenant.currency }} {{ '%.2f'|format(revenue_period) }}</p>
+  </div>
+  <div class="bg-white p-5 rounded-xl shadow-sm border">
+    <p class="text-sm text-slate-500">Utilidad bruta estimada</p>
+    <p class="text-2xl font-bold text-emerald-600">{{ tenant.currency }} {{ '%.2f'|format(profit_total) }}</p>
+  </div>
+  <div class="bg-white p-5 rounded-xl shadow-sm border">
+    <p class="text-sm text-slate-500">Margen bruto</p>
+    <p class="text-2xl font-bold">{{ '%.1f'|format(margin) }}%</p>
   </div>
   <div class="bg-white p-5 rounded-xl shadow-sm border">
     <p class="text-sm text-slate-500">Facturas emitidas</p>
-    <p class="text-2xl font-bold">{{ invoices_year }}</p>
-  </div>
-  <div class="bg-white p-5 rounded-xl shadow-sm border">
-    <p class="text-sm text-slate-500">Por cobrar</p>
-    <p class="text-2xl font-bold text-amber-600">{{ tenant.currency }} {{ '%.2f'|format(pending_total) }}</p>
+    <p class="text-2xl font-bold">{{ invoices_period }}</p>
   </div>
 </section>
 
-{# ===== Ventas por mes ===== #}
+{# ===== Utilidad por periodo ===== #}
+<section class="bg-white p-6 rounded-xl shadow-sm border mb-6">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div>
+      <h3 class="text-lg font-semibold">Ingresos y utilidad</h3>
+      <p class="text-sm text-slate-500">Utilidad bruta = subtotal vendido menos costo registrado del producto.</p>
+    </div>
+    <div class="text-sm text-slate-500">Por periodo</div>
+  </div>
+  <div style="height:300px">
+    <canvas id="profitChart"></canvas>
+  </div>
+</section>
+
 <section class="bg-white p-6 rounded-xl shadow-sm border mb-6">
   <h3 class="text-lg font-semibold mb-4">Ventas por mes (últimos 12 meses)</h3>
-  <div style="height:300px">
+  <div style="height:240px">
     <canvas id="monthlyChart"></canvas>
   </div>
 </section>
@@ -32,7 +70,7 @@
 
   {# ===== Top productos ===== #}
   <section class="bg-white p-6 rounded-xl shadow-sm border">
-    <h3 class="text-lg font-semibold mb-4">Top 10 productos del año</h3>
+    <h3 class="text-lg font-semibold mb-4">Top 10 productos del periodo</h3>
     {% if top_products %}
       <table class="saas-table w-full">
         <thead>
@@ -40,6 +78,7 @@
             <th>Producto</th>
             <th class="text-right">Unidades</th>
             <th class="text-right">Ingresos</th>
+            <th class="text-right">Utilidad</th>
           </tr>
         </thead>
         <tbody>
@@ -51,6 +90,7 @@
               </td>
               <td class="text-right">{{ '%.0f'|format(p.units) }}</td>
               <td class="text-right font-mono font-semibold">{{ '%.2f'|format(p.revenue) }}</td>
+              <td class="text-right font-mono font-semibold text-emerald-700">{{ '%.2f'|format(p.profit) }}</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -62,7 +102,7 @@
 
   {# ===== Top clientes ===== #}
   <section class="bg-white p-6 rounded-xl shadow-sm border">
-    <h3 class="text-lg font-semibold mb-4">Top 10 clientes del año</h3>
+    <h3 class="text-lg font-semibold mb-4">Top 10 clientes del periodo</h3>
     {% if top_customers %}
       <table class="saas-table w-full">
         <thead>
@@ -96,7 +136,7 @@
   <section class="bg-white p-6 rounded-xl shadow-sm border">
     <div class="mb-4">
       <h3 class="text-lg font-semibold">Distribución por método de pago</h3>
-      <p class="text-sm text-slate-500">Gráfico del mes actual: {{ current_month_label }}</p>
+      <p class="text-sm text-slate-500">Periodo: {{ period_label }}</p>
     </div>
     {% if payment_methods %}
       <div class="grid md:grid-cols-2 gap-6 items-center">
@@ -125,7 +165,7 @@
   <section class="bg-white p-6 rounded-xl shadow-sm border">
     <div class="mb-4">
       <h3 class="text-lg font-semibold">Distribución de ventas por categoría</h3>
-      <p class="text-sm text-slate-500">Gráfico del mes actual: {{ current_month_label }}</p>
+      <p class="text-sm text-slate-500">Periodo: {{ period_label }}</p>
     </div>
     {% if sales_by_category %}
       <div class="grid md:grid-cols-2 gap-6 items-center">
@@ -152,6 +192,38 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
+// Utilidad bruta por periodo
+new Chart(document.getElementById('profitChart'), {
+  type: 'bar',
+  data: {
+    labels: {{ chart_labels | tojson }},
+    datasets: [
+      {
+        label: 'Ingresos',
+        data: {{ chart_revenue_values | tojson }},
+        backgroundColor: '#6366f1',
+        borderRadius: 6,
+      },
+      {
+        label: 'Utilidad bruta',
+        data: {{ chart_profit_values | tojson }},
+        backgroundColor: '#10b981',
+        borderRadius: 6,
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom' } },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: { callback: v => '{{ tenant.currency }} ' + v.toLocaleString() }
+      }
+    }
+  }
+});
+
 // Ventas por mes
 new Chart(document.getElementById('monthlyChart'), {
   type: 'bar',
