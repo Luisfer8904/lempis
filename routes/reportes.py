@@ -55,6 +55,8 @@ def index():
     total_revenue = sum(float(r.revenue or 0) for r in rows)
     total_cost = sum(float(r.cost or 0) for r in rows)
     margin = (total_profit / total_revenue * 100) if total_revenue else 0
+    year_start = datetime(now.year, 1, 1)
+    year_context = _summary_blocks_context(tenant, year_start, month_end, valid_statuses)
 
     return render_template(
         "reportes/index.html",
@@ -67,6 +69,7 @@ def index():
         total_revenue=total_revenue,
         total_cost=total_cost,
         margin=margin,
+        **year_context,
     )
 
 
@@ -563,6 +566,93 @@ def _profit_by_category(tenant_id, period_start, period_end, valid_statuses):
         .group_by(func.coalesce(Category.name, "Sin categoría"))
         .order_by(func.sum(InvoiceItem.subtotal - (InvoiceItem.quantity * func.coalesce(Product.cost, 0))).desc())
         .all()
+    )
+
+
+def _summary_blocks_context(tenant, period_start, period_end, valid_statuses):
+    top_products = (
+        db.session.query(
+            Product.name.label("name"),
+            Product.sku.label("sku"),
+            func.coalesce(func.sum(InvoiceItem.subtotal), 0).label("revenue"),
+            func.coalesce(func.sum(InvoiceItem.quantity), 0).label("units"),
+            func.coalesce(
+                func.sum(InvoiceItem.subtotal - (InvoiceItem.quantity * func.coalesce(Product.cost, 0))),
+                0,
+            ).label("profit"),
+        )
+        .join(InvoiceItem, InvoiceItem.product_id == Product.id)
+        .join(Invoice, Invoice.id == InvoiceItem.invoice_id)
+        .filter(
+            Product.tenant_id == tenant.id,
+            Invoice.status.in_(valid_statuses),
+            Invoice.issue_date >= period_start,
+            Invoice.issue_date < period_end,
+        )
+        .group_by(Product.id, Product.name, Product.sku)
+        .order_by(func.sum(InvoiceItem.subtotal).desc())
+        .limit(10)
+        .all()
+    )
+    top_customers = (
+        db.session.query(
+            Customer.name.label("name"),
+            Customer.tax_id.label("tax_id"),
+            func.coalesce(func.sum(Invoice.total), 0).label("revenue"),
+            func.count(Invoice.id).label("count"),
+        )
+        .join(Invoice, Invoice.customer_id == Customer.id)
+        .filter(
+            Customer.tenant_id == tenant.id,
+            Invoice.status.in_(valid_statuses),
+            Invoice.issue_date >= period_start,
+            Invoice.issue_date < period_end,
+        )
+        .group_by(Customer.id, Customer.name, Customer.tax_id)
+        .order_by(func.sum(Invoice.total).desc())
+        .limit(10)
+        .all()
+    )
+    payment_methods = (
+        db.session.query(
+            Invoice.payment_method.label("method"),
+            func.count(Invoice.id).label("count"),
+            func.coalesce(func.sum(Invoice.total), 0).label("total"),
+        )
+        .filter(
+            Invoice.tenant_id == tenant.id,
+            Invoice.status.in_(valid_statuses),
+            Invoice.issue_date >= period_start,
+            Invoice.issue_date < period_end,
+        )
+        .group_by(Invoice.payment_method)
+        .all()
+    )
+    sales_by_category = (
+        db.session.query(
+            func.coalesce(Category.name, "Sin categoría").label("category"),
+            func.coalesce(func.sum(InvoiceItem.subtotal), 0).label("total"),
+            func.coalesce(func.sum(InvoiceItem.quantity), 0).label("units"),
+        )
+        .join(Invoice, Invoice.id == InvoiceItem.invoice_id)
+        .join(Product, Product.id == InvoiceItem.product_id)
+        .outerjoin(Category, Category.id == Product.category_id)
+        .filter(
+            Product.tenant_id == tenant.id,
+            Invoice.status.in_(valid_statuses),
+            Invoice.issue_date >= period_start,
+            Invoice.issue_date < period_end,
+        )
+        .group_by(func.coalesce(Category.name, "Sin categoría"))
+        .order_by(func.sum(InvoiceItem.subtotal).desc())
+        .all()
+    )
+    return dict(
+        summary_period_label=f"{period_start.strftime('%d/%m/%Y')} - {(period_end - timedelta(days=1)).strftime('%d/%m/%Y')}",
+        top_products=top_products,
+        top_customers=top_customers,
+        payment_methods=payment_methods,
+        sales_by_category=sales_by_category,
     )
 
 

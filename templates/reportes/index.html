@@ -85,6 +85,125 @@
   </aside>
 </section>
 
+<div class="grid lg:grid-cols-2 gap-6 mt-6">
+  <section class="bg-white p-6 rounded-xl shadow-sm border">
+    <h3 class="text-lg font-semibold mb-4">Top 10 productos del periodo</h3>
+    {% if top_products %}
+      <table class="saas-table w-full">
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th class="text-right">Unidades</th>
+            <th class="text-right">Ingresos</th>
+            <th class="text-right">Utilidad</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in top_products %}
+            <tr>
+              <td>
+                <div class="font-medium">{{ p.name }}</div>
+                <div class="text-xs text-slate-500 font-mono">{{ p.sku }}</div>
+              </td>
+              <td class="text-right">{{ '%.0f'|format(p.units) }}</td>
+              <td class="text-right font-mono font-semibold">{{ '%.2f'|format(p.revenue) }}</td>
+              <td class="text-right font-mono font-semibold text-emerald-700">{{ '%.2f'|format(p.profit) }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="text-center text-slate-400 py-8">Sin datos aún</p>
+    {% endif %}
+  </section>
+
+  <section class="bg-white p-6 rounded-xl shadow-sm border">
+    <h3 class="text-lg font-semibold mb-4">Top 10 clientes del periodo</h3>
+    {% if top_customers %}
+      <table class="saas-table w-full">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th class="text-right">Facturas</th>
+            <th class="text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in top_customers %}
+            <tr>
+              <td>
+                <div class="font-medium">{{ c.name }}</div>
+                {% if c.tax_id %}<div class="text-xs text-slate-500 font-mono">{{ c.tax_id }}</div>{% endif %}
+              </td>
+              <td class="text-right">{{ c.count }}</td>
+              <td class="text-right font-mono font-semibold">{{ '%.2f'|format(c.revenue) }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="text-center text-slate-400 py-8">Sin datos aún</p>
+    {% endif %}
+  </section>
+</div>
+
+<div class="grid lg:grid-cols-2 gap-6 mt-6">
+  <section class="bg-white p-6 rounded-xl shadow-sm border">
+    <div class="mb-4">
+      <h3 class="text-lg font-semibold">Distribución por método de pago</h3>
+      <p class="text-sm text-slate-500">Periodo: {{ summary_period_label }}</p>
+    </div>
+    {% if payment_methods %}
+      <div class="grid md:grid-cols-2 gap-6 items-center">
+        <div style="height:240px">
+          <canvas id="paymentChart"></canvas>
+        </div>
+        <div class="space-y-2">
+          {% set labels = {'efectivo': 'Efectivo', 'transferencia': 'Transferencia', 'tarjeta': 'Tarjeta', 'credito': 'Crédito'} %}
+          {% for pm in payment_methods %}
+            <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
+              <span class="font-medium">{{ labels.get(pm.method, pm.method) }}</span>
+              <div class="text-right">
+                <div class="text-sm text-slate-500">{{ pm.count }} factura(s)</div>
+                <div class="font-mono font-semibold">{{ '%.2f'|format(pm.total) }}</div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% else %}
+      <p class="text-center text-slate-400 py-8">Sin datos para el periodo</p>
+    {% endif %}
+  </section>
+
+  <section class="bg-white p-6 rounded-xl shadow-sm border">
+    <div class="mb-4">
+      <h3 class="text-lg font-semibold">Distribución de ventas por categoría</h3>
+      <p class="text-sm text-slate-500">Periodo: {{ summary_period_label }}</p>
+    </div>
+    {% if sales_by_category %}
+      <div class="grid md:grid-cols-2 gap-6 items-center">
+        <div style="height:240px">
+          <canvas id="categoryChart"></canvas>
+        </div>
+        <div class="space-y-2">
+          {% for category in sales_by_category %}
+            <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
+              <span class="font-medium">{{ category.category }}</span>
+              <div class="text-right">
+                <div class="text-sm text-slate-500">{{ '%.0f'|format(category.units) }} unidad(es)</div>
+                <div class="font-mono font-semibold">{{ '%.2f'|format(category.total) }}</div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% else %}
+      <p class="text-center text-slate-400 py-8">Sin ventas por categoría</p>
+    {% endif %}
+  </section>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 {% if category_profit %}
@@ -110,6 +229,48 @@ new Chart(document.getElementById('profitPie'), {
         }
       }
     }
+  }
+});
+{% endif %}
+
+{% if payment_methods %}
+const paymentMethodLabels = {
+  efectivo: 'Efectivo',
+  transferencia: 'Transferencia',
+  tarjeta: 'Tarjeta',
+  credito: 'Crédito',
+};
+new Chart(document.getElementById('paymentChart'), {
+  type: 'doughnut',
+  data: {
+    labels: {{ payment_methods | map(attribute='method') | list | tojson }}.map(
+      method => paymentMethodLabels[method] || method
+    ),
+    datasets: [{
+      data: {{ payment_methods | map(attribute='total') | map('float') | list | tojson }},
+      backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444'],
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom' } }
+  }
+});
+{% endif %}
+
+{% if sales_by_category %}
+new Chart(document.getElementById('categoryChart'), {
+  type: 'doughnut',
+  data: {
+    labels: {{ sales_by_category | map(attribute='category') | list | tojson }},
+    datasets: [{
+      data: {{ sales_by_category | map(attribute='total') | map('float') | list | tojson }},
+      backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#0ea5e9', '#8b5cf6'],
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom' } }
   }
 });
 {% endif %}
