@@ -9,10 +9,19 @@ Reportes y analítica del tenant:
 from __future__ import annotations
 
 from datetime import datetime, time, timedelta
+from io import BytesIO
 from sqlalchemy import func, extract
 
-from flask import Blueprint, render_template, request
+from flask import Blueprint, render_template, request, send_file
 from flask_login import login_required
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
+from openpyxl.utils import get_column_letter
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 
 from models import db
 from models.invoice import Invoice, InvoiceItem
@@ -28,6 +37,72 @@ reportes_bp = Blueprint("reportes", __name__, url_prefix="/app/reportes")
 @tenant_required
 @permission_required("reports.view")
 def index():
+    tenant = current_tenant()
+    now = datetime.utcnow()
+    month_start = datetime(now.year, now.month, 1)
+    month_end = datetime.combine(now.date() + timedelta(days=1), time.min)
+    valid_statuses = ["issued", "paid", "partially_paid", "overdue"]
+
+    rows = _profit_by_category(tenant.id, month_start, month_end, valid_statuses)
+    total_profit = sum(float(r.profit or 0) for r in rows)
+    total_revenue = sum(float(r.revenue or 0) for r in rows)
+    total_cost = sum(float(r.cost or 0) for r in rows)
+    margin = (total_profit / total_revenue * 100) if total_revenue else 0
+
+    return render_template(
+        "reportes/index.html",
+        tenant=tenant,
+        period_label=f"01/{now.month:02d}/{now.year} - {now.strftime('%d/%m/%Y')}",
+        category_profit=rows,
+        category_labels=[r.category for r in rows],
+        category_profit_values=[float(r.profit or 0) for r in rows],
+        total_profit=total_profit,
+        total_revenue=total_revenue,
+        total_cost=total_cost,
+        margin=margin,
+    )
+
+
+@reportes_bp.route("/detallado")
+@login_required
+@tenant_required
+@permission_required("reports.view")
+def detallado():
+    context = _detailed_context()
+    return render_template("reportes/detallado.html", **context)
+
+
+@reportes_bp.route("/detallado/excel")
+@login_required
+@tenant_required
+@permission_required("reports.view")
+def detallado_excel():
+    context = _detailed_context()
+    stream = _build_excel_report(context)
+    return send_file(
+        stream,
+        as_attachment=True,
+        download_name=f"reporte-detallado-{context['desde']}-{context['hasta']}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+@reportes_bp.route("/detallado/pdf")
+@login_required
+@tenant_required
+@permission_required("reports.view")
+def detallado_pdf():
+    context = _detailed_context()
+    stream = _build_pdf_report(context)
+    return send_file(
+        stream,
+        as_attachment=True,
+        download_name=f"reporte-detallado-{context['desde']}-{context['hasta']}.pdf",
+        mimetype="application/pdf",
+    )
+
+
+def _detailed_context():
     tenant = current_tenant()
     now = datetime.utcnow()
     year_start = datetime(now.year, 1, 1)
@@ -256,8 +331,7 @@ def index():
         .scalar()
     )
 
-    return render_template(
-        "reportes/index.html",
+    return dict(
         tenant=tenant,
         months_labels=months_labels,
         months_values=months_values,
@@ -278,6 +352,149 @@ def index():
         hasta=end_date.isoformat(),
         period_label=f"{start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}",
     )
+
+
+def _profit_by_category(tenant_id, period_start, period_end, valid_statuses):
+    return (
+        db.session.query(
+            func.coalesce(Category.name, "Sin categoría").label("category"),
+            func.coalesce(func.sum(InvoiceItem.subtotal), 0).label("revenue"),
+            func.coalesce(func.sum(InvoiceItem.quantity * func.coalesce(Product.cost, 0)), 0).label("cost"),
+            func.coalesce(
+                func.sum(InvoiceItem.subtotal - (InvoiceItem.quantity * func.coalesce(Product.cost, 0))),
+                0,
+            ).label("profit"),
+            func.coalesce(func.sum(InvoiceItem.quantity), 0).label("units"),
+        )
+        .join(Invoice, Invoice.id == InvoiceItem.invoice_id)
+        .outerjoin(Product, Product.id == InvoiceItem.product_id)
+        .outerjoin(Category, Category.id == Product.category_id)
+        .filter(
+            InvoiceItem.tenant_id == tenant_id,
+            Invoice.status.in_(valid_statuses),
+            Invoice.issue_date >= period_start,
+            Invoice.issue_date < period_end,
+        )
+        .group_by(func.coalesce(Category.name, "Sin categoría"))
+        .order_by(func.sum(InvoiceItem.subtotal - (InvoiceItem.quantity * func.coalesce(Product.cost, 0))).desc())
+        .all()
+    )
+
+
+def _build_excel_report(context):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Resumen"
+    headers = ["Indicador", "Valor"]
+    ws.append(headers)
+    ws.append(["Periodo", context["period_label"]])
+    ws.append(["Ingresos", context["revenue_period"]])
+    ws.append(["Utilidad bruta estimada", context["profit_total"]])
+    ws.append(["Margen bruto", f"{context['margin']:.1f}%"])
+    ws.append(["Facturas", context["invoices_period"]])
+    _style_sheet(ws)
+
+    products = wb.create_sheet("Productos")
+    products.append(["Producto", "SKU", "Unidades", "Ingresos", "Utilidad"])
+    for p in context["top_products"]:
+        products.append([p.name, p.sku, float(p.units or 0), float(p.revenue or 0), float(p.profit or 0)])
+    _style_sheet(products)
+
+    customers = wb.create_sheet("Clientes")
+    customers.append(["Cliente", "RTN", "Facturas", "Total"])
+    for c in context["top_customers"]:
+        customers.append([c.name, c.tax_id or "", c.count, float(c.revenue or 0)])
+    _style_sheet(customers)
+
+    payments = wb.create_sheet("Metodos de pago")
+    payments.append(["Metodo", "Facturas", "Total"])
+    for pm in context["payment_methods"]:
+        payments.append([pm.method, pm.count, float(pm.total or 0)])
+    _style_sheet(payments)
+
+    categories = wb.create_sheet("Categorias")
+    categories.append(["Categoria", "Unidades", "Total"])
+    for cat in context["sales_by_category"]:
+        categories.append([cat.category, float(cat.units or 0), float(cat.total or 0)])
+    _style_sheet(categories)
+
+    stream = BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+    return stream
+
+
+def _style_sheet(ws):
+    fill = PatternFill("solid", fgColor="EEF2FF")
+    for cell in ws[1]:
+        cell.font = Font(bold=True, color="1E293B")
+        cell.fill = fill
+    ws.freeze_panes = "A2"
+    for col in ws.columns:
+        letter = get_column_letter(col[0].column)
+        width = max(len(str(cell.value or "")) for cell in col)
+        ws.column_dimensions[letter].width = min(max(width + 2, 12), 42)
+
+
+def _build_pdf_report(context):
+    stream = BytesIO()
+    doc = SimpleDocTemplate(
+        stream,
+        pagesize=letter,
+        rightMargin=14 * mm,
+        leftMargin=14 * mm,
+        topMargin=14 * mm,
+        bottomMargin=14 * mm,
+    )
+    styles = getSampleStyleSheet()
+    story = [
+        Paragraph("Reporte detallado", styles["Title"]),
+        Paragraph(f"Periodo: {context['period_label']}", styles["Normal"]),
+        Spacer(1, 8),
+    ]
+    summary_data = [
+        ["Ingresos", f"{context['tenant'].currency} {context['revenue_period']:.2f}"],
+        ["Utilidad bruta estimada", f"{context['tenant'].currency} {context['profit_total']:.2f}"],
+        ["Margen bruto", f"{context['margin']:.1f}%"],
+        ["Facturas", str(context["invoices_period"])],
+    ]
+    story.append(_pdf_table(summary_data, [70 * mm, 55 * mm]))
+    story += [Spacer(1, 12), Paragraph("Top productos", styles["Heading2"])]
+    product_rows = [["Producto", "Unid.", "Ingresos", "Utilidad"]]
+    for p in context["top_products"]:
+        product_rows.append([
+            p.name[:36],
+            f"{float(p.units or 0):.0f}",
+            f"{float(p.revenue or 0):.2f}",
+            f"{float(p.profit or 0):.2f}",
+        ])
+    story.append(_pdf_table(product_rows, [70 * mm, 25 * mm, 35 * mm, 35 * mm], header=True))
+    story += [Spacer(1, 12), Paragraph("Top clientes", styles["Heading2"])]
+    customer_rows = [["Cliente", "Facturas", "Total"]]
+    for c in context["top_customers"]:
+        customer_rows.append([c.name[:42], str(c.count), f"{float(c.revenue or 0):.2f}"])
+    story.append(_pdf_table(customer_rows, [90 * mm, 30 * mm, 45 * mm], header=True))
+    doc.build(story)
+    stream.seek(0)
+    return stream
+
+
+def _pdf_table(data, col_widths, header=False):
+    table = Table(data, colWidths=col_widths)
+    style = [
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#CBD5E1")),
+        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ROWBACKGROUNDS", (0, 1 if header else 0), (-1, -1), [colors.white, colors.HexColor("#F8FAFC")]),
+    ]
+    if header:
+        style += [
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EEF2FF")),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ]
+    table.setStyle(TableStyle(style))
+    return table
 
 
 def _parse_date(value: str | None):
