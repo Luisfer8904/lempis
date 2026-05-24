@@ -98,12 +98,18 @@
 
       {% if current_user.has_permission('reports.view') %}{{ navlink('reportes.index', 'Reportes', '📊') }}{% endif %}
 
+      {% if current_user.has_permission('settings.manage') or current_user.has_permission('users.manage') or current_user.is_admin() %}
       <div class="pt-4 mt-4 border-t">
-        {% if current_user.has_permission('users.manage') %}
-          {{ navlink('usuarios.list',         'Equipo',        '🧑‍🤝‍🧑') }}
+        <p class="px-3 text-[10px] text-slate-400 uppercase font-semibold mb-1">Configuración</p>
+        {% if current_user.has_permission('settings.manage') %}
+          {{ navlink('configuracion.empresa', 'General', '⚙️') }}
         {% endif %}
-        {% if current_user.has_permission('settings.manage') %}{{ navlink('configuracion.empresa', 'Configuración', '⚙️') }}{% endif %}
-        {% if current_user.is_admin() %}{{ navlink('billing.index', 'Suscripción', '💳') }}{% endif %}
+        {% if current_user.has_permission('users.manage') %}
+          {{ navlink('usuarios.list', 'Equipo', '🧑‍🤝‍🧑') }}
+        {% endif %}
+        {% if current_user.is_admin() %}
+          {{ navlink('billing.index', 'Suscripción', '💳') }}
+        {% endif %}
         {% if current_user.is_superadmin %}
           <a href="{{ url_for('admin.index') }}"
              class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
@@ -112,6 +118,7 @@
           </a>
         {% endif %}
       </div>
+      {% endif %}
     </nav>
 
     <div class="px-4 py-3 border-t flex items-center gap-3">

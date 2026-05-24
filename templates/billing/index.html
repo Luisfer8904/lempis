@@ -1,7 +1,10 @@
-{% extends "base.html" %}
+{% extends "app/_layout.html" %}
 {% block title %}Suscripción — {{ APP_NAME }}{% endblock %}
+{% block heading %}Configuración{% endblock %}
 
 {% block content %}
+{% include "configuracion/_tabs.html" %}
+
 <h1 class="text-3xl font-bold mb-6">Tu suscripción</h1>
 
 <div class="bg-white p-6 rounded-xl shadow-sm mb-8">

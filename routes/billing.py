@@ -17,6 +17,7 @@ billing_bp = Blueprint("billing", __name__, url_prefix="/app/billing")
 
 @billing_bp.route("/")
 @login_required
+@admin_required
 @tenant_required
 def index():
     tenant = current_tenant()
