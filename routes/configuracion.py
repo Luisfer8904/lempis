@@ -4,13 +4,14 @@ Página de configuración del tenant:
 - Configuración SAR Honduras (CAI, rangos, EST/PV/TD, correlativo)
 """
 from datetime import datetime
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file
 from flask_login import login_required
 
 from models import db
 from models.printing import TenantPrintSettings
 from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
+from services.data_excel import build_export_workbook, build_template_workbook, import_workbook
 
 configuracion_bp = Blueprint("configuracion", __name__, url_prefix="/app/configuracion")
 
@@ -157,3 +158,71 @@ def impresion():
         return redirect(url_for("configuracion.impresion"))
 
     return render_template("configuracion/impresion.html", tenant=tenant, settings=settings)
+
+
+@configuracion_bp.route("/datos")
+@login_required
+@tenant_required
+@permission_required("settings.manage")
+def datos():
+    return render_template("configuracion/datos.html", tenant=current_tenant())
+
+
+@configuracion_bp.route("/datos/plantilla")
+@login_required
+@tenant_required
+@permission_required("settings.manage")
+def datos_plantilla():
+    return send_file(
+        build_template_workbook(),
+        as_attachment=True,
+        download_name="plantilla-lempis.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+@configuracion_bp.route("/datos/exportar")
+@login_required
+@tenant_required
+@permission_required("settings.manage")
+def datos_exportar():
+    tenant = current_tenant()
+    return send_file(
+        build_export_workbook(tenant),
+        as_attachment=True,
+        download_name=f"lempis-datos-{tenant.id}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+@configuracion_bp.route("/datos/importar", methods=["POST"])
+@login_required
+@tenant_required
+@permission_required("settings.manage")
+def datos_importar():
+    upload = request.files.get("file")
+    if not upload or not upload.filename:
+        flash("Selecciona un archivo Excel para importar.", "warning")
+        return redirect(url_for("configuracion.datos"))
+    if not upload.filename.lower().endswith(".xlsx"):
+        flash("El archivo debe ser .xlsx.", "danger")
+        return redirect(url_for("configuracion.datos"))
+
+    try:
+        stats = import_workbook(current_tenant(), upload)
+    except Exception as exc:
+        flash(f"No se pudo importar el archivo: {exc}", "danger")
+        return redirect(url_for("configuracion.datos"))
+
+    total_created = (
+        stats["categories_created"] + stats["products_created"]
+        + stats["customers_created"] + stats["suppliers_created"]
+    )
+    total_updated = (
+        stats["categories_updated"] + stats["products_updated"]
+        + stats["customers_updated"] + stats["suppliers_updated"]
+    )
+    flash(f"Importación completada: {total_created} creado(s), {total_updated} actualizado(s).", "success")
+    for error in stats["errors"]:
+        flash(error, "warning")
+    return redirect(url_for("configuracion.datos"))

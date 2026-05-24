@@ -1,0 +1,79 @@
+{% extends "app/_layout.html" %}
+{% block title %}Configuración — Datos{% endblock %}
+{% block heading %}Configuración{% endblock %}
+
+{% block content %}
+{% include "configuracion/_tabs.html" %}
+
+<div class="grid xl:grid-cols-2 gap-6 max-w-6xl">
+  <section class="bg-white rounded-xl border shadow-sm p-6">
+    <h2 class="text-lg font-semibold text-slate-900">Exportar datos</h2>
+    <p class="text-sm text-slate-500 mt-1">
+      Descarga productos, categorías, clientes y proveedores en un archivo Excel.
+    </p>
+
+    <div class="mt-6 rounded-lg border bg-slate-50 p-4 text-sm text-slate-600">
+      <p class="font-medium text-slate-800 mb-2">Incluye</p>
+      <div class="grid sm:grid-cols-2 gap-2">
+        <span>Productos y precios</span>
+        <span>Categorías</span>
+        <span>Clientes</span>
+        <span>Proveedores</span>
+      </div>
+    </div>
+
+    <div class="mt-6 flex flex-wrap gap-3">
+      <a href="{{ url_for('configuracion.datos_exportar') }}"
+         class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-white font-medium hover:bg-indigo-700">
+        Exportar Excel
+      </a>
+      <a href="{{ url_for('configuracion.datos_plantilla') }}"
+         class="inline-flex items-center justify-center rounded-lg border px-5 py-2.5 font-medium text-slate-700 hover:bg-slate-50">
+        Descargar plantilla
+      </a>
+    </div>
+  </section>
+
+  <section class="bg-white rounded-xl border shadow-sm p-6">
+    <h2 class="text-lg font-semibold text-slate-900">Importar Excel</h2>
+    <p class="text-sm text-slate-500 mt-1">
+      Carga el archivo exportado o la plantilla. Si el SKU, RTN o código ya existe, se actualiza.
+    </p>
+
+    <form method="POST" action="{{ url_for('configuracion.datos_importar') }}"
+          enctype="multipart/form-data" class="mt-6 space-y-5">
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-2">Archivo .xlsx</label>
+        <input type="file" name="file" accept=".xlsx" required
+               class="block w-full rounded-lg border px-3 py-2 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-indigo-700 hover:file:bg-indigo-100" />
+      </div>
+
+      <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        La importación modifica datos existentes cuando coincide el identificador. Revisa el Excel antes de cargarlo.
+      </div>
+
+      <button class="rounded-lg bg-slate-900 px-5 py-2.5 text-white font-medium hover:bg-slate-800">
+        Importar datos
+      </button>
+    </form>
+  </section>
+</div>
+
+<section class="mt-6 bg-white rounded-xl border shadow-sm p-6 max-w-6xl">
+  <h2 class="text-lg font-semibold text-slate-900">Columnas principales</h2>
+  <div class="mt-4 grid lg:grid-cols-3 gap-4 text-sm">
+    <div class="rounded-lg bg-slate-50 p-4">
+      <p class="font-semibold text-slate-800 mb-2">Productos</p>
+      <p class="text-slate-600">sku, nombre, categoría, precios, costo, stock, activo.</p>
+    </div>
+    <div class="rounded-lg bg-slate-50 p-4">
+      <p class="font-semibold text-slate-800 mb-2">Clientes</p>
+      <p class="text-slate-600">nombre, RTN, contacto, ciudad, tarifa de venta y estado.</p>
+    </div>
+    <div class="rounded-lg bg-slate-50 p-4">
+      <p class="font-semibold text-slate-800 mb-2">Proveedores</p>
+      <p class="text-slate-600">código, nombre, RTN, contacto, crédito y condiciones.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}
