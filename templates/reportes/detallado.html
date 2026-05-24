@@ -45,22 +45,41 @@
       {% if report_type %}
         <p class="text-sm text-slate-500 mt-1">
           {% if uses_dates %}Periodo: {{ period_label }}{% else %}Consulta actual{% endif %}
+          {% if selected_warehouse %} · {{ selected_warehouse.label }}{% endif %}
         </p>
       {% endif %}
     </div>
     {% if report_type %}
       <div class="flex flex-wrap gap-2">
-        <a href="{{ url_for('reportes.detallado_excel', tipo=report_type, desde=desde, hasta=hasta) }}"
+        <a href="{{ url_for('reportes.detallado_excel', tipo=report_type, desde=desde, hasta=hasta, warehouse_id=warehouse_id or '') }}"
            class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">
           Descargar Excel
         </a>
-        <a href="{{ url_for('reportes.detallado_pdf', tipo=report_type, desde=desde, hasta=hasta) }}"
+        <a href="{{ url_for('reportes.detallado_pdf', tipo=report_type, desde=desde, hasta=hasta, warehouse_id=warehouse_id or '') }}"
            class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
           Descargar PDF
         </a>
       </div>
     {% endif %}
   </div>
+
+  {% if report_type in ['inventario', 'productos_vencer'] %}
+    <form method="GET" class="px-5 py-4 border-b bg-slate-50 flex flex-wrap items-end gap-3">
+      <input type="hidden" name="tipo" value="{{ report_type }}" />
+      <div class="min-w-[260px]">
+        <label class="block text-xs font-medium text-slate-500 mb-1">Sede / bodega</label>
+        <select name="warehouse_id" class="w-full rounded-lg border px-3 py-2 bg-white text-sm">
+          <option value="">Toda la empresa</option>
+          {% for w in warehouses %}
+            <option value="{{ w.id }}" {% if warehouse_id == w.id %}selected{% endif %}>{{ w.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+        Filtrar
+      </button>
+    </form>
+  {% endif %}
 
   {% if report_type %}
     <div class="overflow-x-auto">

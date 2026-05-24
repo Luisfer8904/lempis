@@ -26,8 +26,10 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from models import db
 from models.invoice import Invoice, InvoiceItem
 from models.catalog import Product, Customer, Category, ProductBatch
+from models.locations import Branch, Warehouse, WarehouseStock
 from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
+from services.locations import active_warehouses, sync_default_warehouse_stock
 
 reportes_bp = Blueprint("reportes", __name__, url_prefix="/app/reportes")
 
@@ -128,7 +130,11 @@ def _custom_report_context():
         start_date, end_date = end_date, start_date
 
     title, description = report_map.get(report_type, ("Selecciona un reporte", "Elige el tipo de reporte que quieres consultar."))
-    columns, rows, totals = _custom_report_data(tenant, report_type, start_date, end_date)
+    sync_default_warehouse_stock(tenant)
+    warehouse_id = request.args.get("warehouse_id", type=int) or None
+    columns, rows, totals = _custom_report_data(tenant, report_type, start_date, end_date, warehouse_id)
+    warehouses = active_warehouses(tenant.id)
+    selected_warehouse = next((w for w in warehouses if w.id == warehouse_id), None)
     return dict(
         tenant=tenant,
         report_options=REPORT_OPTIONS,
@@ -143,10 +149,13 @@ def _custom_report_context():
         hasta=end_date.isoformat(),
         period_label=f"{start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}",
         uses_dates=report_type in {"ventas_contado", "ventas_credito"},
+        warehouses=warehouses,
+        warehouse_id=warehouse_id,
+        selected_warehouse=selected_warehouse,
     )
 
 
-def _custom_report_data(tenant, report_type, start_date, end_date):
+def _custom_report_data(tenant, report_type, start_date, end_date, warehouse_id=None):
     if not report_type:
         return [], [], {}
     period_start = datetime.combine(start_date, time.min)
@@ -224,27 +233,34 @@ def _custom_report_data(tenant, report_type, start_date, end_date):
         )
 
     if report_type == "inventario":
-        products = (
-            Product.query
-            .filter(Product.tenant_id == tenant.id)
-            .order_by(Product.name.asc())
-            .all()
+        query = (
+            db.session.query(WarehouseStock, Product, Warehouse, Branch)
+            .join(Product, Product.id == WarehouseStock.product_id)
+            .join(Warehouse, Warehouse.id == WarehouseStock.warehouse_id)
+            .join(Branch, Branch.id == Warehouse.branch_id)
+            .filter(WarehouseStock.tenant_id == tenant.id)
         )
+        if warehouse_id:
+            query = query.filter(WarehouseStock.warehouse_id == warehouse_id)
+        stock_rows = query.order_by(Branch.name.asc(), Warehouse.name.asc(), Product.name.asc()).all()
         rows = [{
-            "sku": p.sku,
-            "producto": p.name,
-            "categoria": p.category.name if p.category else "Sin categoría",
-            "stock": float(p.stock or 0),
-            "costo": float(p.cost or 0),
-            "precio": float(p.price or 0),
-            "valor_costo": float((p.stock or 0) * (p.cost or 0)),
-            "activo": "Activo" if p.is_active else "Inactivo",
-        } for p in products]
+            "sede": branch.name,
+            "bodega": warehouse.name,
+            "sku": product.sku,
+            "producto": product.name,
+            "categoria": product.category.name if product.category else "Sin categoría",
+            "lote": stock.batch.batch_number if stock.batch else "",
+            "stock": float(stock.quantity or 0),
+            "costo": float(product.cost or 0),
+            "valor_costo": float((stock.quantity or 0) * (product.cost or 0)),
+            "activo": "Activo" if product.is_active else "Inactivo",
+        } for stock, product, warehouse, branch in stock_rows]
         return (
             [
+                ("sede", "Sede", "text"), ("bodega", "Bodega", "text"),
                 ("sku", "SKU", "text"), ("producto", "Producto", "text"),
-                ("categoria", "Categoría", "text"), ("stock", "Stock", "number"),
-                ("costo", "Costo", "money"), ("precio", "Precio", "money"),
+                ("categoria", "Categoría", "text"), ("lote", "Lote", "text"),
+                ("stock", "Stock", "number"), ("costo", "Costo", "money"),
                 ("valor_costo", "Valor costo", "money"), ("activo", "Estado", "text"),
             ],
             rows,
@@ -254,30 +270,38 @@ def _custom_report_data(tenant, report_type, start_date, end_date):
     if report_type == "productos_vencer":
         today = datetime.utcnow().date()
         limit = today + timedelta(days=60)
-        batches = (
-            ProductBatch.query
+        query = (
+            db.session.query(ProductBatch, Product, Warehouse, Branch, WarehouseStock)
             .join(Product, Product.id == ProductBatch.product_id)
+            .join(WarehouseStock, WarehouseStock.batch_id == ProductBatch.id)
+            .join(Warehouse, Warehouse.id == WarehouseStock.warehouse_id)
+            .join(Branch, Branch.id == Warehouse.branch_id)
             .filter(
                 ProductBatch.tenant_id == tenant.id,
                 ProductBatch.expiration_date.isnot(None),
                 ProductBatch.expiration_date >= today,
                 ProductBatch.expiration_date <= limit,
                 ProductBatch.remaining_quantity > 0,
+                WarehouseStock.quantity > 0,
             )
-            .order_by(ProductBatch.expiration_date.asc())
-            .all()
         )
+        if warehouse_id:
+            query = query.filter(WarehouseStock.warehouse_id == warehouse_id)
+        batches = query.order_by(ProductBatch.expiration_date.asc()).all()
         rows = [{
-            "producto": b.product.name if b.product else "",
-            "sku": b.product.sku if b.product else "",
-            "lote": b.batch_number,
-            "vence": b.expiration_date.strftime("%d/%m/%Y") if b.expiration_date else "",
-            "dias": b.days_until_expiry,
-            "cantidad": float(b.remaining_quantity or 0),
-            "costo": float(b.cost or 0),
-        } for b in batches]
+            "sede": branch.name,
+            "bodega": warehouse.name,
+            "producto": product.name,
+            "sku": product.sku,
+            "lote": batch.batch_number,
+            "vence": batch.expiration_date.strftime("%d/%m/%Y") if batch.expiration_date else "",
+            "dias": batch.days_until_expiry,
+            "cantidad": float(stock.quantity or 0),
+            "costo": float(batch.cost or 0),
+        } for batch, product, warehouse, branch, stock in batches]
         return (
             [
+                ("sede", "Sede", "text"), ("bodega", "Bodega", "text"),
                 ("producto", "Producto", "text"), ("sku", "SKU", "text"),
                 ("lote", "Lote", "text"), ("vence", "Vence", "text"),
                 ("dias", "Días", "number"), ("cantidad", "Cantidad", "number"),

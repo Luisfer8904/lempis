@@ -37,15 +37,6 @@
             {% endif %}">
     📦 Datos
   </a>
-  <a href="{{ url_for('configuracion.ubicaciones') }}"
-     class="flex-1 min-w-[150px] text-center py-3 px-4 font-medium text-sm
-            {% if ep == 'configuracion.ubicaciones' %}
-              bg-indigo-50 text-indigo-700 border-b-2 border-indigo-600 rounded-t-xl
-            {% else %}
-              text-slate-600 hover:bg-slate-50
-            {% endif %}">
-    🏬 Sedes y bodegas
-  </a>
   {% if tenant and tenant.invoice_mode == 'sar_hn' %}
     <a href="{{ url_for('configuracion.sar') }}"
        class="flex-1 min-w-[130px] text-center py-3 px-4 font-medium text-sm

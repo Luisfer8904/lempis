@@ -1,0 +1,214 @@
+{% extends "app/_layout.html" %}
+{% block title %}Sedes y bodegas — {{ APP_NAME }}{% endblock %}
+{% block heading %}Sedes y bodegas{% endblock %}
+
+{% block content %}
+<section class="grid xl:grid-cols-3 gap-6">
+  <div class="xl:col-span-2 space-y-6">
+    <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+      <div class="px-6 py-5 border-b flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900">Ubicaciones de inventario</h2>
+          <p class="text-sm text-slate-500">Cada sede puede tener una o varias bodegas.</p>
+        </div>
+        <a href="{{ url_for('reportes.detallado', tipo='inventario') }}"
+           class="rounded-lg border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          Ver reporte
+        </a>
+      </div>
+      <div class="divide-y">
+        {% for branch in branches %}
+          <div class="p-6">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="font-semibold text-slate-900">{{ branch.name }}</h3>
+                  {% if branch.is_default %}
+                    <span class="text-xs font-medium px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">principal</span>
+                  {% endif %}
+                  <span class="text-xs font-medium px-2 py-0.5 rounded {{ 'bg-emerald-50 text-emerald-700' if branch.is_active else 'bg-slate-100 text-slate-500' }}">
+                    {{ 'Activa' if branch.is_active else 'Inactiva' }}
+                  </span>
+                </div>
+                <p class="text-sm text-slate-500 mt-1">
+                  {{ branch.city or 'Sin ciudad' }}{% if branch.code %} · {{ branch.code }}{% endif %}
+                </p>
+              </div>
+              {% if not branch.is_default %}
+                <form method="POST">
+                  <input type="hidden" name="action" value="toggle_branch" />
+                  <input type="hidden" name="branch_id" value="{{ branch.id }}" />
+                  <button class="text-sm {{ 'text-rose-600' if branch.is_active else 'text-emerald-700' }} hover:underline">
+                    {{ 'Desactivar' if branch.is_active else 'Activar' }}
+                  </button>
+                </form>
+              {% endif %}
+            </div>
+
+            <div class="mt-4 grid md:grid-cols-2 gap-3">
+              {% for warehouse in branch.warehouses %}
+                <div class="rounded-lg border bg-slate-50 px-4 py-3">
+                  <div class="flex items-center justify-between gap-3">
+                    <div>
+                      <p class="font-medium text-slate-900">{{ warehouse.name }}</p>
+                      <p class="text-xs text-slate-500">
+                        {{ warehouse.code or 'Sin código' }}
+                        {% if warehouse.is_default %} · bodega principal{% endif %}
+                      </p>
+                    </div>
+                    <span class="text-xs font-medium px-2 py-0.5 rounded {{ 'bg-emerald-50 text-emerald-700' if warehouse.is_active else 'bg-slate-200 text-slate-500' }}">
+                      {{ 'Activa' if warehouse.is_active else 'Inactiva' }}
+                    </span>
+                  </div>
+                  {% if not warehouse.is_default %}
+                    <form method="POST" class="mt-2">
+                      <input type="hidden" name="action" value="toggle_warehouse" />
+                      <input type="hidden" name="warehouse_id" value="{{ warehouse.id }}" />
+                      <button class="text-xs {{ 'text-rose-600' if warehouse.is_active else 'text-emerald-700' }} hover:underline">
+                        {{ 'Desactivar bodega' if warehouse.is_active else 'Activar bodega' }}
+                      </button>
+                    </form>
+                  {% endif %}
+                </div>
+              {% else %}
+                <div class="rounded-lg border border-dashed px-4 py-3 text-sm text-slate-500">
+                  Esta sede no tiene bodegas todavía.
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+      <div class="px-6 py-5 border-b">
+        <h2 class="text-lg font-semibold text-slate-900">Inventario por bodega</h2>
+        <p class="text-sm text-slate-500">Existencias actuales disponibles para transferir o vender.</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="saas-table w-full min-w-[760px]">
+          <thead>
+            <tr>
+              <th>Sede</th>
+              <th>Bodega</th>
+              <th>Producto</th>
+              <th>SKU</th>
+              <th class="text-right">Stock</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in stock_rows %}
+              <tr>
+                <td>{{ row.branch_name }}</td>
+                <td>{{ row.warehouse_name }}</td>
+                <td>{{ row.product_name }}</td>
+                <td class="font-mono text-xs">{{ row.sku }}</td>
+                <td class="text-right font-mono">{{ '%.2f'|format(row.quantity)|replace('.00', '') }}</td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="5" class="text-center py-8 text-slate-400">Sin inventario por bodega todavía.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <aside class="space-y-6">
+    <form method="POST" class="bg-white rounded-xl border shadow-sm p-5 space-y-4">
+      <input type="hidden" name="action" value="transfer" />
+      <div>
+        <h2 class="font-semibold text-slate-900">Transferir inventario</h2>
+        <p class="text-sm text-slate-500">Mueve producto entre bodegas o sedes.</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Producto *</label>
+        <select name="product_id" required class="w-full px-3 py-2 border rounded-lg bg-white">
+          <option value="">Seleccionar producto</option>
+          {% for row in stock_rows %}
+            <option value="{{ row.WarehouseStock.product_id }}"
+                    data-source="{{ row.WarehouseStock.warehouse_id }}"
+                    data-batch="{{ row.WarehouseStock.batch_id or '' }}">
+              {{ row.product_name }} · {{ row.warehouse_name }} · {{ '%.2f'|format(row.quantity)|replace('.00', '') }} disp.
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Bodega origen *</label>
+        <select name="source_warehouse_id" required class="w-full px-3 py-2 border rounded-lg bg-white">
+          {% for w in warehouses if w.is_active %}
+            <option value="{{ w.id }}">{{ w.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Bodega destino *</label>
+        <select name="target_warehouse_id" required class="w-full px-3 py-2 border rounded-lg bg-white">
+          {% for w in warehouses if w.is_active %}
+            <option value="{{ w.id }}">{{ w.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium mb-1">Cantidad *</label>
+          <input name="quantity" type="number" min="0.01" step="0.01" required class="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">ID lote</label>
+          <input name="batch_id" type="number" min="1" class="w-full px-3 py-2 border rounded-lg" placeholder="Opcional" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Nota</label>
+        <textarea name="notes" rows="2" class="w-full px-3 py-2 border rounded-lg"></textarea>
+      </div>
+      <button class="w-full bg-indigo-600 text-white py-2 rounded-lg font-medium hover:bg-indigo-700">
+        Registrar transferencia
+      </button>
+    </form>
+
+    <form method="POST" class="bg-white rounded-xl border shadow-sm p-5 space-y-4">
+      <input type="hidden" name="action" value="branch" />
+      <h2 class="font-semibold text-slate-900">Nueva sede</h2>
+      <input name="branch_name" required class="w-full px-3 py-2 border rounded-lg" placeholder="Sede Catacamas" />
+      <div class="grid grid-cols-2 gap-3">
+        <input name="branch_code" class="w-full px-3 py-2 border rounded-lg" placeholder="Código" />
+        <input name="branch_city" class="w-full px-3 py-2 border rounded-lg" placeholder="Ciudad" />
+      </div>
+      <textarea name="branch_address" rows="2" class="w-full px-3 py-2 border rounded-lg" placeholder="Dirección"></textarea>
+      <button class="w-full bg-slate-800 text-white py-2 rounded-lg font-medium hover:bg-slate-900">Crear sede</button>
+    </form>
+
+    <form method="POST" class="bg-white rounded-xl border shadow-sm p-5 space-y-4">
+      <input type="hidden" name="action" value="warehouse" />
+      <h2 class="font-semibold text-slate-900">Nueva bodega</h2>
+      <select name="warehouse_branch_id" required class="w-full px-3 py-2 border rounded-lg bg-white">
+        {% for branch in branches if branch.is_active %}
+          <option value="{{ branch.id }}">{{ branch.name }}</option>
+        {% endfor %}
+      </select>
+      <input name="warehouse_name" required class="w-full px-3 py-2 border rounded-lg" placeholder="Tienda" />
+      <input name="warehouse_code" class="w-full px-3 py-2 border rounded-lg" placeholder="Código" />
+      <button class="w-full bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700">Crear bodega</button>
+    </form>
+  </aside>
+</section>
+
+<script>
+const productSelect = document.querySelector('select[name="product_id"]');
+productSelect?.addEventListener('change', () => {
+  const option = productSelect.options[productSelect.selectedIndex];
+  const source = option?.dataset?.source || '';
+  const batch = option?.dataset?.batch || '';
+  const sourceSelect = document.querySelector('select[name="source_warehouse_id"]');
+  const batchInput = document.querySelector('input[name="batch_id"]');
+  if (source && sourceSelect) sourceSelect.value = source;
+  if (batchInput) batchInput.value = batch;
+});
+</script>
+{% endblock %}

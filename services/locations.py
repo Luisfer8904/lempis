@@ -118,6 +118,45 @@ def subtract_stock(tenant_id: int, warehouse_id: int, product_id: int, qty, batc
     _movement(tenant_id, product_id, batch_id, warehouse_id, None, quantity, "salida", reference)
 
 
+def transfer_stock(
+    tenant_id: int,
+    source_warehouse_id: int,
+    target_warehouse_id: int,
+    product_id: int,
+    qty,
+    batch_id=None,
+    notes: str | None = None,
+) -> None:
+    quantity = Decimal(str(qty or 0))
+    if quantity <= 0:
+        raise ValueError("La cantidad debe ser mayor a cero.")
+    if source_warehouse_id == target_warehouse_id:
+        raise ValueError("La bodega origen y destino deben ser diferentes.")
+    source = Warehouse.query.filter_by(id=source_warehouse_id, tenant_id=tenant_id, is_active=True).first()
+    target_warehouse = Warehouse.query.filter_by(id=target_warehouse_id, tenant_id=tenant_id, is_active=True).first()
+    if source is None or target_warehouse is None:
+        raise ValueError("Selecciona bodegas válidas y activas.")
+
+    available = get_or_create_stock(tenant_id, source_warehouse_id, product_id, batch_id)
+    if Decimal(available.quantity or 0) < quantity:
+        raise ValueError("La bodega origen no tiene suficiente inventario.")
+
+    available.subtract(quantity)
+    target = get_or_create_stock(tenant_id, target_warehouse_id, product_id, batch_id)
+    target.add(quantity)
+    _movement(
+        tenant_id,
+        product_id,
+        batch_id,
+        source_warehouse_id,
+        target_warehouse_id,
+        quantity,
+        "transferencia",
+        "transferencia",
+        notes,
+    )
+
+
 def sync_default_warehouse_stock(tenant) -> Warehouse:
     """
     Inicializa inventario por bodega desde el stock/lotes actuales.
@@ -150,7 +189,7 @@ def sync_default_warehouse_stock(tenant) -> Warehouse:
     return warehouse
 
 
-def _movement(tenant_id, product_id, batch_id, source_id, target_id, quantity, movement_type, reference=None) -> None:
+def _movement(tenant_id, product_id, batch_id, source_id, target_id, quantity, movement_type, reference=None, notes=None) -> None:
     db.session.add(StockMovement(
         tenant_id=tenant_id,
         product_id=product_id,
@@ -160,5 +199,6 @@ def _movement(tenant_id, product_id, batch_id, source_id, target_id, quantity, m
         quantity=quantity,
         movement_type=movement_type,
         reference=reference,
+        notes=notes,
         moved_at=datetime.utcnow(),
     ))

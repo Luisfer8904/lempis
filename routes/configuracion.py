@@ -9,11 +9,9 @@ from flask_login import login_required
 
 from models import db
 from models.printing import TenantPrintSettings
-from models.locations import Branch, Warehouse
 from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
 from services.data_excel import build_export_workbook, build_template_workbook, import_workbook
-from services.locations import sync_default_warehouse_stock
 
 configuracion_bp = Blueprint("configuracion", __name__, url_prefix="/app/configuracion")
 
@@ -175,78 +173,7 @@ def datos():
 @tenant_required
 @permission_required("settings.manage")
 def ubicaciones():
-    tenant = current_tenant()
-    sync_default_warehouse_stock(tenant)
-
-    if request.method == "POST":
-        action = request.form.get("action")
-        if action == "branch":
-            name = (request.form.get("branch_name") or "").strip()
-            if not name:
-                flash("Escribe el nombre de la sede.", "warning")
-                return redirect(url_for("configuracion.ubicaciones"))
-            branch = Branch(
-                tenant_id=tenant.id,
-                name=name,
-                code=(request.form.get("branch_code") or "").strip() or None,
-                city=(request.form.get("branch_city") or "").strip() or None,
-                address=(request.form.get("branch_address") or "").strip() or None,
-                is_active=True,
-            )
-            db.session.add(branch)
-            db.session.commit()
-            flash("Sede creada correctamente.", "success")
-            return redirect(url_for("configuracion.ubicaciones"))
-
-        if action == "warehouse":
-            branch_id = request.form.get("warehouse_branch_id", type=int)
-            branch = Branch.query.filter_by(id=branch_id, tenant_id=tenant.id, is_active=True).first()
-            name = (request.form.get("warehouse_name") or "").strip()
-            if branch is None or not name:
-                flash("Selecciona una sede y escribe el nombre de la bodega.", "warning")
-                return redirect(url_for("configuracion.ubicaciones"))
-            warehouse = Warehouse(
-                tenant_id=tenant.id,
-                branch_id=branch.id,
-                name=name,
-                code=(request.form.get("warehouse_code") or "").strip() or None,
-                is_active=True,
-            )
-            db.session.add(warehouse)
-            db.session.commit()
-            flash("Bodega creada correctamente.", "success")
-            return redirect(url_for("configuracion.ubicaciones"))
-
-        if action == "toggle_branch":
-            branch = Branch.query.filter_by(
-                id=request.form.get("branch_id", type=int),
-                tenant_id=tenant.id,
-            ).first()
-            if branch and not branch.is_default:
-                branch.is_active = not branch.is_active
-                db.session.commit()
-                flash("Estado de la sede actualizado.", "success")
-            return redirect(url_for("configuracion.ubicaciones"))
-
-        if action == "toggle_warehouse":
-            warehouse = Warehouse.query.filter_by(
-                id=request.form.get("warehouse_id", type=int),
-                tenant_id=tenant.id,
-            ).first()
-            if warehouse and not warehouse.is_default:
-                warehouse.is_active = not warehouse.is_active
-                db.session.commit()
-                flash("Estado de la bodega actualizado.", "success")
-            return redirect(url_for("configuracion.ubicaciones"))
-
-    branches = Branch.query.filter_by(tenant_id=tenant.id).order_by(Branch.is_default.desc(), Branch.name.asc()).all()
-    warehouses = Warehouse.query.filter_by(tenant_id=tenant.id).order_by(Warehouse.is_default.desc(), Warehouse.name.asc()).all()
-    return render_template(
-        "configuracion/ubicaciones.html",
-        tenant=tenant,
-        branches=branches,
-        warehouses=warehouses,
-    )
+    return redirect(url_for("ubicaciones.index"))
 
 
 @configuracion_bp.route("/datos/plantilla")
