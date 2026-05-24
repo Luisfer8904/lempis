@@ -25,9 +25,7 @@ pos_bp = Blueprint("pos", __name__, url_prefix="/app/venta")
 @tenant_required
 @permission_required("sales.create")
 def index():
-    tenant = current_tenant()
-    _, next_number = next_invoice_number(tenant)
-    return render_template("pos/chooser.html", tenant=tenant, next_number=next_number)
+    return redirect(url_for("pos.quick_sale"))
 
 
 @pos_bp.route("/rapida")
