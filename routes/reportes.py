@@ -25,11 +25,18 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 
 from models import db
 from models.invoice import Invoice, InvoiceItem
-from models.catalog import Product, Customer, Category
+from models.catalog import Product, Customer, Category, ProductBatch
 from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
 
 reportes_bp = Blueprint("reportes", __name__, url_prefix="/app/reportes")
+
+REPORT_OPTIONS = [
+    ("ventas_contado", "Reporte de ventas de contado", "Ventas pagadas en efectivo, transferencia o tarjeta."),
+    ("ventas_credito", "Reporte de ventas de crédito", "Facturas emitidas a crédito y sus saldos."),
+    ("inventario", "Inventarios", "Existencias, costos y valor de inventario."),
+    ("productos_vencer", "Listado de productos por vencer", "Lotes vigentes próximos a vencer."),
+]
 
 
 @reportes_bp.route("/")
@@ -68,7 +75,7 @@ def index():
 @tenant_required
 @permission_required("reports.view")
 def detallado():
-    context = _detailed_context()
+    context = _custom_report_context()
     return render_template("reportes/detallado.html", **context)
 
 
@@ -77,12 +84,12 @@ def detallado():
 @tenant_required
 @permission_required("reports.view")
 def detallado_excel():
-    context = _detailed_context()
-    stream = _build_excel_report(context)
+    context = _custom_report_context()
+    stream = _build_custom_excel_report(context)
     return send_file(
         stream,
         as_attachment=True,
-        download_name=f"reporte-detallado-{context['desde']}-{context['hasta']}.xlsx",
+        download_name=f"{context['report_slug']}-{context['desde']}-{context['hasta']}.xlsx",
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
@@ -92,14 +99,192 @@ def detallado_excel():
 @tenant_required
 @permission_required("reports.view")
 def detallado_pdf():
-    context = _detailed_context()
-    stream = _build_pdf_report(context)
+    context = _custom_report_context()
+    stream = _build_custom_pdf_report(context)
     return send_file(
         stream,
         as_attachment=True,
-        download_name=f"reporte-detallado-{context['desde']}-{context['hasta']}.pdf",
+        download_name=f"{context['report_slug']}-{context['desde']}-{context['hasta']}.pdf",
         mimetype="application/pdf",
     )
+
+
+def _custom_report_context():
+    tenant = current_tenant()
+    now = datetime.utcnow()
+    report_map = {key: (title, desc) for key, title, desc in REPORT_OPTIONS}
+    report_type = request.args.get("tipo") or ""
+    if report_type not in report_map:
+        report_type = ""
+
+    default_start = datetime(now.year, now.month, 1).date()
+    default_end = now.date()
+    start_date = _parse_date(request.args.get("desde")) or default_start
+    end_date = _parse_date(request.args.get("hasta")) or default_end
+    if start_date > end_date:
+        start_date, end_date = end_date, start_date
+
+    title, description = report_map.get(report_type, ("Selecciona un reporte", "Elige el tipo de reporte que quieres consultar."))
+    columns, rows, totals = _custom_report_data(tenant, report_type, start_date, end_date)
+    return dict(
+        tenant=tenant,
+        report_options=REPORT_OPTIONS,
+        report_type=report_type,
+        report_slug=report_type or "reporte-detallado",
+        report_title=title,
+        report_description=description,
+        columns=columns,
+        rows=rows,
+        totals=totals,
+        desde=start_date.isoformat(),
+        hasta=end_date.isoformat(),
+        period_label=f"{start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}",
+        uses_dates=report_type in {"ventas_contado", "ventas_credito"},
+    )
+
+
+def _custom_report_data(tenant, report_type, start_date, end_date):
+    if not report_type:
+        return [], [], {}
+    period_start = datetime.combine(start_date, time.min)
+    period_end = datetime.combine(end_date + timedelta(days=1), time.min)
+    valid_statuses = ["issued", "paid", "partially_paid", "overdue"]
+
+    if report_type == "ventas_contado":
+        invoices = (
+            Invoice.query
+            .filter(
+                Invoice.tenant_id == tenant.id,
+                Invoice.status.in_(valid_statuses),
+                Invoice.payment_method.in_(["efectivo", "transferencia", "tarjeta"]),
+                Invoice.issue_date >= period_start,
+                Invoice.issue_date < period_end,
+            )
+            .order_by(Invoice.issue_date.desc(), Invoice.number.desc())
+            .all()
+        )
+        rows = []
+        for inv in invoices:
+            profit = _invoice_profit(inv)
+            rows.append({
+                "fecha": inv.issue_date.strftime("%d/%m/%Y"),
+                "factura": inv.number,
+                "cliente": inv.customer.name if inv.customer else "Consumidor final",
+                "metodo": _payment_label(inv.payment_method),
+                "subtotal": float(inv.subtotal or 0),
+                "total": float(inv.total or 0),
+                "utilidad": profit,
+            })
+        return (
+            [
+                ("fecha", "Fecha", "text"), ("factura", "Factura", "text"),
+                ("cliente", "Cliente", "text"), ("metodo", "Método", "text"),
+                ("subtotal", "Subtotal", "money"), ("total", "Total", "money"),
+                ("utilidad", "Utilidad", "money"),
+            ],
+            rows,
+            _totals(rows, ["subtotal", "total", "utilidad"]),
+        )
+
+    if report_type == "ventas_credito":
+        invoices = (
+            Invoice.query
+            .filter(
+                Invoice.tenant_id == tenant.id,
+                Invoice.status.in_(valid_statuses),
+                Invoice.payment_method == "credito",
+                Invoice.issue_date >= period_start,
+                Invoice.issue_date < period_end,
+            )
+            .order_by(Invoice.issue_date.desc(), Invoice.number.desc())
+            .all()
+        )
+        rows = [{
+            "fecha": inv.issue_date.strftime("%d/%m/%Y"),
+            "factura": inv.number,
+            "cliente": inv.customer.name if inv.customer else "Sin cliente",
+            "vence": inv.due_date.strftime("%d/%m/%Y") if inv.due_date else "",
+            "total": float(inv.total or 0),
+            "abonado": float(inv.amount_paid or 0),
+            "saldo": float(inv.amount_due or 0),
+            "estado": inv.status,
+        } for inv in invoices]
+        return (
+            [
+                ("fecha", "Fecha", "text"), ("factura", "Factura", "text"),
+                ("cliente", "Cliente", "text"), ("vence", "Vence", "text"),
+                ("total", "Total", "money"), ("abonado", "Abonado", "money"),
+                ("saldo", "Saldo", "money"), ("estado", "Estado", "text"),
+            ],
+            rows,
+            _totals(rows, ["total", "abonado", "saldo"]),
+        )
+
+    if report_type == "inventario":
+        products = (
+            Product.query
+            .filter(Product.tenant_id == tenant.id)
+            .order_by(Product.name.asc())
+            .all()
+        )
+        rows = [{
+            "sku": p.sku,
+            "producto": p.name,
+            "categoria": p.category.name if p.category else "Sin categoría",
+            "stock": float(p.stock or 0),
+            "costo": float(p.cost or 0),
+            "precio": float(p.price or 0),
+            "valor_costo": float((p.stock or 0) * (p.cost or 0)),
+            "activo": "Activo" if p.is_active else "Inactivo",
+        } for p in products]
+        return (
+            [
+                ("sku", "SKU", "text"), ("producto", "Producto", "text"),
+                ("categoria", "Categoría", "text"), ("stock", "Stock", "number"),
+                ("costo", "Costo", "money"), ("precio", "Precio", "money"),
+                ("valor_costo", "Valor costo", "money"), ("activo", "Estado", "text"),
+            ],
+            rows,
+            _totals(rows, ["stock", "valor_costo"]),
+        )
+
+    if report_type == "productos_vencer":
+        today = datetime.utcnow().date()
+        limit = today + timedelta(days=60)
+        batches = (
+            ProductBatch.query
+            .join(Product, Product.id == ProductBatch.product_id)
+            .filter(
+                ProductBatch.tenant_id == tenant.id,
+                ProductBatch.expiration_date.isnot(None),
+                ProductBatch.expiration_date >= today,
+                ProductBatch.expiration_date <= limit,
+                ProductBatch.remaining_quantity > 0,
+            )
+            .order_by(ProductBatch.expiration_date.asc())
+            .all()
+        )
+        rows = [{
+            "producto": b.product.name if b.product else "",
+            "sku": b.product.sku if b.product else "",
+            "lote": b.batch_number,
+            "vence": b.expiration_date.strftime("%d/%m/%Y") if b.expiration_date else "",
+            "dias": b.days_until_expiry,
+            "cantidad": float(b.remaining_quantity or 0),
+            "costo": float(b.cost or 0),
+        } for b in batches]
+        return (
+            [
+                ("producto", "Producto", "text"), ("sku", "SKU", "text"),
+                ("lote", "Lote", "text"), ("vence", "Vence", "text"),
+                ("dias", "Días", "number"), ("cantidad", "Cantidad", "number"),
+                ("costo", "Costo", "money"),
+            ],
+            rows,
+            _totals(rows, ["cantidad"]),
+        )
+
+    return [], [], {}
 
 
 def _detailed_context():
@@ -424,6 +609,29 @@ def _build_excel_report(context):
     return stream
 
 
+def _build_custom_excel_report(context):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Reporte"
+    ws.append([context["report_title"]])
+    ws.append(["Periodo", context["period_label"] if context["uses_dates"] else "Actual"])
+    ws.append([])
+    ws.append([label for _, label, _ in context["columns"]])
+    for row in context["rows"]:
+        ws.append([row.get(key, "") for key, _, _ in context["columns"]])
+    if context["totals"]:
+        ws.append([])
+        total_row = []
+        for key, label, _ in context["columns"]:
+            total_row.append(context["totals"].get(key, "Totales" if not total_row else ""))
+        ws.append(total_row)
+    _style_sheet(ws)
+    stream = BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+    return stream
+
+
 def _style_sheet(ws):
     fill = PatternFill("solid", fgColor="EEF2FF")
     for cell in ws[1]:
@@ -479,6 +687,35 @@ def _build_pdf_report(context):
     return stream
 
 
+def _build_custom_pdf_report(context):
+    stream = BytesIO()
+    doc = SimpleDocTemplate(
+        stream,
+        pagesize=letter,
+        rightMargin=12 * mm,
+        leftMargin=12 * mm,
+        topMargin=12 * mm,
+        bottomMargin=12 * mm,
+    )
+    styles = getSampleStyleSheet()
+    story = [
+        Paragraph(context["report_title"], styles["Title"]),
+        Paragraph(f"Periodo: {context['period_label'] if context['uses_dates'] else 'Actual'}", styles["Normal"]),
+        Spacer(1, 8),
+    ]
+    visible_cols = context["columns"][:7]
+    data = [[label for _, label, _ in visible_cols]]
+    for row in context["rows"][:60]:
+        data.append([_format_report_value(row.get(key), kind, context["tenant"].currency) for key, _, kind in visible_cols])
+    if len(data) == 1:
+        data.append(["Sin datos"] + [""] * (len(visible_cols) - 1))
+    widths = _pdf_widths(len(visible_cols))
+    story.append(_pdf_table(data, widths, header=True))
+    doc.build(story)
+    stream.seek(0)
+    return stream
+
+
 def _pdf_table(data, col_widths, header=False):
     table = Table(data, colWidths=col_widths)
     style = [
@@ -495,6 +732,42 @@ def _pdf_table(data, col_widths, header=False):
         ]
     table.setStyle(TableStyle(style))
     return table
+
+
+def _pdf_widths(count):
+    usable = 185 * mm
+    if count <= 4:
+        return [usable / count] * count
+    return [usable * 0.22] + [usable * 0.78 / (count - 1)] * (count - 1)
+
+
+def _invoice_profit(invoice):
+    profit = 0
+    for item in invoice.items:
+        cost = item.product.cost if item.product else 0
+        profit += float(item.subtotal or 0) - (float(item.quantity or 0) * float(cost or 0))
+    return profit
+
+
+def _payment_label(value):
+    return {
+        "efectivo": "Efectivo",
+        "transferencia": "Transferencia",
+        "tarjeta": "Tarjeta",
+        "credito": "Crédito",
+    }.get(value, value or "")
+
+
+def _totals(rows, keys):
+    return {key: sum(float(row.get(key) or 0) for row in rows) for key in keys}
+
+
+def _format_report_value(value, kind, currency):
+    if kind == "money":
+        return f"{currency} {float(value or 0):.2f}"
+    if kind == "number":
+        return f"{float(value or 0):.2f}".rstrip("0").rstrip(".")
+    return "" if value is None else str(value)
 
 
 def _parse_date(value: str | None):
