@@ -5,8 +5,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>{% block title %}{{ APP_NAME }}{% endblock %}</title>
-  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}" />
-  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/favicon.png') }}" />
+  <link rel="icon" type="image/png" sizes="any" href="{{ url_for('static', filename='img/favicon.png', v='20260524') }}" />
+  <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.png', v='20260524') }}" />
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/favicon.png', v='20260524') }}" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
   <style>

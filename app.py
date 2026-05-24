@@ -2,7 +2,7 @@
 Punto de entrada de la aplicación SaaS de facturación multi-tenant.
 """
 import os
-from flask import Flask, g
+from flask import Flask, g, send_from_directory
 
 from config import config
 from models import db, login_manager, migrate
@@ -76,6 +76,14 @@ def create_app(config_name: str | None = None) -> Flask:
     @app.route("/health")
     def _health():
         return {"status": "ok", "app": app.config["APP_NAME"]}
+
+    @app.route("/favicon.ico")
+    def _favicon():
+        return send_from_directory(
+            os.path.join(app.root_path, "static", "img"),
+            "favicon.png",
+            mimetype="image/png",
+        )
 
     return app
 
