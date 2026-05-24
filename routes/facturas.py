@@ -25,6 +25,7 @@ from services.invoice_service import (
     issue_invoice, update_invoice, next_invoice_number,
     validate_can_emit, CAIError,
 )
+from services.locations import active_warehouses, sync_default_warehouse_stock
 
 facturas_bp = Blueprint("facturas", __name__, url_prefix="/app/facturas")
 
@@ -96,6 +97,8 @@ def new():
     clientes = Customer.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Customer.name).all()
     productos = Product.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Product.name).all()
     impuestos = TaxConfig.query.filter_by(country_code=tenant.country_code, is_active=True).all()
+    default_warehouse = sync_default_warehouse_stock(tenant)
+    warehouses = active_warehouses(tenant.id)
     correlativo, formatted = next_invoice_number(tenant)
 
     # Validar antes de mostrar el form
@@ -112,6 +115,7 @@ def new():
         factura=None, clientes=clientes, productos=productos, impuestos=impuestos,
         next_number=formatted, tenant=tenant,
         can_emit=can_emit, reason=reason,
+        warehouses=warehouses, selected_warehouse_id=default_warehouse.id,
     )
 
 
@@ -143,6 +147,7 @@ def edit(invoice_id):
                 ),
                 status=request.form.get("status", "draft"),
             )
+            inv.warehouse_id = request.form.get("warehouse_id", type=int) or inv.warehouse_id
             # Si pasó a issued, asignar número definitivo
             if request.form.get("action") == "emit":
                 _emit_draft(inv, tenant)
@@ -154,12 +159,15 @@ def edit(invoice_id):
     clientes = Customer.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Customer.name).all()
     productos = Product.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Product.name).all()
     impuestos = TaxConfig.query.filter_by(country_code=tenant.country_code, is_active=True).all()
+    default_warehouse = sync_default_warehouse_stock(tenant)
+    warehouses = active_warehouses(tenant.id)
 
     return render_template(
         "facturas/form.html",
         factura=inv, clientes=clientes, productos=productos, impuestos=impuestos,
         next_number=inv.number, tenant=tenant,
         can_emit=True, reason=None,
+        warehouses=warehouses, selected_warehouse_id=inv.warehouse_id or default_warehouse.id,
     )
 
 
@@ -232,7 +240,23 @@ def api_lotes_de_producto(product_id):
     if p is None or not p.track_batches:
         return jsonify({"lotes": []})
 
+    warehouse_id = request.args.get("warehouse_id", type=int)
     actives = p.active_batches()
+    if warehouse_id:
+        from models.locations import WarehouseStock
+        actives = (
+            db.session.query(ProductBatch)
+            .join(WarehouseStock, WarehouseStock.batch_id == ProductBatch.id)
+            .filter(
+                ProductBatch.tenant_id == tenant.id,
+                ProductBatch.product_id == p.id,
+                WarehouseStock.warehouse_id == warehouse_id,
+                WarehouseStock.quantity > 0,
+                ProductBatch.remaining_quantity > 0,
+            )
+            .order_by(ProductBatch.expiration_date.asc(), ProductBatch.id.asc())
+            .all()
+        )
     return jsonify({
         "lotes": [{
             "id": b.id,
@@ -310,6 +334,7 @@ def _create_from_form(tenant) -> Invoice:
         notes=_notes_with_cash_details(request.form.get("notes", ""), payment_method),
         issued_by_user_id=current_user.id,
         status=status,
+        warehouse_id=request.form.get("warehouse_id", type=int),
     )
 
 

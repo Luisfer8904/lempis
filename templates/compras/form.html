@@ -25,6 +25,18 @@
     </div>
 
     <div class="grid md:grid-cols-3 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Recibir en bodega *</label>
+        <select name="warehouse_id" required
+                class="w-full px-3 py-2 border rounded-lg bg-white focus:ring-2 focus:ring-indigo-500">
+          {% for w in warehouses %}
+            <option value="{{ w.id }}" {% if selected_warehouse_id == w.id %}selected{% endif %}>
+              {{ w.label }}
+            </option>
+          {% endfor %}
+        </select>
+        <p class="text-xs text-slate-500 mt-1">La mercadería recibida entrará a esta bodega.</p>
+      </div>
       <div class="md:col-span-2">
         <label class="block text-sm font-medium mb-1">Proveedor *</label>
         <select name="supplier_id" required

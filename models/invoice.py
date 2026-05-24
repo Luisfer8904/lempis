@@ -26,6 +26,7 @@ class Invoice(db.Model, TimestampMixin):
 
     customer_id = Column(Integer, ForeignKey("lempis_clientes.id", ondelete="SET NULL"))
     issued_by_user_id = Column(Integer, ForeignKey("lempis_usuarios.id", ondelete="SET NULL"))
+    warehouse_id = Column(Integer, ForeignKey("lempis_bodegas.id", ondelete="SET NULL"), nullable=True)
 
     # Totales
     currency = Column(String(3), default="HNL", nullable=False)

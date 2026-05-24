@@ -16,6 +16,7 @@ from models.invoice import Invoice, InvoiceItem
 from models.catalog import Customer, Product, ProductBatch
 from models.country import TaxConfig
 from services.inventory import consume_from_batch, restore_to_batch, recompute_product_stock
+from services.locations import subtract_stock, add_stock, warehouse_for_tenant
 
 
 class CAIError(Exception):
@@ -53,6 +54,7 @@ def issue_invoice(
     notes: str = "",
     issued_by_user_id: Optional[int] = None,
     status: str = "issued",
+    warehouse_id: Optional[int] = None,
 ) -> Invoice:
     """
     Crea una factura, asigna número correlativo, congela datos SAR
@@ -65,6 +67,7 @@ def issue_invoice(
         validate_can_emit(tenant)
 
     correlativo, formatted = next_invoice_number(tenant)
+    warehouse = warehouse_for_tenant(tenant.id, warehouse_id)
 
     inv = Invoice(
         tenant_id=tenant.id,
@@ -72,6 +75,7 @@ def issue_invoice(
         issue_date=datetime.utcnow(),
         customer_id=customer.id if customer else None,
         issued_by_user_id=issued_by_user_id,
+        warehouse_id=warehouse.id if warehouse else None,
         currency=tenant.currency,
         status=status,
         payment_method=payment_method,
@@ -97,7 +101,7 @@ def issue_invoice(
         qty = Decimal(str(data.get("quantity") or 1))
 
         # Resolver lote: si no se mandó, usar FIFO del producto
-        batch = _resolve_batch(tenant.id, product_id, batch_id, qty, status)
+        batch = _resolve_batch(tenant.id, product_id, batch_id, qty, status, warehouse.id if warehouse else None)
 
         item = InvoiceItem(
             tenant_id=tenant.id,
@@ -112,10 +116,16 @@ def issue_invoice(
         item.recalc()
         inv.items.append(item)
 
-        # Si emitimos, descontar del lote y actualizar stock del producto
+        # Si emitimos, descontar inventario y actualizar stock del producto
         if status != "draft" and batch is not None:
-            consume_from_batch(batch, qty)
+            consume_from_batch(batch, qty, warehouse.id if warehouse else None)
             recompute_product_stock(batch.product)
+        elif status != "draft" and product_id:
+            product = db.session.get(Product, int(product_id))
+            if product is not None and product.tenant_id == tenant.id and product.track_stock:
+                product.stock = max(0, int((product.stock or 0) - qty))
+                if warehouse:
+                    subtract_stock(tenant.id, warehouse.id, product.id, qty, None, "venta")
 
     inv.recalc_totals()
 
@@ -129,7 +139,7 @@ def issue_invoice(
     return inv
 
 
-def _resolve_batch(tenant_id: int, product_id, batch_id, qty: Decimal, status: str):
+def _resolve_batch(tenant_id: int, product_id, batch_id, qty: Decimal, status: str, warehouse_id: int | None = None):
     """
     Resuelve qué lote usar para una línea:
       - Si batch_id fue enviado, lo usa (validando que pertenezca al tenant/producto).
@@ -147,6 +157,23 @@ def _resolve_batch(tenant_id: int, product_id, batch_id, qty: Decimal, status: s
         if b and b.tenant_id == tenant_id and b.product_id == product.id:
             return b
         # batch_id inválido → caer a FIFO
+    if warehouse_id:
+        from models.locations import WarehouseStock
+        row = (
+            db.session.query(ProductBatch)
+            .join(WarehouseStock, WarehouseStock.batch_id == ProductBatch.id)
+            .filter(
+                ProductBatch.tenant_id == tenant_id,
+                ProductBatch.product_id == product.id,
+                WarehouseStock.warehouse_id == warehouse_id,
+                WarehouseStock.quantity > 0,
+                ProductBatch.remaining_quantity > 0,
+            )
+            .order_by(ProductBatch.expiration_date.asc(), ProductBatch.id.asc())
+            .first()
+        )
+        if row is not None:
+            return row
     return product.next_batch_to_consume()
 
 
@@ -207,8 +234,14 @@ def void_invoice_and_restore_stock(invoice: Invoice) -> None:
         if it.batch_id:
             b = db.session.get(ProductBatch, it.batch_id)
             if b is not None:
-                restore_to_batch(b, it.quantity)
+                restore_to_batch(b, it.quantity, invoice.warehouse_id)
                 if b.product:
                     recompute_product_stock(b.product)
+        elif it.product_id:
+            product = db.session.get(Product, it.product_id)
+            if product is not None and product.track_stock:
+                product.stock = int(product.stock or 0) + int(it.quantity or 0)
+                if invoice.warehouse_id:
+                    add_stock(invoice.tenant_id, invoice.warehouse_id, product.id, it.quantity, None, "anulacion")
     invoice.status = "void"
     db.session.commit()

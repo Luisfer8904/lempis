@@ -16,6 +16,7 @@ from models.catalog import Product, Category, Customer
 from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
 from services.invoice_service import issue_invoice, validate_can_emit, CAIError, next_invoice_number
+from services.locations import active_warehouses, stock_map_for_warehouse, sync_default_warehouse_stock, warehouse_for_tenant
 
 pos_bp = Blueprint("pos", __name__, url_prefix="/app/venta")
 
@@ -36,6 +37,10 @@ def quick_sale():
     tenant = current_tenant()
     q = (request.args.get("q") or "").strip()
     category_id = request.args.get("category_id", type=int)
+    default_warehouse = sync_default_warehouse_stock(tenant)
+    selected_warehouse_id = request.args.get("warehouse_id", type=int) or default_warehouse.id
+    if warehouse_for_tenant(tenant.id, selected_warehouse_id) is None:
+        selected_warehouse_id = default_warehouse.id
 
     productos_q = Product.query.filter_by(tenant_id=tenant.id, is_active=True)
     if q:
@@ -47,9 +52,13 @@ def quick_sale():
     if category_id:
         productos_q = productos_q.filter_by(category_id=category_id)
     productos = productos_q.order_by(Product.name.asc()).all()
+    stock_map = stock_map_for_warehouse(tenant.id, selected_warehouse_id)
+    for product in productos:
+        product.warehouse_stock = int(stock_map.get(product.id, 0))
 
     categorias = Category.query.filter_by(tenant_id=tenant.id).order_by(Category.name).all()
     clientes = Customer.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Customer.name).all()
+    warehouses = active_warehouses(tenant.id)
     _, next_number = next_invoice_number(tenant)
 
     # Validar antes de mostrar el form
@@ -67,6 +76,7 @@ def quick_sale():
         q=q, selected_category=category_id,
         tenant=tenant, next_number=next_number,
         can_emit=can_emit, reason=reason,
+        warehouses=warehouses, selected_warehouse_id=selected_warehouse_id,
     )
 
 
@@ -99,6 +109,10 @@ def cobrar():
             ).first()
 
         payment_method = request.form.get("payment_method", "efectivo")
+        warehouse_id = request.form.get("warehouse_id", type=int)
+        if warehouse_for_tenant(tenant.id, warehouse_id) is None:
+            flash("Selecciona una bodega válida para la venta.", "warning")
+            return redirect(url_for("pos.quick_sale"))
         notes = _notes_with_cash_details(request.form.get("notes", ""), payment_method)
 
         inv = issue_invoice(
@@ -110,6 +124,7 @@ def cobrar():
             notes=notes,
             issued_by_user_id=current_user.id,
             status="issued",
+            warehouse_id=warehouse_id,
         )
         flash(f"Venta {inv.number} emitida correctamente.", "success")
         detail_args = {"invoice_id": inv.id}

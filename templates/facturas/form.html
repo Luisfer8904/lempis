@@ -37,6 +37,18 @@
 
     <div class="grid md:grid-cols-2 gap-4">
       <div>
+        <label class="block text-sm font-medium mb-1">Sede / bodega</label>
+        <select name="warehouse_id" id="warehouse-select"
+                class="w-full px-3 py-2 border rounded-lg bg-white focus:ring-2 focus:ring-indigo-500">
+          {% for w in warehouses %}
+            <option value="{{ w.id }}" {% if selected_warehouse_id == w.id %}selected{% endif %}>
+              {{ w.label }}
+            </option>
+          {% endfor %}
+        </select>
+        <p class="text-xs text-slate-500 mt-1">La factura descontará inventario de esta bodega.</p>
+      </div>
+      <div>
         <label class="block text-sm font-medium mb-1">Cliente</label>
         <select name="customer_id" id="customer-select"
                 class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
@@ -347,7 +359,9 @@ function syncTierFromCustomer(keepExistingPrices = false) {
 }
 
 function loadBatches(productId, batchSelect) {
-  fetch(`/app/facturas/api/productos/${productId}/lotes`)
+  const warehouseId = document.getElementById("warehouse-select")?.value || "";
+  const qs = warehouseId ? `?warehouse_id=${encodeURIComponent(warehouseId)}` : "";
+  fetch(`/app/facturas/api/productos/${productId}/lotes${qs}`)
     .then(r => r.json())
     .then(data => {
       batchSelect.innerHTML = '<option value="">— Automático (FIFO) —</option>';

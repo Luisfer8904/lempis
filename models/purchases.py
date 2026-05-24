@@ -35,6 +35,7 @@ class Purchase(db.Model, TimestampMixin):
     # Relaciones
     supplier_id = Column(Integer, ForeignKey("lempis_proveedores.id", ondelete="SET NULL"))
     received_by_user_id = Column(Integer, ForeignKey("lempis_usuarios.id", ondelete="SET NULL"))
+    warehouse_id = Column(Integer, ForeignKey("lempis_bodegas.id", ondelete="SET NULL"), nullable=True)
 
     # Fechas
     issue_date = Column(DateTime, default=datetime.utcnow, nullable=False)

@@ -26,6 +26,7 @@ from services.purchase_service import (
     void_purchase, register_payment, next_purchase_number, PurchaseError,
     repair_received_purchase_inventory,
 )
+from services.locations import active_warehouses, sync_default_warehouse_stock
 
 compras_bp = Blueprint("compras", __name__, url_prefix="/app/compras")
 
@@ -94,11 +95,14 @@ def new():
     suppliers = Supplier.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Supplier.name).all()
     productos = Product.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Product.name).all()
     impuestos = TaxConfig.query.filter_by(country_code=tenant.country_code, is_active=True).all()
+    default_warehouse = sync_default_warehouse_stock(tenant)
+    warehouses = active_warehouses(tenant.id)
     return render_template(
         "compras/form.html",
         compra=None, suppliers=suppliers, productos=productos,
         impuestos=impuestos, tenant=tenant,
         next_number=next_purchase_number(tenant),
+        warehouses=warehouses, selected_warehouse_id=default_warehouse.id,
     )
 
 
@@ -127,6 +131,7 @@ def edit(purchase_id):
                 terms_days=request.form.get("terms_days") or 0,
                 notes=request.form.get("notes") or None,
             )
+            inv.warehouse_id = request.form.get("warehouse_id", type=int) or inv.warehouse_id
             if request.form.get("action") == "receive":
                 finalize_purchase(inv)
                 flash(f"Compra {inv.number} recibida. Inventario actualizado.", "success")
@@ -139,11 +144,14 @@ def edit(purchase_id):
     suppliers = Supplier.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Supplier.name).all()
     productos = Product.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Product.name).all()
     impuestos = TaxConfig.query.filter_by(country_code=tenant.country_code, is_active=True).all()
+    default_warehouse = sync_default_warehouse_stock(tenant)
+    warehouses = active_warehouses(tenant.id)
     return render_template(
         "compras/form.html",
         compra=inv, suppliers=suppliers, productos=productos,
         impuestos=impuestos, tenant=tenant,
         next_number=inv.number,
+        warehouses=warehouses, selected_warehouse_id=inv.warehouse_id or default_warehouse.id,
     )
 
 
@@ -284,4 +292,5 @@ def _create_from_form(tenant) -> Purchase:
         terms_days=int(request.form.get("terms_days") or 0),
         notes=request.form.get("notes", ""),
         received_by_user_id=current_user.id,
+        warehouse_id=request.form.get("warehouse_id", type=int),
     )

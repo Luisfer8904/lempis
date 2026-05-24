@@ -46,19 +46,25 @@ def batches_by_status(tenant_id: int, days_ahead: int = 30) -> dict:
     }
 
 
-def consume_from_batch(batch: ProductBatch, qty) -> None:
+def consume_from_batch(batch: ProductBatch, qty, warehouse_id: int | None = None) -> None:
     """Resta `qty` del remaining del lote. No deja negativo."""
     from decimal import Decimal
+    from services.locations import subtract_stock
     q = Decimal(str(qty or 0))
     new_remaining = Decimal(batch.remaining_quantity or 0) - q
     batch.remaining_quantity = max(new_remaining, Decimal(0))
+    if warehouse_id:
+        subtract_stock(batch.tenant_id, warehouse_id, batch.product_id, q, batch.id, "venta")
 
 
-def restore_to_batch(batch: ProductBatch, qty) -> None:
+def restore_to_batch(batch: ProductBatch, qty, warehouse_id: int | None = None) -> None:
     """Suma `qty` de regreso al lote (cuando se anula factura)."""
     from decimal import Decimal
+    from services.locations import add_stock
     q = Decimal(str(qty or 0))
     batch.remaining_quantity = Decimal(batch.remaining_quantity or 0) + q
+    if warehouse_id:
+        add_stock(batch.tenant_id, warehouse_id, batch.product_id, q, batch.id, "anulacion")
 
 
 def recompute_product_stock(product: Product) -> None:

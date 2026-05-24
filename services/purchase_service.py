@@ -14,6 +14,7 @@ from models.suppliers import Supplier
 from models.purchases import Purchase, PurchaseItem
 from models.catalog import Product, ProductBatch
 from services.inventory import consume_from_batch, restore_to_batch, recompute_product_stock
+from services.locations import add_stock, subtract_stock, warehouse_for_tenant
 
 
 class PurchaseError(Exception):
@@ -50,6 +51,7 @@ def create_purchase(
     issue_date: Optional[datetime] = None,
     notes: str = "",
     received_by_user_id: Optional[int] = None,
+    warehouse_id: Optional[int] = None,
 ) -> Purchase:
     """Crea una compra en estado 'draft'. NO afecta inventario."""
     issue_date = issue_date or datetime.utcnow()
@@ -61,6 +63,7 @@ def create_purchase(
         supplier_invoice_number=supplier_invoice_number or None,
         supplier_id=supplier.id if supplier else None,
         received_by_user_id=received_by_user_id,
+        warehouse_id=warehouse_id,
         issue_date=issue_date,
         due_date=due,
         terms_days=int(terms_days or 0),
@@ -167,6 +170,8 @@ def finalize_purchase(purchase: Purchase) -> Purchase:
     if purchase.status == "void":
         raise PurchaseError("No puedes recibir una compra anulada.")
 
+    warehouse = warehouse_for_tenant(purchase.tenant_id, purchase.warehouse_id)
+
     for item in purchase.items:
         if not item.product_id:
             continue
@@ -186,12 +191,16 @@ def finalize_purchase(purchase: Purchase) -> Purchase:
             batch.cost = Decimal(item.unit_cost or 0)  # actualiza último costo
             db.session.flush()
             item.batch_id = batch.id
+            if warehouse:
+                add_stock(purchase.tenant_id, warehouse.id, product.id, qty, batch.id, purchase.number)
 
         # Actualizar stock del producto
         if product.track_batches:
             recompute_product_stock(product)
         else:
             product.stock = int((product.stock or 0) + qty)
+            if warehouse:
+                add_stock(purchase.tenant_id, warehouse.id, product.id, qty, None, purchase.number)
 
         # Actualizar costo de referencia del producto
         if Decimal(item.unit_cost or 0) > 0:
@@ -220,6 +229,7 @@ def repair_received_purchase_inventory(purchase: Purchase) -> int:
 
     repaired = 0
     touched_products: set[int] = set()
+    warehouse = warehouse_for_tenant(purchase.tenant_id, purchase.warehouse_id)
 
     for item in purchase.items:
         if not item.product_id or item.batch_id:
@@ -239,6 +249,8 @@ def repair_received_purchase_inventory(purchase: Purchase) -> int:
         batch.cost = Decimal(item.unit_cost or 0)
         db.session.flush()
         item.batch_id = batch.id
+        if warehouse:
+            add_stock(purchase.tenant_id, warehouse.id, product.id, qty, batch.id, purchase.number)
         touched_products.add(product.id)
         repaired += 1
 
@@ -297,6 +309,7 @@ def void_purchase(purchase: Purchase) -> Purchase:
         return purchase
 
     if purchase.status == "received":
+        warehouse = warehouse_for_tenant(purchase.tenant_id, purchase.warehouse_id)
         for item in purchase.items:
             if not item.product_id:
                 continue
@@ -317,8 +330,12 @@ def void_purchase(purchase: Purchase) -> Purchase:
                     )
                     db.session.flush()
                     recompute_product_stock(product)
+                    if warehouse:
+                        subtract_stock(purchase.tenant_id, warehouse.id, product.id, qty, batch.id, purchase.number)
             else:
                 product.stock = max(0, int((product.stock or 0) - qty))
+                if warehouse:
+                    subtract_stock(purchase.tenant_id, warehouse.id, product.id, qty, None, purchase.number)
 
     purchase.status = "void"
     db.session.commit()
