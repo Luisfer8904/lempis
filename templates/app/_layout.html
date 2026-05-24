@@ -101,15 +101,7 @@
       {% if current_user.has_permission('settings.manage') or current_user.has_permission('users.manage') or current_user.is_admin() %}
       <div class="pt-4 mt-4 border-t">
         <p class="px-3 text-[10px] text-slate-400 uppercase font-semibold mb-1">Configuración</p>
-        {% if current_user.has_permission('settings.manage') %}
-          {{ navlink('configuracion.empresa', 'General', '⚙️') }}
-        {% endif %}
-        {% if current_user.has_permission('users.manage') %}
-          {{ navlink('usuarios.list', 'Equipo', '🧑‍🤝‍🧑') }}
-        {% endif %}
-        {% if current_user.is_admin() %}
-          {{ navlink('billing.index', 'Suscripción', '💳') }}
-        {% endif %}
+        {{ navlink('configuracion.empresa', 'Configuración', '⚙️') }}
         {% if current_user.is_superadmin %}
           <a href="{{ url_for('admin.index') }}"
              class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
