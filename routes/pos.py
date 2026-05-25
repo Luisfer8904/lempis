@@ -16,7 +16,12 @@ from models.catalog import Product, Category, Customer
 from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
 from services.invoice_service import issue_invoice, validate_can_emit, CAIError, next_invoice_number
-from services.locations import active_warehouses, stock_map_for_warehouse, sync_default_warehouse_stock, warehouse_for_tenant
+from services.locations import (
+    can_user_sell_from_warehouse,
+    sale_warehouses_for_user,
+    stock_map_for_warehouse,
+    sync_default_warehouse_stock,
+)
 
 pos_bp = Blueprint("pos", __name__, url_prefix="/app/venta")
 
@@ -38,9 +43,10 @@ def quick_sale():
     q = (request.args.get("q") or "").strip()
     category_id = request.args.get("category_id", type=int)
     default_warehouse = sync_default_warehouse_stock(tenant)
-    selected_warehouse_id = request.args.get("warehouse_id", type=int) or default_warehouse.id
-    if warehouse_for_tenant(tenant.id, selected_warehouse_id) is None:
-        selected_warehouse_id = default_warehouse.id
+    warehouses = sale_warehouses_for_user(tenant.id, current_user) or [default_warehouse]
+    selected_warehouse_id = request.args.get("warehouse_id", type=int) or warehouses[0].id
+    if selected_warehouse_id not in {w.id for w in warehouses}:
+        selected_warehouse_id = warehouses[0].id
 
     productos_q = Product.query.filter_by(tenant_id=tenant.id, is_active=True)
     if q:
@@ -58,7 +64,6 @@ def quick_sale():
 
     categorias = Category.query.filter_by(tenant_id=tenant.id).order_by(Category.name).all()
     clientes = Customer.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Customer.name).all()
-    warehouses = active_warehouses(tenant.id)
     _, next_number = next_invoice_number(tenant)
 
     # Validar antes de mostrar el form
@@ -110,8 +115,8 @@ def cobrar():
 
         payment_method = request.form.get("payment_method", "efectivo")
         warehouse_id = request.form.get("warehouse_id", type=int)
-        if warehouse_for_tenant(tenant.id, warehouse_id) is None:
-            flash("Selecciona una bodega válida para la venta.", "warning")
+        if not can_user_sell_from_warehouse(tenant.id, current_user, warehouse_id):
+            flash("No puedes facturar desde una bodega de otra sede.", "warning")
             return redirect(url_for("pos.quick_sale"))
         notes = _notes_with_cash_details(request.form.get("notes", ""), payment_method)
 

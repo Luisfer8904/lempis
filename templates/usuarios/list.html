@@ -28,6 +28,7 @@
         <th>Usuario</th>
         <th>Email</th>
         <th>Rol</th>
+        <th>Sede</th>
         <th>Estado</th>
         <th>Último acceso</th>
         <th class="text-right">Acciones</th>
@@ -57,6 +58,13 @@
             </span>
           {% else %}
             <span class="text-xs text-slate-400">Sin rol</span>
+          {% endif %}
+        </td>
+        <td class="text-sm">
+          {% if u.branch %}
+            {{ u.branch.name }}
+          {% else %}
+            <span class="text-slate-400">Toda la empresa</span>
           {% endif %}
         </td>
         <td>

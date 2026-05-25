@@ -14,6 +14,7 @@ from models import db
 import json
 
 from models.user import User, Role, UserRole, RolePermission
+from models.locations import Branch
 from services.tenant_context import current_tenant
 from services.permissions import (
     ALL_PERMISSIONS,
@@ -32,6 +33,7 @@ from services.plan_limits import (
 
 usuarios_bp = Blueprint("usuarios", __name__, url_prefix="/app/usuarios")
 TEAM_ROLE_CODES = ["admin", "cajero", "vendedor", "contador", "viewer"]
+BRANCH_REQUIRED_ROLE_CODES = {"cajero", "vendedor"}
 
 
 def _tenant_plan_name(tenant) -> str:
@@ -45,6 +47,18 @@ def _get_or_404(user_id: int) -> User:
     if user is None:
         abort(404)
     return user
+
+
+def _branch_id_from_form(tenant):
+    branch_id = request.form.get("branch_id", type=int)
+    if not branch_id:
+        return None
+    branch = Branch.query.filter_by(id=branch_id, tenant_id=tenant.id, is_active=True).first()
+    return branch.id if branch else None
+
+
+def _active_branches(tenant):
+    return Branch.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Branch.name.asc()).all()
 
 
 @usuarios_bp.route("/")
@@ -123,6 +137,10 @@ def new():
         if role_code not in allowed_codes:
             flash("Ese rol no está incluido en el plan actual.", "warning")
             return redirect(url_for("usuarios.new"))
+        branch_id = _branch_id_from_form(tenant)
+        if role_code in BRANCH_REQUIRED_ROLE_CODES and not branch_id:
+            flash("Asigna una sede para este rol. Así se controla desde dónde puede facturar.", "warning")
+            return redirect(url_for("usuarios.new"))
 
         # Validaciones
         if not email or not password:
@@ -142,6 +160,7 @@ def new():
             tenant_id=tenant.id,
             email=email,
             full_name=full_name or None,
+            branch_id=branch_id,
             is_active=True,
             email_verified=True,  # Como lo creó un admin, asumimos verificado
         )
@@ -159,7 +178,13 @@ def new():
         return redirect(url_for("usuarios.list"))
 
     roles = Role.query.filter(Role.code.in_(allowed_role_codes(tenant))).order_by(Role.name.asc()).all()
-    return render_template("usuarios/form.html", user=None, roles=roles, plan_name=_tenant_plan_name(tenant))
+    return render_template(
+        "usuarios/form.html",
+        user=None,
+        roles=roles,
+        branches=_active_branches(tenant),
+        plan_name=_tenant_plan_name(tenant),
+    )
 
 
 @usuarios_bp.route("/<int:user_id>/edit", methods=["GET", "POST"])
@@ -172,6 +197,7 @@ def edit(user_id):
 
     if request.method == "POST":
         user.full_name = (request.form.get("full_name") or "").strip() or None
+        user.branch_id = _branch_id_from_form(tenant)
         user.is_active = bool(request.form.get("is_active"))
 
         # Cambiar password si se proporcionó
@@ -188,6 +214,9 @@ def edit(user_id):
             role_code = request.form.get("role_code") or allowed_codes[0]
             if role_code not in allowed_codes:
                 flash("Ese rol no está incluido en el plan actual.", "warning")
+                return redirect(url_for("usuarios.edit", user_id=user_id))
+            if role_code in BRANCH_REQUIRED_ROLE_CODES and not user.branch_id:
+                flash("Asigna una sede para este rol. Así se controla desde dónde puede facturar.", "warning")
                 return redirect(url_for("usuarios.edit", user_id=user_id))
             # Eliminar roles previos
             UserRole.query.filter_by(user_id=user.id).delete()
@@ -206,6 +235,7 @@ def edit(user_id):
         user=user,
         roles=roles,
         current_role=current_role,
+        branches=_active_branches(tenant),
         plan_name=_tenant_plan_name(tenant),
     )
 

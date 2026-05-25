@@ -25,7 +25,11 @@ from services.invoice_service import (
     issue_invoice, update_invoice, next_invoice_number,
     validate_can_emit, CAIError,
 )
-from services.locations import active_warehouses, sync_default_warehouse_stock
+from services.locations import (
+    can_user_sell_from_warehouse,
+    sale_warehouses_for_user,
+    sync_default_warehouse_stock,
+)
 
 facturas_bp = Blueprint("facturas", __name__, url_prefix="/app/facturas")
 
@@ -98,7 +102,7 @@ def new():
     productos = Product.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Product.name).all()
     impuestos = TaxConfig.query.filter_by(country_code=tenant.country_code, is_active=True).all()
     default_warehouse = sync_default_warehouse_stock(tenant)
-    warehouses = active_warehouses(tenant.id)
+    warehouses = sale_warehouses_for_user(tenant.id, current_user) or [default_warehouse]
     correlativo, formatted = next_invoice_number(tenant)
 
     # Validar antes de mostrar el form
@@ -115,7 +119,7 @@ def new():
         factura=None, clientes=clientes, productos=productos, impuestos=impuestos,
         next_number=formatted, tenant=tenant,
         can_emit=can_emit, reason=reason,
-        warehouses=warehouses, selected_warehouse_id=default_warehouse.id,
+        warehouses=warehouses, selected_warehouse_id=warehouses[0].id,
     )
 
 
@@ -147,7 +151,11 @@ def edit(invoice_id):
                 ),
                 status=request.form.get("status", "draft"),
             )
-            inv.warehouse_id = request.form.get("warehouse_id", type=int) or inv.warehouse_id
+            warehouse_id = request.form.get("warehouse_id", type=int) or inv.warehouse_id
+            if not can_user_sell_from_warehouse(tenant.id, current_user, warehouse_id):
+                flash("No puedes facturar desde una bodega de otra sede.", "warning")
+                return redirect(url_for("facturas.edit", invoice_id=inv.id))
+            inv.warehouse_id = warehouse_id
             # Si pasó a issued, asignar número definitivo
             if request.form.get("action") == "emit":
                 _emit_draft(inv, tenant)
@@ -160,14 +168,15 @@ def edit(invoice_id):
     productos = Product.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Product.name).all()
     impuestos = TaxConfig.query.filter_by(country_code=tenant.country_code, is_active=True).all()
     default_warehouse = sync_default_warehouse_stock(tenant)
-    warehouses = active_warehouses(tenant.id)
+    warehouses = sale_warehouses_for_user(tenant.id, current_user) or [default_warehouse]
+    selected_warehouse_id = inv.warehouse_id if inv.warehouse_id in {w.id for w in warehouses} else warehouses[0].id
 
     return render_template(
         "facturas/form.html",
         factura=inv, clientes=clientes, productos=productos, impuestos=impuestos,
         next_number=inv.number, tenant=tenant,
         can_emit=True, reason=None,
-        warehouses=warehouses, selected_warehouse_id=inv.warehouse_id or default_warehouse.id,
+        warehouses=warehouses, selected_warehouse_id=selected_warehouse_id,
     )
 
 
@@ -241,6 +250,8 @@ def api_lotes_de_producto(product_id):
         return jsonify({"lotes": []})
 
     warehouse_id = request.args.get("warehouse_id", type=int)
+    if warehouse_id and not can_user_sell_from_warehouse(tenant.id, current_user, warehouse_id):
+        return jsonify({"lotes": []})
     actives = p.active_batches()
     if warehouse_id:
         from models.locations import WarehouseStock
@@ -324,6 +335,9 @@ def _create_from_form(tenant) -> Invoice:
     status = "issued" if action == "emit" else "draft"
 
     payment_method = request.form.get("payment_method", "efectivo")
+    warehouse_id = request.form.get("warehouse_id", type=int)
+    if status == "issued" and not can_user_sell_from_warehouse(tenant.id, current_user, warehouse_id):
+        raise CAIError("No puedes facturar desde una bodega de otra sede.")
 
     return issue_invoice(
         tenant=tenant,
@@ -334,7 +348,7 @@ def _create_from_form(tenant) -> Invoice:
         notes=_notes_with_cash_details(request.form.get("notes", ""), payment_method),
         issued_by_user_id=current_user.id,
         status=status,
-        warehouse_id=request.form.get("warehouse_id", type=int),
+        warehouse_id=warehouse_id,
     )
 
 

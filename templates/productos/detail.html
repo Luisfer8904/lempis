@@ -87,9 +87,9 @@
                     {% if producto.stock <= 0 %}text-rose-600
                     {% elif producto.stock <= 5 %}text-amber-600
                     {% else %}text-green-600{% endif %}">
-            {{ producto.stock }}
+            {{ visible_stock }}
           </p>
-          <p class="text-xs text-slate-400">unidades</p>
+          <p class="text-xs text-slate-400">{{ stock_scope }}</p>
         {% else %}
           <p class="text-2xl font-bold text-slate-400">—</p>
           <p class="text-xs text-slate-400">sin control</p>
@@ -126,6 +126,44 @@
     </div>
   </div>
 </div>
+
+{# ========== INVENTARIO POR SEDE/BODEGA ========== #}
+{% if producto.track_stock %}
+<section class="mt-6 bg-white rounded-xl shadow-sm border overflow-hidden">
+  <div class="p-4 border-b">
+    <h3 class="text-lg font-semibold">Inventario por sede y bodega</h3>
+    <p class="text-xs text-slate-500">Consulta disponibilidad completa sin cambiar la sede desde la que facturas.</p>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="saas-table w-full min-w-[640px]">
+      <thead>
+        <tr>
+          <th>Sede</th>
+          <th>Bodega</th>
+          <th>Lote</th>
+          <th class="text-right">Disponible</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in stock_rows %}
+          <tr>
+            <td>{{ row.branch_name }}</td>
+            <td>{{ row.warehouse_name }}</td>
+            <td class="font-mono text-xs">
+              {{ row.WarehouseStock.batch.batch_number if row.WarehouseStock.batch else '—' }}
+            </td>
+            <td class="text-right font-mono">{{ '%.2f'|format(row.quantity)|replace('.00', '') }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="4" class="text-center py-8 text-slate-400">Sin inventario disponible en bodegas.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
 
 {# ========== LOTES ========== #}
 {% if producto.track_batches %}

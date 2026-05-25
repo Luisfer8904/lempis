@@ -55,6 +55,62 @@ def active_warehouses(tenant_id: int) -> list[Warehouse]:
     )
 
 
+def visible_warehouses_for_user(tenant_id: int, user=None, include_all: bool = False) -> list[Warehouse]:
+    """Bodegas visibles para consulta. Si el usuario tiene sede, se limita por defecto a esa sede."""
+    query = (
+        Warehouse.query
+        .join(Branch)
+        .filter(Warehouse.tenant_id == tenant_id, Warehouse.is_active.is_(True), Branch.is_active.is_(True))
+    )
+    branch_id = getattr(user, "branch_id", None)
+    if branch_id and not include_all:
+        query = query.filter(Warehouse.branch_id == branch_id)
+    return query.order_by(Branch.name.asc(), Warehouse.name.asc()).all()
+
+
+def sale_warehouses_for_user(tenant_id: int, user=None) -> list[Warehouse]:
+    """Bodegas permitidas para facturar. Un usuario asignado a sede solo factura desde esa sede."""
+    return visible_warehouses_for_user(tenant_id, user=user, include_all=False)
+
+
+def can_user_sell_from_warehouse(tenant_id: int, user, warehouse_id) -> bool:
+    if not warehouse_id:
+        return False
+    return any(w.id == int(warehouse_id) for w in sale_warehouses_for_user(tenant_id, user))
+
+
+def stock_map_for_warehouses(tenant_id: int, warehouse_ids: list[int]) -> dict[int, Decimal]:
+    if not warehouse_ids:
+        return {}
+    rows = (
+        db.session.query(WarehouseStock.product_id, func.coalesce(func.sum(WarehouseStock.quantity), 0))
+        .filter(WarehouseStock.tenant_id == tenant_id, WarehouseStock.warehouse_id.in_(warehouse_ids))
+        .group_by(WarehouseStock.product_id)
+        .all()
+    )
+    return {product_id: Decimal(qty or 0) for product_id, qty in rows}
+
+
+def product_stock_rows(tenant_id: int, product_id: int):
+    return (
+        db.session.query(
+            WarehouseStock,
+            Branch.name.label("branch_name"),
+            Warehouse.name.label("warehouse_name"),
+            func.coalesce(WarehouseStock.quantity, 0).label("quantity"),
+        )
+        .join(Warehouse, Warehouse.id == WarehouseStock.warehouse_id)
+        .join(Branch, Branch.id == Warehouse.branch_id)
+        .filter(
+            WarehouseStock.tenant_id == tenant_id,
+            WarehouseStock.product_id == product_id,
+            WarehouseStock.quantity > 0,
+        )
+        .order_by(Branch.name.asc(), Warehouse.name.asc(), WarehouseStock.batch_id.asc())
+        .all()
+    )
+
+
 def warehouse_for_tenant(tenant_id: int, warehouse_id) -> Warehouse | None:
     if not warehouse_id:
         return None

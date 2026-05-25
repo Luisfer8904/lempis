@@ -53,6 +53,7 @@ class User(UserMixin, db.Model, TimestampMixin):
     full_name = Column(String(120))
     phone = Column(String(40))
     avatar_url = Column(String(255))
+    branch_id = Column(Integer, ForeignKey("lempis_sedes.id", ondelete="SET NULL"), nullable=True)
 
     # Estado
     is_active = Column(Boolean, default=True, nullable=False)
@@ -67,6 +68,7 @@ class User(UserMixin, db.Model, TimestampMixin):
 
     # Relaciones
     tenant = relationship("Tenant", back_populates="users")
+    branch = relationship("Branch")
     user_roles = relationship("UserRole", back_populates="user", cascade="all, delete-orphan")
 
     # ----- Helpers de password -----

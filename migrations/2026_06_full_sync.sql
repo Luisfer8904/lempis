@@ -26,6 +26,7 @@ DELIMITER ;
 -- ===== USUARIOS: is_superadmin =====
 CALL lempis_add_column_if_missing('lempis_usuarios', 'is_superadmin',
   'BOOLEAN NOT NULL DEFAULT FALSE');
+CALL lempis_add_column_if_missing('lempis_usuarios', 'branch_id', 'INT NULL');
 
 -- ===== PLANES: límites comerciales =====
 CALL lempis_add_column_if_missing('lempis_planes', 'max_suppliers', 'INT DEFAULT 2');

@@ -22,6 +22,10 @@
 
 {% block content %}
 
+<div class="mb-4 rounded-xl border bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
+  Stock mostrado: <strong>{{ stock_scope }}</strong>. En el detalle de cada producto puedes consultar otras sedes y bodegas.
+</div>
+
 {# ===== Búsqueda + toggle de vista ===== #}
 <div class="flex flex-col md:flex-row gap-3 mb-4">
   <form method="GET" class="flex gap-2 flex-1">
@@ -107,12 +111,13 @@
             <div class="mt-2 flex items-center justify-between">
               <span class="text-lg font-bold text-slate-900">$ {{ '%.2f'|format(p.price) }}</span>
               {% if p.track_stock %}
-                {% if p.stock <= 0 %}
+                {% set shown_stock = p.visible_stock if p.visible_stock is defined else p.stock %}
+                {% if shown_stock <= 0 %}
                   <span class="text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded">Agotado</span>
-                {% elif p.stock <= 5 %}
-                  <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">{{ p.stock }} und</span>
+                {% elif shown_stock <= 5 %}
+                  <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">{{ shown_stock }} und</span>
                 {% else %}
-                  <span class="text-xs text-slate-500">{{ p.stock }} disp.</span>
+                  <span class="text-xs text-slate-500">{{ shown_stock }} disp.</span>
                 {% endif %}
               {% endif %}
             </div>
@@ -193,7 +198,7 @@
           </td>
           <td class="text-right font-medium">{{ '%.2f'|format(p.price) }}</td>
           <td class="text-right">
-            {% if p.track_stock %}{{ p.stock }}{% else %}—{% endif %}
+            {% if p.track_stock %}{{ p.visible_stock if p.visible_stock is defined else p.stock }}{% else %}—{% endif %}
           </td>
           <td>
             {% if p.is_active %}

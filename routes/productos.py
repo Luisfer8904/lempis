@@ -3,7 +3,7 @@ CRUD de Productos. Todo aislado por tenant_id.
 """
 from decimal import Decimal, InvalidOperation
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
-from flask_login import login_required
+from flask_login import current_user, login_required
 from sqlalchemy import or_
 
 from models import db
@@ -12,6 +12,11 @@ from models.country import TaxConfig
 from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
 from services.plan_limits import check_can_create_product, PlanLimitError
+from services.locations import (
+    product_stock_rows,
+    stock_map_for_warehouses,
+    visible_warehouses_for_user,
+)
 from services.uploads import save_product_image, delete_product_image
 
 productos_bp = Blueprint("productos", __name__, url_prefix="/app/productos")
@@ -54,11 +59,16 @@ def list():
         query = query.filter_by(category_id=category_id)
 
     productos = query.order_by(Product.name.asc()).all()
+    visible_warehouses = visible_warehouses_for_user(tenant.id, current_user)
+    visible_stock = stock_map_for_warehouses(tenant.id, [w.id for w in visible_warehouses])
+    for product in productos:
+        product.visible_stock = int(visible_stock.get(product.id, 0))
     categorias = Category.query.filter_by(tenant_id=tenant.id).order_by(Category.name).all()
     return render_template(
         "productos/list.html",
         productos=productos, categorias=categorias,
         q=q, selected_category=category_id, view=view,
+        stock_scope=current_user.branch.name if getattr(current_user, "branch", None) else "Toda la empresa",
     )
 
 
@@ -170,11 +180,16 @@ def detail(product_id):
             Purchase.status == "received",
         ).scalar() or 0
     )
+    visible_warehouses = visible_warehouses_for_user(tenant.id, current_user)
+    visible_stock = stock_map_for_warehouses(tenant.id, [w.id for w in visible_warehouses]).get(prod.id, 0)
 
     return render_template(
         "productos/detail.html",
         producto=prod,
         lotes=lotes,
+        stock_rows=product_stock_rows(tenant.id, prod.id),
+        visible_stock=int(visible_stock or 0),
+        stock_scope=current_user.branch.name if getattr(current_user, "branch", None) else "Toda la empresa",
         ultimas_compras=ultimas_compras,
         ultimas_ventas=ultimas_ventas,
         total_vendido=float(total_vendido),

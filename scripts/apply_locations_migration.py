@@ -38,6 +38,11 @@ def main() -> None:
                     "ALTER TABLE lempis_compras "
                     "ADD COLUMN warehouse_id INT NULL"
                 )
+            if not _has_column(inspector, "lempis_usuarios", "branch_id"):
+                conn.exec_driver_sql(
+                    "ALTER TABLE lempis_usuarios "
+                    "ADD COLUMN branch_id INT NULL"
+                )
 
         for tenant in Tenant.query.all():
             sync_default_warehouse_stock(tenant)
