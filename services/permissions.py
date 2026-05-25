@@ -29,6 +29,10 @@ PERMISSION_GROUPS = [
         ("receivables.view", "Ver cuentas por cobrar"),
         ("receivables.manage", "Registrar, revertir cobros y recibos"),
     ]),
+    ("Caja diaria", [
+        ("cash.view", "Ver cierres, aperturas y gastos de caja"),
+        ("cash.manage", "Registrar aperturas, gastos y cierres de caja"),
+    ]),
     ("Compras", [
         ("purchases.view", "Ver compras y proveedores"),
         ("purchases.manage", "Crear, recibir, pagar y anular compras"),
@@ -47,14 +51,14 @@ ALL_PERMISSIONS = [code for _, items in PERMISSION_GROUPS for code, _ in items]
 DEFAULT_ROLE_PERMISSIONS = {
     "owner": ALL_PERMISSIONS,
     "admin": ALL_PERMISSIONS,
-    "cajero": ["sales.view", "sales.create", "customers.view", "products.view"],
+    "cajero": ["sales.view", "sales.create", "customers.view", "products.view", "cash.view", "cash.manage"],
     "vendedor": [
         "sales.view", "sales.create", "customers.view", "customers.manage",
         "products.view", "receivables.view",
     ],
     "contador": [
         "sales.view", "customers.view", "products.view", "receivables.view",
-        "receivables.manage", "purchases.view", "reports.view",
+        "receivables.manage", "cash.view", "cash.manage", "purchases.view", "reports.view",
     ],
     "viewer": ["sales.view", "customers.view", "products.view", "receivables.view", "purchases.view", "reports.view"],
 }

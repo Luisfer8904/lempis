@@ -25,7 +25,7 @@ VALID_INVOICE_STATUSES = ["issued", "paid", "partially_paid", "overdue"]
 @caja_bp.route("/")
 @login_required
 @tenant_required
-@permission_required("receivables.view")
+@permission_required("cash.view")
 def index():
     tenant = current_tenant()
     today = datetime.utcnow().date()
@@ -72,7 +72,7 @@ def index():
 @caja_bp.route("/nuevo", methods=["GET", "POST"])
 @login_required
 @tenant_required
-@permission_required("receivables.manage")
+@permission_required("cash.manage")
 def new_closure():
     tenant = current_tenant()
     closure_date = _parse_date(request.values.get("fecha")) or datetime.utcnow().date()
@@ -102,7 +102,7 @@ def new_closure():
 @caja_bp.route("/<int:closure_id>/editar", methods=["GET", "POST"])
 @login_required
 @tenant_required
-@permission_required("receivables.manage")
+@permission_required("cash.manage")
 def edit_closure(closure_id):
     tenant = current_tenant()
     closure = CashClosure.query.filter_by(id=closure_id, tenant_id=tenant.id).first_or_404()
@@ -130,7 +130,7 @@ def edit_closure(closure_id):
 @caja_bp.route("/gastos", methods=["POST"])
 @login_required
 @tenant_required
-@permission_required("receivables.manage")
+@permission_required("cash.manage")
 def create_expense():
     tenant = current_tenant()
     amount = _decimal(request.form.get("amount"))

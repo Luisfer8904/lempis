@@ -3,7 +3,7 @@
 {% block heading %}Caja diaria{% endblock %}
 
 {% block actions %}
-{% if current_user.has_permission('receivables.manage') %}
+{% if current_user.has_permission('cash.manage') %}
   <a href="{{ url_for('caja.new_closure') }}"
      class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
     + Nuevo cierre
@@ -94,7 +94,7 @@
                 {{ tenant.currency }} {{ '%.2f'|format(c.variance_amount) }}
               </td>
               <td>
-                {% if current_user.has_permission('receivables.manage') %}
+                {% if current_user.has_permission('cash.manage') %}
                   <a href="{{ url_for('caja.edit_closure', closure_id=c.id) }}" class="text-indigo-600 hover:underline">Editar</a>
                 {% endif %}
               </td>
@@ -110,7 +110,7 @@
   </section>
 
   <aside class="space-y-5">
-    {% if current_user.has_permission('receivables.manage') %}
+    {% if current_user.has_permission('cash.manage') %}
     <form method="POST" action="{{ url_for('caja.create_expense') }}" class="bg-white rounded-xl border shadow-sm p-5">
       <h2 class="text-lg font-semibold text-slate-900">Registrar gasto</h2>
       <p class="text-sm text-slate-500 mt-1">Gastos de caja o pagos operativos del día.</p>
