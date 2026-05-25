@@ -338,32 +338,15 @@
 
   <aside class="space-y-5">
     {% if current_user.has_permission('cash.manage') %}
-    <form method="POST" action="{{ url_for('caja.create_expense') }}" class="bg-white rounded-xl border shadow-sm p-5">
-      <h2 class="text-lg font-semibold text-slate-900">Registrar gasto</h2>
-      <p class="text-sm text-slate-500 mt-1">Gastos de caja o pagos operativos del día. Si ya cerraste caja, el gasto se descuenta automáticamente del cierre del día.</p>
-      <div class="grid gap-3 mt-4">
-        <input type="datetime-local" name="expense_date" class="rounded-lg border px-3 py-2 text-sm" />
-        <input name="description" required placeholder="Descripción" class="rounded-lg border px-3 py-2 text-sm" />
-        <div class="grid grid-cols-2 gap-3">
-          <input name="category" placeholder="Categoría" class="rounded-lg border px-3 py-2 text-sm" />
-          <input type="number" step="0.01" min="0" name="amount" required placeholder="Monto" class="rounded-lg border px-3 py-2 text-sm" />
-        </div>
-        <select name="payment_method" class="rounded-lg border px-3 py-2 text-sm">
-          <option value="efectivo">Efectivo</option>
-          <option value="transferencia">Transferencia</option>
-          <option value="tarjeta">Tarjeta</option>
-          <option value="otro">Otro</option>
-        </select>
-        <select name="branch_id" class="rounded-lg border px-3 py-2 text-sm">
-          <option value="">Toda la empresa</option>
-          {% for b in branches %}
-            <option value="{{ b.id }}">{{ b.name }}</option>
-          {% endfor %}
-        </select>
-        <textarea name="notes" rows="2" placeholder="Nota" class="rounded-lg border px-3 py-2 text-sm"></textarea>
-        <button class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700">Guardar gasto</button>
-      </div>
-    </form>
+    <section class="bg-white rounded-xl border shadow-sm p-5">
+      <h2 class="text-lg font-semibold text-slate-900">Gastos de caja</h2>
+      <p class="text-sm text-slate-500 mt-1">Registra pagos operativos sin ocupar espacio en la pantalla principal.</p>
+      <button type="button"
+              onclick="openExpenseModal()"
+              class="mt-4 w-full rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700">
+        + Registrar gasto
+      </button>
+    </section>
     {% endif %}
 
     <section class="bg-white rounded-xl border shadow-sm overflow-hidden">
@@ -386,4 +369,80 @@
     </section>
   </aside>
 </div>
+
+{% if current_user.has_permission('cash.manage') %}
+<div id="expense-modal" class="hidden fixed inset-0 z-50 items-center justify-center bg-slate-900/50 px-4">
+  <form method="POST" action="{{ url_for('caja.create_expense') }}"
+        class="w-full max-w-lg rounded-2xl bg-white shadow-xl border overflow-hidden">
+    <div class="flex items-start justify-between gap-4 border-b p-5">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-900">Registrar gasto</h2>
+        <p class="text-sm text-slate-500 mt-1">Si la caja ya está cerrada, el gasto se descuenta automáticamente del cierre del día.</p>
+      </div>
+      <button type="button"
+              onclick="closeExpenseModal()"
+              class="rounded-lg border px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-50">
+        Cerrar
+      </button>
+    </div>
+
+    <div class="grid gap-3 p-5">
+      <input type="datetime-local" name="expense_date" class="rounded-lg border px-3 py-2 text-sm" />
+      <input name="description" required placeholder="Descripción" class="rounded-lg border px-3 py-2 text-sm" />
+      <div class="grid grid-cols-2 gap-3">
+        <input name="category" placeholder="Categoría" class="rounded-lg border px-3 py-2 text-sm" />
+        <input type="number" step="0.01" min="0" name="amount" required placeholder="Monto" class="rounded-lg border px-3 py-2 text-sm" />
+      </div>
+      <select name="payment_method" class="rounded-lg border px-3 py-2 text-sm">
+        <option value="efectivo">Efectivo</option>
+        <option value="transferencia">Transferencia</option>
+        <option value="tarjeta">Tarjeta</option>
+        <option value="otro">Otro</option>
+      </select>
+      <select name="branch_id" class="rounded-lg border px-3 py-2 text-sm">
+        <option value="">Toda la empresa</option>
+        {% for b in branches %}
+          <option value="{{ b.id }}">{{ b.name }}</option>
+        {% endfor %}
+      </select>
+      <textarea name="notes" rows="3" placeholder="Nota" class="rounded-lg border px-3 py-2 text-sm"></textarea>
+    </div>
+
+    <div class="flex justify-end gap-3 border-t bg-slate-50 px-5 py-4">
+      <button type="button"
+              onclick="closeExpenseModal()"
+              class="rounded-lg border bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        Cancelar
+      </button>
+      <button class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700">
+        Guardar gasto
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+function openExpenseModal() {
+  const modal = document.getElementById('expense-modal');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  setTimeout(() => {
+    const description = modal.querySelector('input[name="description"]');
+    if (description) description.focus();
+  }, 50);
+}
+
+function closeExpenseModal() {
+  const modal = document.getElementById('expense-modal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+
+document.getElementById('expense-modal')?.addEventListener('click', (event) => {
+  if (event.target.id === 'expense-modal') {
+    closeExpenseModal();
+  }
+});
+</script>
+{% endif %}
 {% endblock %}
