@@ -81,6 +81,20 @@ def index():
     today_summary = _suggested_closure_values(tenant.id, today)
     is_single_day = (start_date == end_date)
 
+    # Gastos en efectivo de HOY (para listarlos detalladamente en el banner del día)
+    today_start, today_end = _period_bounds(today, today)
+    today_expenses = (
+        CashExpense.query
+        .filter(
+            CashExpense.tenant_id == tenant.id,
+            CashExpense.payment_method == "efectivo",
+            CashExpense.expense_date >= today_start,
+            CashExpense.expense_date < today_end,
+        )
+        .order_by(CashExpense.expense_date.desc(), CashExpense.id.desc())
+        .all()
+    )
+
     # Atajos de fecha para los botones rápidos del filtro
     yesterday = today - timedelta(days=1)
     week_start = today - timedelta(days=today.weekday())  # lunes
@@ -103,6 +117,7 @@ def index():
         yesterday_iso=yesterday.isoformat(),
         week_start_iso=week_start.isoformat(),
         month_start_iso=month_start.isoformat(),
+        today_expenses=today_expenses,
     )
 
 
