@@ -301,6 +301,7 @@ CREATE TABLE IF NOT EXISTS lempis_cierres_diarios (
   warehouse_id INT NULL,
   user_id INT NULL,
   closure_date DATE NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'closed',
   opening_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
   cash_sales_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
   transfer_sales_amount DECIMAL(12,2) NOT NULL DEFAULT 0,

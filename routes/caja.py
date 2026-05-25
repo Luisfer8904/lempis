@@ -50,6 +50,7 @@ def index():
             CashClosure.tenant_id == tenant.id,
             CashClosure.closure_date >= start_date,
             CashClosure.closure_date <= end_date,
+            CashClosure.status == "closed",
         )
         .order_by(CashClosure.closure_date.desc(), CashClosure.id.desc())
         .all()
@@ -115,6 +116,7 @@ def index():
         today_summary=today_summary,
         is_single_day=is_single_day,
         is_today_view=(start_date == today and end_date == today),
+        warehouses=_active_warehouses(tenant.id),
         yesterday_iso=yesterday.isoformat(),
         week_start_iso=week_start.isoformat(),
         month_start_iso=month_start.isoformat(),
@@ -130,13 +132,12 @@ def new_closure():
     tenant = current_tenant()
     closure_date = _parse_date(request.values.get("fecha")) or tenant_today(tenant)
 
-    # Evitar duplicados: si ya hay un cierre para ese día, redirigir al editor
     existing = (
         CashClosure.query
         .filter(CashClosure.tenant_id == tenant.id, CashClosure.closure_date == closure_date)
         .first()
     )
-    if existing is not None:
+    if existing is not None and existing.status == "closed":
         if current_user.has_permission("cash.edit_closure"):
             flash(f"Ya existe un cierre para {closure_date.strftime('%d/%m/%Y')}. Lo abrimos para editarlo.", "info")
             return redirect(url_for("caja.edit_closure", closure_id=existing.id))
@@ -148,9 +149,11 @@ def new_closure():
     warehouses = _active_warehouses(tenant.id)
 
     if request.method == "POST":
-        closure = CashClosure(tenant_id=tenant.id, user_id=current_user.id)
+        closure = existing or CashClosure(tenant_id=tenant.id, user_id=current_user.id)
+        closure.user_id = current_user.id
         _fill_closure_from_form(closure, suggested)
-        db.session.add(closure)
+        if existing is None:
+            db.session.add(closure)
         db.session.flush()  # necesitamos closure.id antes de vincular gastos
         _link_day_expenses_to_closure(closure)
         _reconcile_closure(closure)
@@ -161,12 +164,53 @@ def new_closure():
     return render_template(
         "caja/form.html",
         tenant=tenant,
-        closure=None,
+        closure=existing,
+        closing_existing_open=existing is not None,
         suggested=suggested,
         branches=branches,
         warehouses=warehouses,
         fecha=closure_date.isoformat(),
     )
+
+
+@caja_bp.route("/apertura", methods=["POST"])
+@login_required
+@tenant_required
+@permission_required("cash.manage")
+def open_day():
+    tenant = current_tenant()
+    today = tenant_today(tenant)
+    closure_date = _parse_date(request.form.get("closure_date")) or today
+    existing = (
+        CashClosure.query
+        .filter(CashClosure.tenant_id == tenant.id, CashClosure.closure_date == closure_date)
+        .first()
+    )
+    if existing is not None and existing.status == "closed":
+        flash("La caja de ese día ya está cerrada. Solo puedes editarla desde el cierre registrado.", "warning")
+        return redirect(url_for("caja.index", desde=closure_date.isoformat(), hasta=closure_date.isoformat()))
+
+    suggested = _suggested_closure_values(tenant.id, closure_date)
+    closure = existing or CashClosure(
+        tenant_id=tenant.id,
+        user_id=current_user.id,
+        closure_date=closure_date,
+        status="open",
+    )
+    closure.user_id = current_user.id
+    closure.status = "open"
+    closure.branch_id = request.form.get("branch_id", type=int) or None
+    closure.warehouse_id = request.form.get("warehouse_id", type=int) or None
+    closure.opening_amount = _decimal(request.form.get("opening_amount"))
+    _apply_suggested_amounts(closure, suggested)
+    if existing is None:
+        db.session.add(closure)
+        db.session.flush()
+    _link_day_expenses_to_closure(closure)
+    _reconcile_closure(closure)
+    db.session.commit()
+    flash("Apertura de caja registrada.", "success")
+    return redirect(url_for("caja.index", desde=closure_date.isoformat(), hasta=closure_date.isoformat()))
 
 
 @caja_bp.route("/<int:closure_id>/editar", methods=["GET", "POST"])
@@ -252,9 +296,18 @@ def create_expense():
 def _fill_closure_from_form(closure: CashClosure, suggested: dict) -> None:
     """Aplica al cierre los datos del formulario + sugeridos del día."""
     closure.closure_date = _parse_date(request.form.get("closure_date")) or suggested["closure_date"]
+    closure.status = "closed"
     closure.branch_id = request.form.get("branch_id", type=int) or None
     closure.warehouse_id = request.form.get("warehouse_id", type=int) or None
     closure.opening_amount = _decimal(request.form.get("opening_amount"))
+    _apply_suggested_amounts(closure, suggested)
+    closure.actual_cash_amount = _decimal(request.form.get("actual_cash_amount"))
+    closure.delivered_cash_amount = _decimal(request.form.get("delivered_cash_amount"))
+    closure.notes = (request.form.get("notes") or "").strip() or None
+
+
+def _apply_suggested_amounts(closure: CashClosure, suggested: dict) -> None:
+    """Actualiza ventas y abonos calculados para el día operativo."""
     closure.cash_sales_amount = suggested["cash_sales_amount"]
     closure.transfer_sales_amount = suggested["transfer_sales_amount"]
     closure.card_sales_amount = suggested["card_sales_amount"]
@@ -262,9 +315,6 @@ def _fill_closure_from_form(closure: CashClosure, suggested: dict) -> None:
     closure.receivable_cash_amount = suggested["receivable_cash_amount"]
     closure.receivable_transfer_amount = suggested["receivable_transfer_amount"]
     closure.receivable_card_amount = suggested["receivable_card_amount"]
-    closure.actual_cash_amount = _decimal(request.form.get("actual_cash_amount"))
-    closure.delivered_cash_amount = _decimal(request.form.get("delivered_cash_amount"))
-    closure.notes = (request.form.get("notes") or "").strip() or None
 
 
 def _link_day_expenses_to_closure(closure: CashClosure) -> None:

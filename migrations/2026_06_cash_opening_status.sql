@@ -1,0 +1,22 @@
+DROP PROCEDURE IF EXISTS lempis_add_column_if_missing;
+DELIMITER //
+CREATE PROCEDURE lempis_add_column_if_missing(
+  IN tbl VARCHAR(64),
+  IN col VARCHAR(64),
+  IN coldef TEXT
+)
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = tbl AND COLUMN_NAME = col
+  ) THEN
+    SET @s = CONCAT('ALTER TABLE `', tbl, '` ADD COLUMN `', col, '` ', coldef);
+    PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+  END IF;
+END//
+DELIMITER ;
+
+CALL lempis_add_column_if_missing('lempis_cierres_diarios', 'status', 'VARCHAR(20) NOT NULL DEFAULT "closed"');
+UPDATE lempis_cierres_diarios SET status = 'closed' WHERE status IS NULL OR status = '';
+
+DROP PROCEDURE IF EXISTS lempis_add_column_if_missing;

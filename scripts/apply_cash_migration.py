@@ -10,12 +10,21 @@ if str(ROOT) not in sys.path:
 
 from app import create_app  # noqa: E402
 from models import db  # noqa: E402
+from sqlalchemy import inspect, text  # noqa: E402
 
 
 def main():
     app = create_app()
     with app.app_context():
         db.create_all()
+        inspector = inspect(db.engine)
+        columns = {col["name"] for col in inspector.get_columns("lempis_cierres_diarios")}
+        if "status" not in columns:
+            db.session.execute(text(
+                "ALTER TABLE lempis_cierres_diarios "
+                "ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'closed' AFTER closure_date"
+            ))
+            db.session.commit()
     print("migracion caja ok")
 
 

@@ -1,6 +1,7 @@
 {% extends "app/_layout.html" %}
-{% block title %}{{ 'Editar cierre' if closure else 'Nuevo cierre' }} — {{ APP_NAME }}{% endblock %}
-{% block heading %}{{ 'Editar cierre' if closure else 'Nuevo cierre' }}{% endblock %}
+{% set page_title = 'Cerrar caja abierta' if closing_existing_open else ('Editar cierre' if closure else 'Nuevo cierre') %}
+{% block title %}{{ page_title }} — {{ APP_NAME }}{% endblock %}
+{% block heading %}{{ page_title }}{% endblock %}
 
 {% block actions %}
 <a href="{{ url_for('caja.index') }}" class="rounded-lg border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">

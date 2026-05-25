@@ -242,6 +242,7 @@ def _custom_report_data(tenant, report_type, start_date, end_date, warehouse_id=
                 CashClosure.tenant_id == tenant.id,
                 CashClosure.closure_date >= start_date,
                 CashClosure.closure_date <= end_date,
+                CashClosure.status == "closed",
             )
             .order_by(CashClosure.closure_date.desc(), CashClosure.id.desc())
             .all()

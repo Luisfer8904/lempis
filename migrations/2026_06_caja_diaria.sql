@@ -28,6 +28,7 @@ DELIMITER ;
 -- ============================================================
 -- Tabla: lempis_cierres_diarios  — columnas requeridas
 -- ============================================================
+CALL lempis_add_column_if_missing('lempis_cierres_diarios', 'status',                     'VARCHAR(20) NOT NULL DEFAULT "closed"');
 CALL lempis_add_column_if_missing('lempis_cierres_diarios', 'opening_amount',             'DECIMAL(12,2) NOT NULL DEFAULT 0');
 CALL lempis_add_column_if_missing('lempis_cierres_diarios', 'cash_sales_amount',          'DECIMAL(12,2) NOT NULL DEFAULT 0');
 CALL lempis_add_column_if_missing('lempis_cierres_diarios', 'transfer_sales_amount',      'DECIMAL(12,2) NOT NULL DEFAULT 0');

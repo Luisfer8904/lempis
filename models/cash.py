@@ -20,6 +20,7 @@ class CashClosure(db.Model, TimestampMixin):
     user_id = Column(Integer, ForeignKey("lempis_usuarios.id", ondelete="SET NULL"), nullable=True)
 
     closure_date = Column(Date, default=date.today, nullable=False, index=True)
+    status = Column(String(20), default="closed", nullable=False)
     opening_amount = Column(Numeric(12, 2), default=0, nullable=False)
     cash_sales_amount = Column(Numeric(12, 2), default=0, nullable=False)
     transfer_sales_amount = Column(Numeric(12, 2), default=0, nullable=False)
@@ -78,6 +79,10 @@ class CashClosure(db.Model, TimestampMixin):
             "sobrante": "Sobrante",
             "faltante": "Faltante",
         }.get(self.closure_status, "—")
+
+    @property
+    def is_closed(self):
+        return self.status == "closed"
 
 
 class CashExpense(db.Model, TimestampMixin):
