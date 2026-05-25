@@ -20,6 +20,7 @@ from models.user import User, Role, UserRole, RolePermission  # noqa: E402,F401
 from models.catalog import Customer, Product, Category, ProductBatch  # noqa: E402,F401
 from models.locations import Branch, Warehouse, WarehouseStock, StockMovement  # noqa: E402,F401
 from models.invoice import Invoice, InvoiceItem, InvoicePayment  # noqa: E402,F401
+from models.cash import CashClosure, CashExpense          # noqa: E402,F401
 from models.country import Country, TaxConfig          # noqa: E402,F401
 from models.audit import AuditLog                      # noqa: E402,F401
 from models.printing import TenantPrintSettings        # noqa: E402,F401

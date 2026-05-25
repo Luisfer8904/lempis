@@ -1,0 +1,162 @@
+{% extends "app/_layout.html" %}
+{% block title %}Caja diaria — {{ APP_NAME }}{% endblock %}
+{% block heading %}Caja diaria{% endblock %}
+
+{% block actions %}
+{% if current_user.has_permission('receivables.manage') %}
+  <a href="{{ url_for('caja.new_closure') }}"
+     class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+    + Nuevo cierre
+  </a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<form method="GET" class="bg-white rounded-xl border shadow-sm p-4 mb-5 flex flex-wrap items-end gap-3">
+  <div>
+    <label class="block text-xs font-medium text-slate-500 mb-1">Desde</label>
+    <input type="date" name="desde" value="{{ desde }}" class="rounded-lg border px-3 py-2 text-sm" />
+  </div>
+  <div>
+    <label class="block text-xs font-medium text-slate-500 mb-1">Hasta</label>
+    <input type="date" name="hasta" value="{{ hasta }}" class="rounded-lg border px-3 py-2 text-sm" />
+  </div>
+  <button class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+    Filtrar
+  </button>
+</form>
+
+<section class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
+  <div class="bg-white rounded-xl border shadow-sm p-5">
+    <p class="text-sm text-slate-500">Ventas en efectivo</p>
+    <p class="mt-2 text-2xl font-black text-emerald-700">{{ tenant.currency }} {{ '%.2f'|format(summary.sales.get('efectivo', 0)) }}</p>
+    <p class="text-xs text-slate-400 mt-1">Más abonos: {{ tenant.currency }} {{ '%.2f'|format(summary.payments.get('efectivo', 0)) }}</p>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-5">
+    <p class="text-sm text-slate-500">Transferencias</p>
+    <p class="mt-2 text-2xl font-black text-indigo-700">{{ tenant.currency }} {{ '%.2f'|format(summary.sales.get('transferencia', 0) + summary.payments.get('transferencia', 0)) }}</p>
+    <p class="text-xs text-slate-400 mt-1">Ventas y abonos del periodo</p>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-5">
+    <p class="text-sm text-slate-500">Tarjeta</p>
+    <p class="mt-2 text-2xl font-black text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(summary.sales.get('tarjeta', 0) + summary.payments.get('tarjeta', 0)) }}</p>
+    <p class="text-xs text-slate-400 mt-1">Ventas y abonos del periodo</p>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-5">
+    <p class="text-sm text-slate-500">Dinero entregado</p>
+    <p class="mt-2 text-2xl font-black text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(summary.delivered_cash) }}</p>
+    <p class="text-xs {% if summary.variance < 0 %}text-rose-600{% else %}text-emerald-600{% endif %} mt-1">
+      Diferencia: {{ tenant.currency }} {{ '%.2f'|format(summary.variance) }}
+    </p>
+  </div>
+</section>
+
+<div class="grid xl:grid-cols-[1fr_380px] gap-5">
+  <section class="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div class="p-5 border-b flex items-start justify-between gap-3">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-900">Cierres registrados</h2>
+        <p class="text-sm text-slate-500">Apertura, resumen de cobros, gastos en efectivo y entrega.</p>
+      </div>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="saas-table w-full min-w-[920px]">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Sede</th>
+            <th>Apertura</th>
+            <th>Efectivo</th>
+            <th>Transferencia</th>
+            <th>Tarjeta</th>
+            <th>Gastos efectivo</th>
+            <th>Esperado</th>
+            <th>Contado</th>
+            <th>Entregado</th>
+            <th>Diferencia</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in closures %}
+            <tr>
+              <td>{{ c.closure_date.strftime('%d/%m/%Y') }}</td>
+              <td>{{ c.branch.name if c.branch else 'Toda la empresa' }}</td>
+              <td class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(c.opening_amount) }}</td>
+              <td class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(c.cash_sales_amount + c.receivable_cash_amount) }}</td>
+              <td class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(c.transfer_sales_amount + c.receivable_transfer_amount) }}</td>
+              <td class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(c.card_sales_amount + c.receivable_card_amount) }}</td>
+              <td class="font-mono text-rose-700">{{ tenant.currency }} {{ '%.2f'|format(c.expenses_amount) }}</td>
+              <td class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(c.expected_cash_amount) }}</td>
+              <td class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(c.actual_cash_amount) }}</td>
+              <td class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(c.delivered_cash_amount) }}</td>
+              <td class="font-mono {% if c.variance_amount < 0 %}text-rose-700{% else %}text-emerald-700{% endif %}">
+                {{ tenant.currency }} {{ '%.2f'|format(c.variance_amount) }}
+              </td>
+              <td>
+                {% if current_user.has_permission('receivables.manage') %}
+                  <a href="{{ url_for('caja.edit_closure', closure_id=c.id) }}" class="text-indigo-600 hover:underline">Editar</a>
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="12" class="text-center py-10 text-slate-400">No hay cierres registrados en este periodo.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <aside class="space-y-5">
+    {% if current_user.has_permission('receivables.manage') %}
+    <form method="POST" action="{{ url_for('caja.create_expense') }}" class="bg-white rounded-xl border shadow-sm p-5">
+      <h2 class="text-lg font-semibold text-slate-900">Registrar gasto</h2>
+      <p class="text-sm text-slate-500 mt-1">Gastos de caja o pagos operativos del día.</p>
+      <div class="grid gap-3 mt-4">
+        <input type="datetime-local" name="expense_date" class="rounded-lg border px-3 py-2 text-sm" />
+        <input name="description" required placeholder="Descripción" class="rounded-lg border px-3 py-2 text-sm" />
+        <div class="grid grid-cols-2 gap-3">
+          <input name="category" placeholder="Categoría" class="rounded-lg border px-3 py-2 text-sm" />
+          <input type="number" step="0.01" min="0" name="amount" required placeholder="Monto" class="rounded-lg border px-3 py-2 text-sm" />
+        </div>
+        <select name="payment_method" class="rounded-lg border px-3 py-2 text-sm">
+          <option value="efectivo">Efectivo</option>
+          <option value="transferencia">Transferencia</option>
+          <option value="tarjeta">Tarjeta</option>
+          <option value="otro">Otro</option>
+        </select>
+        <select name="branch_id" class="rounded-lg border px-3 py-2 text-sm">
+          <option value="">Toda la empresa</option>
+          {% for b in branches %}
+            <option value="{{ b.id }}">{{ b.name }}</option>
+          {% endfor %}
+        </select>
+        <textarea name="notes" rows="2" placeholder="Nota" class="rounded-lg border px-3 py-2 text-sm"></textarea>
+        <button class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700">Guardar gasto</button>
+      </div>
+    </form>
+    {% endif %}
+
+    <section class="bg-white rounded-xl border shadow-sm overflow-hidden">
+      <div class="p-5 border-b">
+        <h2 class="text-lg font-semibold text-slate-900">Últimos gastos</h2>
+      </div>
+      <div class="divide-y">
+        {% for e in expenses %}
+          <div class="p-4">
+            <div class="flex justify-between gap-3">
+              <p class="font-medium text-slate-900">{{ e.description }}</p>
+              <p class="font-mono text-rose-700">{{ tenant.currency }} {{ '%.2f'|format(e.amount) }}</p>
+            </div>
+            <p class="text-xs text-slate-500 mt-1">{{ e.expense_date.strftime('%d/%m/%Y %H:%M') }} · {{ e.category }} · {{ e.payment_method }}</p>
+          </div>
+        {% else %}
+          <p class="p-5 text-sm text-slate-400">Sin gastos en el periodo.</p>
+        {% endfor %}
+      </div>
+    </section>
+  </aside>
+</div>
+{% endblock %}

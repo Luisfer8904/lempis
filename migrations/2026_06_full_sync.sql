@@ -293,6 +293,64 @@ CREATE TABLE IF NOT EXISTS lempis_movimientos_inventario (
   CONSTRAINT fk_lempis_mov_inv_target FOREIGN KEY (target_warehouse_id) REFERENCES lempis_bodegas(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ===== Caja diaria, aperturas y gastos =====
+CREATE TABLE IF NOT EXISTS lempis_cierres_diarios (
+  id INT NOT NULL AUTO_INCREMENT,
+  tenant_id INT NOT NULL,
+  branch_id INT NULL,
+  warehouse_id INT NULL,
+  user_id INT NULL,
+  closure_date DATE NOT NULL,
+  opening_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  cash_sales_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  transfer_sales_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  card_sales_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  credit_sales_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  receivable_cash_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  receivable_transfer_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  receivable_card_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  expenses_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  expected_cash_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  actual_cash_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  delivered_cash_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  variance_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  notes TEXT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  PRIMARY KEY (id),
+  INDEX idx_lempis_cierres_tenant_date (tenant_id, closure_date),
+  INDEX idx_lempis_cierres_branch (branch_id),
+  INDEX idx_lempis_cierres_warehouse (warehouse_id),
+  CONSTRAINT fk_lempis_cierres_tenant FOREIGN KEY (tenant_id) REFERENCES lempis_empresas(id) ON DELETE CASCADE,
+  CONSTRAINT fk_lempis_cierres_branch FOREIGN KEY (branch_id) REFERENCES lempis_sedes(id) ON DELETE SET NULL,
+  CONSTRAINT fk_lempis_cierres_warehouse FOREIGN KEY (warehouse_id) REFERENCES lempis_bodegas(id) ON DELETE SET NULL,
+  CONSTRAINT fk_lempis_cierres_user FOREIGN KEY (user_id) REFERENCES lempis_usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS lempis_gastos_caja (
+  id INT NOT NULL AUTO_INCREMENT,
+  tenant_id INT NOT NULL,
+  closure_id INT NULL,
+  branch_id INT NULL,
+  user_id INT NULL,
+  expense_date DATETIME NOT NULL,
+  category VARCHAR(80) NOT NULL DEFAULT 'General',
+  description VARCHAR(180) NOT NULL,
+  payment_method ENUM('efectivo','transferencia','tarjeta','otro') NOT NULL DEFAULT 'efectivo',
+  amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  notes TEXT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  PRIMARY KEY (id),
+  INDEX idx_lempis_gastos_tenant_date (tenant_id, expense_date),
+  INDEX idx_lempis_gastos_closure (closure_id),
+  INDEX idx_lempis_gastos_branch (branch_id),
+  CONSTRAINT fk_lempis_gastos_tenant FOREIGN KEY (tenant_id) REFERENCES lempis_empresas(id) ON DELETE CASCADE,
+  CONSTRAINT fk_lempis_gastos_closure FOREIGN KEY (closure_id) REFERENCES lempis_cierres_diarios(id) ON DELETE SET NULL,
+  CONSTRAINT fk_lempis_gastos_branch FOREIGN KEY (branch_id) REFERENCES lempis_sedes(id) ON DELETE SET NULL,
+  CONSTRAINT fk_lempis_gastos_user FOREIGN KEY (user_id) REFERENCES lempis_usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ===== Roles y permisos personalizables =====
 CREATE TABLE IF NOT EXISTS lempis_roles_permisos (
   id INT NOT NULL AUTO_INCREMENT,

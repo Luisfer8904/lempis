@@ -24,6 +24,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 
 from models import db
+from models.cash import CashClosure, CashExpense
 from models.invoice import Invoice, InvoiceItem
 from models.catalog import Product, Customer, Category, ProductBatch
 from models.locations import Branch, Warehouse, WarehouseStock
@@ -36,6 +37,7 @@ reportes_bp = Blueprint("reportes", __name__, url_prefix="/app/reportes")
 REPORT_OPTIONS = [
     ("ventas_contado", "Reporte de ventas de contado", "Ventas pagadas en efectivo, transferencia o tarjeta."),
     ("ventas_credito", "Reporte de ventas de crédito", "Facturas emitidas a crédito y sus saldos."),
+    ("cierres_caja", "Reporte de cierres de caja", "Aperturas, formas de pago, gastos, dinero contado y entregado."),
     ("inventario", "Inventarios", "Existencias, costos y valor de inventario."),
     ("productos_vencer", "Listado de productos por vencer", "Lotes vigentes próximos a vencer."),
 ]
@@ -148,7 +150,7 @@ def _custom_report_context():
         desde=start_date.isoformat(),
         hasta=end_date.isoformat(),
         period_label=f"{start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}",
-        uses_dates=report_type in {"ventas_contado", "ventas_credito"},
+        uses_dates=report_type in {"ventas_contado", "ventas_credito", "cierres_caja"},
         warehouses=warehouses,
         warehouse_id=warehouse_id,
         selected_warehouse=selected_warehouse,
@@ -230,6 +232,61 @@ def _custom_report_data(tenant, report_type, start_date, end_date, warehouse_id=
             ],
             rows,
             _totals(rows, ["total", "abonado", "saldo"]),
+        )
+
+    if report_type == "cierres_caja":
+        closures = (
+            CashClosure.query
+            .filter(
+                CashClosure.tenant_id == tenant.id,
+                CashClosure.closure_date >= start_date,
+                CashClosure.closure_date <= end_date,
+            )
+            .order_by(CashClosure.closure_date.desc(), CashClosure.id.desc())
+            .all()
+        )
+        expenses_total = (
+            db.session.query(func.coalesce(func.sum(CashExpense.amount), 0))
+            .filter(
+                CashExpense.tenant_id == tenant.id,
+                CashExpense.expense_date >= period_start,
+                CashExpense.expense_date < period_end,
+            )
+            .scalar()
+        )
+        rows = [{
+            "fecha": c.closure_date.strftime("%d/%m/%Y"),
+            "sede": c.branch.name if c.branch else "Toda la empresa",
+            "usuario": c.user.full_name if c.user else "",
+            "apertura": float(c.opening_amount or 0),
+            "efectivo": float((c.cash_sales_amount or 0) + (c.receivable_cash_amount or 0)),
+            "transferencia": float((c.transfer_sales_amount or 0) + (c.receivable_transfer_amount or 0)),
+            "tarjeta": float((c.card_sales_amount or 0) + (c.receivable_card_amount or 0)),
+            "credito": float(c.credit_sales_amount or 0),
+            "gastos": float(c.expenses_amount or 0),
+            "esperado": float(c.expected_cash_amount or 0),
+            "contado": float(c.actual_cash_amount or 0),
+            "entregado": float(c.delivered_cash_amount or 0),
+            "diferencia": float(c.variance_amount or 0),
+            "notas": c.notes or "",
+        } for c in closures]
+        totals = _totals(rows, [
+            "apertura", "efectivo", "transferencia", "tarjeta", "credito",
+            "gastos", "esperado", "contado", "entregado", "diferencia",
+        ])
+        totals["gastos_periodo"] = float(expenses_total or 0)
+        return (
+            [
+                ("fecha", "Fecha", "text"), ("sede", "Sede", "text"),
+                ("usuario", "Usuario", "text"), ("apertura", "Apertura", "money"),
+                ("efectivo", "Efectivo", "money"), ("transferencia", "Transferencia", "money"),
+                ("tarjeta", "Tarjeta", "money"), ("credito", "Crédito", "money"),
+                ("gastos", "Gastos efectivo", "money"), ("esperado", "Esperado", "money"),
+                ("contado", "Contado", "money"), ("entregado", "Entregado", "money"),
+                ("diferencia", "Diferencia", "money"), ("notas", "Notas", "text"),
+            ],
+            rows,
+            totals,
         )
 
     if report_type == "inventario":

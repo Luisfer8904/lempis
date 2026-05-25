@@ -84,6 +84,7 @@
       {{ navlink('dashboard.home',          'Dashboard',     '🏠') }}
       {% if current_user.has_permission('sales.view') %}{{ navlink('facturas.list', 'Facturas', '🧾') }}{% endif %}
       {% if current_user.has_permission('receivables.view') %}{{ navlink('cobros.index', 'Por cobrar', '💰') }}{% endif %}
+      {% if current_user.has_permission('receivables.view') %}{{ navlink('caja.index', 'Caja diaria', '🏦') }}{% endif %}
       {% if current_user.has_permission('customers.view') %}{{ navlink('clientes.list', 'Clientes', '👥') }}{% endif %}
       {% if current_user.has_permission('products.view') %}{{ navlink('productos.list', 'Productos', '📦') }}{% endif %}
       {% if current_user.has_permission('products.manage') %}{{ navlink('categorias.list', 'Categorías', '🏷️') }}{% endif %}

@@ -1,0 +1,111 @@
+{% extends "app/_layout.html" %}
+{% block title %}{{ 'Editar cierre' if closure else 'Nuevo cierre' }} — {{ APP_NAME }}{% endblock %}
+{% block heading %}{{ 'Editar cierre' if closure else 'Nuevo cierre' }}{% endblock %}
+
+{% block actions %}
+<a href="{{ url_for('caja.index') }}" class="rounded-lg border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+  Volver
+</a>
+{% endblock %}
+
+{% block content %}
+<form method="POST" class="grid xl:grid-cols-[1fr_360px] gap-5">
+  <section class="bg-white rounded-xl border shadow-sm p-5">
+    <h2 class="text-lg font-semibold text-slate-900">Datos del cierre</h2>
+    <p class="text-sm text-slate-500 mt-1">El sistema calcula ventas, abonos y gastos del día. Solo ingresas apertura, efectivo contado y dinero entregado.</p>
+
+    <div class="grid md:grid-cols-3 gap-4 mt-5">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Fecha</label>
+        <input type="date" name="closure_date" value="{{ fecha }}" class="w-full rounded-lg border px-3 py-2" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Sede</label>
+        <select name="branch_id" class="w-full rounded-lg border px-3 py-2">
+          <option value="">Toda la empresa</option>
+          {% for b in branches %}
+            <option value="{{ b.id }}" {% if closure and closure.branch_id == b.id %}selected{% endif %}>{{ b.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Bodega</label>
+        <select name="warehouse_id" class="w-full rounded-lg border px-3 py-2">
+          <option value="">No aplica</option>
+          {% for w in warehouses %}
+            <option value="{{ w.id }}" {% if closure and closure.warehouse_id == w.id %}selected{% endif %}>{{ w.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-4 mt-5">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Apertura</label>
+        <input type="number" step="0.01" min="0" name="opening_amount"
+               value="{{ closure.opening_amount if closure else '0.00' }}"
+               class="w-full rounded-lg border px-3 py-2" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Efectivo contado</label>
+        <input type="number" step="0.01" min="0" name="actual_cash_amount"
+               value="{{ closure.actual_cash_amount if closure else suggested.cash_sales_amount + suggested.receivable_cash_amount - suggested.expenses_amount }}"
+               class="w-full rounded-lg border px-3 py-2" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Dinero entregado</label>
+        <input type="number" step="0.01" min="0" name="delivered_cash_amount"
+               value="{{ closure.delivered_cash_amount if closure else suggested.cash_sales_amount + suggested.receivable_cash_amount - suggested.expenses_amount }}"
+               class="w-full rounded-lg border px-3 py-2" />
+      </div>
+    </div>
+
+    <div class="mt-5">
+      <label class="block text-sm font-medium text-slate-600 mb-1">Notas</label>
+      <textarea name="notes" rows="4" class="w-full rounded-lg border px-3 py-2">{{ closure.notes if closure else '' }}</textarea>
+    </div>
+
+    <div class="mt-6 flex justify-end">
+      <button class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700">
+        Guardar cierre
+      </button>
+    </div>
+  </section>
+
+  <aside class="bg-white rounded-xl border shadow-sm p-5 h-fit">
+    <h2 class="text-lg font-semibold text-slate-900">Resumen calculado</h2>
+    <div class="mt-4 space-y-3 text-sm">
+      <div class="flex justify-between gap-3">
+        <span class="text-slate-500">Ventas efectivo</span>
+        <span class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(suggested.cash_sales_amount) }}</span>
+      </div>
+      <div class="flex justify-between gap-3">
+        <span class="text-slate-500">Abonos efectivo</span>
+        <span class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(suggested.receivable_cash_amount) }}</span>
+      </div>
+      <div class="flex justify-between gap-3">
+        <span class="text-slate-500">Gastos efectivo</span>
+        <span class="font-mono text-rose-700">{{ tenant.currency }} {{ '%.2f'|format(suggested.expenses_amount) }}</span>
+      </div>
+      <div class="border-t pt-3 flex justify-between gap-3 font-semibold">
+        <span>Efectivo esperado</span>
+        <span class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(suggested.cash_sales_amount + suggested.receivable_cash_amount - suggested.expenses_amount) }}</span>
+      </div>
+      <div class="border-t pt-3 grid grid-cols-2 gap-3 text-xs text-slate-500">
+        <div>
+          <p>Transferencias</p>
+          <p class="font-mono text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(suggested.transfer_sales_amount + suggested.receivable_transfer_amount) }}</p>
+        </div>
+        <div>
+          <p>Tarjeta</p>
+          <p class="font-mono text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(suggested.card_sales_amount + suggested.receivable_card_amount) }}</p>
+        </div>
+        <div>
+          <p>Crédito emitido</p>
+          <p class="font-mono text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(suggested.credit_sales_amount) }}</p>
+        </div>
+      </div>
+    </div>
+  </aside>
+</form>
+{% endblock %}
