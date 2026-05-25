@@ -49,6 +49,36 @@ class CashClosure(db.Model, TimestampMixin):
             + (self.credit_sales_amount or 0)
         )
 
+    @property
+    def contado_sales_amount(self):
+        """Ventas de contado = todo lo que no es a crédito (efectivo + transferencia + tarjeta)."""
+        return (
+            (self.cash_sales_amount or 0)
+            + (self.transfer_sales_amount or 0)
+            + (self.card_sales_amount or 0)
+        )
+
+    @property
+    def closure_status(self):
+        """
+        Estado del cierre basado en la diferencia entre lo entregado y lo esperado.
+        - 'cuadrado'  → diferencia == 0
+        - 'sobrante'  → diferencia > 0 (se entregó más de lo esperado)
+        - 'faltante'  → diferencia < 0 (se entregó menos de lo esperado)
+        """
+        diff = self.variance_amount or 0
+        if diff == 0:
+            return "cuadrado"
+        return "sobrante" if diff > 0 else "faltante"
+
+    @property
+    def closure_status_label(self):
+        return {
+            "cuadrado": "Cuadrado",
+            "sobrante": "Sobrante",
+            "faltante": "Faltante",
+        }.get(self.closure_status, "—")
+
 
 class CashExpense(db.Model, TimestampMixin):
     """Gasto registrado durante el dia de caja."""

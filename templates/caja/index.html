@@ -75,68 +75,108 @@
 </section>
 
 <div class="grid xl:grid-cols-[1fr_380px] gap-5">
-  <section class="bg-white rounded-xl border shadow-sm overflow-hidden">
-    <div class="p-5 border-b flex items-start justify-between gap-3">
+  <section class="space-y-4">
+    <div class="flex items-end justify-between gap-3">
       <div>
         <h2 class="text-lg font-semibold text-slate-900">Cierres registrados</h2>
         <p class="text-sm text-slate-500">Cada cierre refleja los gastos del día en tiempo real, aunque se hayan registrado después.</p>
       </div>
+      <span class="text-xs text-slate-400">{{ closures|length }} cierre{{ '' if closures|length == 1 else 's' }}</span>
     </div>
-    <div class="overflow-x-auto">
-      <table class="saas-table w-full min-w-[1100px]">
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Sede</th>
-            <th class="text-right">Apertura</th>
-            <th class="text-right">Efectivo</th>
-            <th class="text-right">Transferencia</th>
-            <th class="text-right">Tarjeta</th>
-            <th class="text-right">Contado</th>
-            <th class="text-right">Gastos</th>
-            <th class="text-right">Esperado</th>
-            <th class="text-right">Contado físico</th>
-            <th class="text-right">Entregado</th>
-            <th class="text-right">Diferencia</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for c in closures %}
-            {% set cash_total = c.cash_sales_amount + c.receivable_cash_amount %}
-            {% set transfer_total = c.transfer_sales_amount + c.receivable_transfer_amount %}
-            {% set card_total = c.card_sales_amount + c.receivable_card_amount %}
-            <tr>
-              <td class="align-middle">{{ c.closure_date.strftime('%d/%m/%Y') }}</td>
-              <td class="align-middle">{{ c.branch.name if c.branch else 'Toda la empresa' }}</td>
-              <td class="font-mono text-right">{{ tenant.currency }} {{ '%.2f'|format(c.opening_amount) }}</td>
-              <td class="font-mono text-right">{{ tenant.currency }} {{ '%.2f'|format(cash_total) }}</td>
-              <td class="font-mono text-right">{{ tenant.currency }} {{ '%.2f'|format(transfer_total) }}</td>
-              <td class="font-mono text-right">{{ tenant.currency }} {{ '%.2f'|format(card_total) }}</td>
-              <td class="font-mono text-right font-semibold">{{ tenant.currency }} {{ '%.2f'|format(cash_total + transfer_total + card_total) }}</td>
-              <td class="font-mono text-right text-rose-700">{{ tenant.currency }} {{ '%.2f'|format(c.expenses_amount) }}</td>
-              <td class="font-mono text-right">{{ tenant.currency }} {{ '%.2f'|format(c.expected_cash_amount) }}</td>
-              <td class="font-mono text-right">{{ tenant.currency }} {{ '%.2f'|format(c.actual_cash_amount) }}</td>
-              <td class="font-mono text-right">{{ tenant.currency }} {{ '%.2f'|format(c.delivered_cash_amount) }}</td>
-              <td class="font-mono text-right {% if c.variance_amount < 0 %}text-rose-700{% else %}text-emerald-700{% endif %}">
-                {{ tenant.currency }} {{ '%.2f'|format(c.variance_amount) }}
-              </td>
-              <td class="text-right">
-                {% if current_user.has_permission('cash.edit_closure') %}
-                  <a href="{{ url_for('caja.edit_closure', closure_id=c.id) }}" class="text-indigo-600 hover:underline">Editar</a>
-                {% else %}
-                  <span class="text-xs text-slate-400" title="Solo administradores pueden editar cierres ya guardados">🔒</span>
-                {% endif %}
-              </td>
-            </tr>
+
+    {% if not closures %}
+      <div class="bg-white rounded-2xl border shadow-sm p-10 text-center text-slate-400">
+        No hay cierres registrados en este periodo.
+      </div>
+    {% else %}
+      <div class="grid gap-4 md:grid-cols-2 2xl:grid-cols-1">
+        {% for c in closures %}
+          {% set cash_total = c.cash_sales_amount + c.receivable_cash_amount %}
+          {% set transfer_total = c.transfer_sales_amount + c.receivable_transfer_amount %}
+          {% set card_total = c.card_sales_amount + c.receivable_card_amount %}
+          {% set contado_total = cash_total + transfer_total + card_total %}
+          {% set status = c.closure_status %}
+          {% if status == 'sobrante' %}
+            {% set badge_cls = 'bg-emerald-50 text-emerald-700 border-emerald-200' %}
+            {% set footer_cls = 'bg-emerald-50 border-emerald-100' %}
+            {% set diff_cls = 'text-emerald-700' %}
+            {% set status_icon = '▲' %}
+          {% elif status == 'faltante' %}
+            {% set badge_cls = 'bg-rose-50 text-rose-700 border-rose-200' %}
+            {% set footer_cls = 'bg-rose-50 border-rose-100' %}
+            {% set diff_cls = 'text-rose-700' %}
+            {% set status_icon = '▼' %}
           {% else %}
-            <tr>
-              <td colspan="13" class="text-center py-10 text-slate-400">No hay cierres registrados en este periodo.</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+            {% set badge_cls = 'bg-slate-100 text-slate-700 border-slate-200' %}
+            {% set footer_cls = 'bg-slate-50 border-slate-100' %}
+            {% set diff_cls = 'text-slate-700' %}
+            {% set status_icon = '●' %}
+          {% endif %}
+          <article class="bg-white rounded-2xl border shadow-sm overflow-hidden">
+            <header class="px-5 py-4 border-b flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p class="text-base font-bold text-slate-900">{{ c.closure_date.strftime('%d/%m/%Y') }}</p>
+                <p class="text-xs text-slate-500">{{ c.branch.name if c.branch else 'Toda la empresa' }}{% if c.warehouse %} · {{ c.warehouse.name }}{% endif %}</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border {{ badge_cls }}">
+                  {{ status_icon }}
+                  {{ c.closure_status_label }}
+                </span>
+                {% if current_user.has_permission('cash.edit_closure') %}
+                  <a href="{{ url_for('caja.edit_closure', closure_id=c.id) }}"
+                     class="text-xs text-indigo-600 hover:underline">Editar</a>
+                {% else %}
+                  <span class="text-xs text-slate-400" title="Solo administradores editan cierres ya guardados">🔒</span>
+                {% endif %}
+              </div>
+            </header>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-3 px-5 py-4 text-sm">
+              <div>
+                <p class="text-xs uppercase tracking-wide text-slate-500">Apertura</p>
+                <p class="font-mono text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(c.opening_amount) }}</p>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wide text-slate-500">Efectivo</p>
+                <p class="font-mono text-emerald-700">{{ tenant.currency }} {{ '%.2f'|format(cash_total) }}</p>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wide text-slate-500">Transferencia</p>
+                <p class="font-mono text-indigo-700">{{ tenant.currency }} {{ '%.2f'|format(transfer_total) }}</p>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wide text-slate-500">Tarjeta</p>
+                <p class="font-mono text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(card_total) }}</p>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wide text-slate-500">Ventas de contado</p>
+                <p class="font-mono font-semibold text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(contado_total) }}</p>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wide text-slate-500">Gastos efectivo</p>
+                <p class="font-mono text-rose-700">- {{ tenant.currency }} {{ '%.2f'|format(c.expenses_amount) }}</p>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wide text-slate-500">Efectivo esperado</p>
+                <p class="font-mono font-semibold">{{ tenant.currency }} {{ '%.2f'|format(c.expected_cash_amount) }}</p>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wide text-slate-500">Dinero entregado</p>
+                <p class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(c.delivered_cash_amount) }}</p>
+              </div>
+            </div>
+
+            <footer class="px-5 py-3 border-t flex items-center justify-between gap-3 {{ footer_cls }}">
+              <span class="text-xs uppercase tracking-wide font-semibold {{ diff_cls }}">Diferencia ({{ c.closure_status_label }})</span>
+              <span class="font-mono text-base font-bold {{ diff_cls }}">
+                {% if c.variance_amount > 0 %}+{% endif %}{{ tenant.currency }} {{ '%.2f'|format(c.variance_amount) }}
+              </span>
+            </footer>
+          </article>
+        {% endfor %}
+      </div>
+    {% endif %}
   </section>
 
   <aside class="space-y-5">

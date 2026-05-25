@@ -228,9 +228,19 @@ def _link_day_expenses_to_closure(closure: CashClosure) -> None:
 
 def _reconcile_closure(closure: CashClosure) -> None:
     """
-    Recalcula los gastos (en tiempo real), el efectivo esperado y la varianza
+    Recalcula los gastos (en tiempo real), el efectivo esperado y la diferencia
     para que un cierre siempre refleje la realidad del día, aunque se hayan
     registrado gastos después de haberlo creado.
+
+    Fórmulas oficiales:
+      efectivo_esperado = apertura + ventas_efectivo + abonos_efectivo - gastos_efectivo
+      diferencia        = dinero_entregado - efectivo_esperado
+        · > 0 → sobrante
+        · = 0 → cuadrado
+        · < 0 → faltante
+
+    Nota: el dinero entregado NO altera las ventas. Solo se usa para comparar
+    contra el efectivo esperado y determinar el estado del cierre.
     """
     start, end = _period_bounds(closure.closure_date, closure.closure_date)
     expenses_total = (
@@ -250,7 +260,10 @@ def _reconcile_closure(closure: CashClosure) -> None:
         + _decimal(closure.receivable_cash_amount)
         - _decimal(closure.expenses_amount)
     )
-    closure.variance_amount = _decimal(closure.actual_cash_amount) - _decimal(closure.expected_cash_amount)
+    # Diferencia oficial: entregado - esperado
+    closure.variance_amount = (
+        _decimal(closure.delivered_cash_amount) - _decimal(closure.expected_cash_amount)
+    )
 
 
 def _suggested_closure_values(tenant_id: int, closure_date):
