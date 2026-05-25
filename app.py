@@ -7,6 +7,7 @@ from flask import Flask, g, send_from_directory
 from config import config
 from models import db, login_manager, migrate
 from services.tenant_context import resolve_tenant
+from services.datetime_utils import format_local_datetime
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -75,6 +76,14 @@ def create_app(config_name: str | None = None) -> Flask:
             "APP_NAME": app.config["APP_NAME"],
             "tenant": getattr(g, "tenant", None),
         }
+
+    @app.template_filter("local_datetime")
+    def _local_datetime_filter(value, fmt="%d/%m/%Y %H:%M"):
+        return format_local_datetime(value, fmt, getattr(g, "tenant", None))
+
+    @app.template_filter("local_date")
+    def _local_date_filter(value, fmt="%d/%m/%Y"):
+        return format_local_datetime(value, fmt, getattr(g, "tenant", None))
 
     # Healthcheck
     @app.route("/health")

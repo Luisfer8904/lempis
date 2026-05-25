@@ -21,6 +21,8 @@ from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
 )
 
+from services.datetime_utils import format_local_datetime
+
 
 # Paleta
 INDIGO = colors.HexColor("#4f46e5")
@@ -70,7 +72,7 @@ def generate_invoice_pdf(invoice, tenant) -> BytesIO:
     )
 
     # Documento info
-    issue_date = invoice.issue_date.strftime("%d/%m/%Y") if invoice.issue_date else ""
+    issue_date = format_local_datetime(invoice.issue_date, "%d/%m/%Y", tenant, empty="")
     doc_block = Paragraph(
         f"<b><font size='14' color='#4f46e5'>FACTURA</font></b><br/>"
         f"<font size='12' name='Courier'><b>{invoice.number}</b></font><br/>"
@@ -300,7 +302,7 @@ def generate_simple_invoice_pdf(invoice, tenant) -> BytesIO:
 
     emisor_block = Paragraph("<br/>".join(emisor_lines), body)
 
-    issue_date = invoice.issue_date.strftime("%d/%m/%Y") if invoice.issue_date else ""
+    issue_date = format_local_datetime(invoice.issue_date, "%d/%m/%Y", tenant, empty="")
     doc_block = Paragraph(
         f"<b><font size='14' color='#4f46e5'>FACTURA</font></b><br/>"
         f"<font size='12' name='Courier'><b>{invoice.number}</b></font><br/>"

@@ -75,7 +75,7 @@
           {# Número + fecha #}
           <div class="flex-shrink-0 w-full sm:w-40">
             <p class="font-mono font-semibold text-sm">{{ f.number }}</p>
-            <p class="text-xs text-slate-500">{{ f.issue_date.strftime('%d/%m/%Y · %H:%M') }}</p>
+            <p class="text-xs text-slate-500">{{ f.issue_date|local_datetime('%d/%m/%Y · %H:%M') }}</p>
           </div>
 
           {# Cliente #}

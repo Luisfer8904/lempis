@@ -10,7 +10,7 @@ Reglas clave:
 """
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
@@ -21,6 +21,7 @@ from models import db
 from models.cash import CashClosure, CashExpense
 from models.invoice import Invoice, InvoicePayment
 from models.locations import Branch, Warehouse
+from services.datetime_utils import local_date_range_to_utc, tenant_today, to_local_datetime, to_utc_datetime
 from services.permissions import permission_required, tenant_required
 from services.tenant_context import current_tenant
 
@@ -35,7 +36,7 @@ VALID_INVOICE_STATUSES = ["issued", "paid", "partially_paid", "overdue"]
 @permission_required("cash.view")
 def index():
     tenant = current_tenant()
-    today = datetime.utcnow().date()
+    today = tenant_today(tenant)
     # Default: solo el día de hoy. El cajero ve su caja del día limpia.
     start_date = _parse_date(request.args.get("desde")) or today
     end_date = _parse_date(request.args.get("hasta")) or today
@@ -127,7 +128,7 @@ def index():
 @permission_required("cash.manage")
 def new_closure():
     tenant = current_tenant()
-    closure_date = _parse_date(request.values.get("fecha")) or datetime.utcnow().date()
+    closure_date = _parse_date(request.values.get("fecha")) or tenant_today(tenant)
 
     # Evitar duplicados: si ya hay un cierre para ese día, redirigir al editor
     existing = (
@@ -211,6 +212,7 @@ def create_expense():
         return redirect(url_for("caja.index"))
 
     expense_date = _parse_datetime(request.form.get("expense_date")) or datetime.utcnow()
+    expense_local_date = _expense_local_date(expense_date)
     expense = CashExpense(
         tenant_id=tenant.id,
         branch_id=request.form.get("branch_id", type=int) or None,
@@ -230,7 +232,7 @@ def create_expense():
         CashClosure.query
         .filter(
             CashClosure.tenant_id == tenant.id,
-            CashClosure.closure_date == expense_date.date(),
+            CashClosure.closure_date == expense_local_date,
         )
         .first()
     )
@@ -240,7 +242,7 @@ def create_expense():
 
     db.session.commit()
     flash("Gasto registrado.", "success")
-    return redirect(url_for("caja.index", desde=expense_date.date().isoformat(), hasta=expense_date.date().isoformat()))
+    return redirect(url_for("caja.index", desde=expense_local_date.isoformat(), hasta=expense_local_date.isoformat()))
 
 
 # ============================================================
@@ -430,7 +432,7 @@ def _active_warehouses(tenant_id: int):
 
 
 def _period_bounds(start_date, end_date):
-    return datetime.combine(start_date, time.min), datetime.combine(end_date + timedelta(days=1), time.min)
+    return local_date_range_to_utc(start_date, end_date, current_tenant())
 
 
 def _parse_date(value):
@@ -446,9 +448,14 @@ def _parse_datetime(value):
     if not value:
         return None
     try:
-        return datetime.strptime(value, "%Y-%m-%dT%H:%M")
+        local_value = datetime.strptime(value, "%Y-%m-%dT%H:%M")
+        return to_utc_datetime(local_value, current_tenant())
     except ValueError:
         return None
+
+
+def _expense_local_date(expense_date):
+    return to_local_datetime(expense_date, current_tenant()).date()
 
 
 def _decimal(value) -> Decimal:

@@ -28,6 +28,7 @@ from models.cash import CashClosure, CashExpense
 from models.invoice import Invoice, InvoiceItem
 from models.catalog import Product, Customer, Category, ProductBatch
 from models.locations import Branch, Warehouse, WarehouseStock
+from services.datetime_utils import format_local_datetime, local_date_range_to_utc, local_now, tenant_today
 from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
 from services.locations import active_warehouses, sync_default_warehouse_stock
@@ -49,9 +50,10 @@ REPORT_OPTIONS = [
 @permission_required("reports.view")
 def index():
     tenant = current_tenant()
-    now = datetime.utcnow()
-    month_start = datetime(now.year, now.month, 1)
-    month_end = datetime.combine(now.date() + timedelta(days=1), time.min)
+    now = local_now(tenant)
+    today = now.date()
+    month_start_date = today.replace(day=1)
+    month_start, month_end = local_date_range_to_utc(month_start_date, today, tenant)
     valid_statuses = ["issued", "paid", "partially_paid", "overdue"]
 
     rows = _profit_by_category(tenant.id, month_start, month_end, valid_statuses)
@@ -59,7 +61,7 @@ def index():
     total_revenue = sum(float(r.revenue or 0) for r in rows)
     total_cost = sum(float(r.cost or 0) for r in rows)
     margin = (total_profit / total_revenue * 100) if total_revenue else 0
-    year_start = datetime(now.year, 1, 1)
+    year_start, _ = local_date_range_to_utc(datetime(now.year, 1, 1).date(), today, tenant)
     year_context = _summary_blocks_context(tenant, year_start, month_end, valid_statuses)
 
     return render_template(
@@ -118,14 +120,14 @@ def detallado_pdf():
 
 def _custom_report_context():
     tenant = current_tenant()
-    now = datetime.utcnow()
+    now = local_now(tenant)
     report_map = {key: (title, desc) for key, title, desc in REPORT_OPTIONS}
     report_type = request.args.get("tipo") or ""
     if report_type not in report_map:
         report_type = ""
 
     default_start = datetime(now.year, now.month, 1).date()
-    default_end = now.date()
+    default_end = tenant_today(tenant)
     start_date = _parse_date(request.args.get("desde")) or default_start
     end_date = _parse_date(request.args.get("hasta")) or default_end
     if start_date > end_date:
@@ -160,8 +162,7 @@ def _custom_report_context():
 def _custom_report_data(tenant, report_type, start_date, end_date, warehouse_id=None):
     if not report_type:
         return [], [], {}
-    period_start = datetime.combine(start_date, time.min)
-    period_end = datetime.combine(end_date + timedelta(days=1), time.min)
+    period_start, period_end = local_date_range_to_utc(start_date, end_date, tenant)
     valid_statuses = ["issued", "paid", "partially_paid", "overdue"]
 
     if report_type == "ventas_contado":
@@ -181,7 +182,7 @@ def _custom_report_data(tenant, report_type, start_date, end_date, warehouse_id=
         for inv in invoices:
             profit = _invoice_profit(inv)
             rows.append({
-                "fecha": inv.issue_date.strftime("%d/%m/%Y"),
+                "fecha": format_local_datetime(inv.issue_date, "%d/%m/%Y", tenant),
                 "factura": inv.number,
                 "cliente": inv.customer.name if inv.customer else "Consumidor final",
                 "metodo": _payment_label(inv.payment_method),
@@ -214,7 +215,7 @@ def _custom_report_data(tenant, report_type, start_date, end_date, warehouse_id=
             .all()
         )
         rows = [{
-            "fecha": inv.issue_date.strftime("%d/%m/%Y"),
+            "fecha": format_local_datetime(inv.issue_date, "%d/%m/%Y", tenant),
             "factura": inv.number,
             "cliente": inv.customer.name if inv.customer else "Sin cliente",
             "vence": inv.due_date.strftime("%d/%m/%Y") if inv.due_date else "",

@@ -67,7 +67,7 @@
                 <div>
                   <p class="font-medium text-slate-900">{{ e.description }}</p>
                   <p class="text-xs text-slate-500">
-                    {{ e.expense_date.strftime('%H:%M') }} · {{ e.category }}
+                    {{ e.expense_date|local_datetime('%H:%M') }} · {{ e.category }}
                     {% if e.user %} · {{ e.user.full_name or e.user.email }}{% endif %}
                   </p>
                 </div>
@@ -273,7 +273,7 @@
                       <div>
                         <p class="font-medium text-slate-900">{{ e.description }}</p>
                         <p class="text-xs text-slate-500">
-                          {{ e.expense_date.strftime('%H:%M') }} · {{ e.category }}
+                          {{ e.expense_date|local_datetime('%H:%M') }} · {{ e.category }}
                           {% if e.user %} · {{ e.user.full_name or e.user.email }}{% endif %}
                         </p>
                       </div>
@@ -337,7 +337,7 @@
               <p class="font-medium text-slate-900">{{ e.description }}</p>
               <p class="font-mono text-rose-700">{{ tenant.currency }} {{ '%.2f'|format(e.amount) }}</p>
             </div>
-            <p class="text-xs text-slate-500 mt-1">{{ e.expense_date.strftime('%d/%m/%Y %H:%M') }} · {{ e.category }} · {{ e.payment_method }}</p>
+            <p class="text-xs text-slate-500 mt-1">{{ e.expense_date|local_datetime('%d/%m/%Y %H:%M') }} · {{ e.category }} · {{ e.payment_method }}</p>
           </div>
         {% else %}
           <p class="p-5 text-sm text-slate-400">Sin gastos en el periodo.</p>

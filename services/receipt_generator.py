@@ -16,6 +16,8 @@ from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
 )
 
+from services.datetime_utils import format_local_datetime
+
 INDIGO = colors.HexColor("#4f46e5")
 EMERALD = colors.HexColor("#10b981")
 SLATE_500 = colors.HexColor("#64748b")
@@ -61,7 +63,7 @@ def generate_payment_receipt_pdf(payment, tenant) -> BytesIO:
         "<b><font size='18' color='#10b981'>RECIBO</font></b><br/>"
         "<b><font size='12' color='#10b981'>DE PAGO</font></b><br/>"
         f"<font size='8' color='#64748b'>Recibo #{payment.id:06d}</font><br/>"
-        f"<font size='9'>{payment.paid_at.strftime('%d/%m/%Y')}</font>",
+        f"<font size='9'>{format_local_datetime(payment.paid_at, '%d/%m/%Y', tenant)}</font>",
         body,
     )
 

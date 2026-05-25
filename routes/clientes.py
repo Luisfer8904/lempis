@@ -11,6 +11,7 @@ from models import db
 from models.catalog import Customer
 from models.country import Country
 from models.invoice import Invoice, InvoicePayment
+from services.datetime_utils import format_local_datetime
 from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
 from services.plan_limits import check_can_create_customer, PlanLimitError
@@ -240,12 +241,12 @@ def _customer_summaries(tenant, customers: list[Customer]) -> dict[int, dict]:
                 summary["overdue_balance"] += float(inv.amount_due or 0)
         if summary["last_invoice_number"] is None:
             summary["last_invoice_number"] = inv.number
-            summary["last_invoice_date"] = inv.issue_date.strftime("%d/%m/%Y") if inv.issue_date else None
+            summary["last_invoice_date"] = format_local_datetime(inv.issue_date, "%d/%m/%Y", tenant, empty=None)
             summary["last_invoice_total"] = total
         if len(recent) < 3:
             recent.append({
                 "number": inv.number,
-                "date": inv.issue_date.strftime("%d/%m/%Y") if inv.issue_date else "",
+                "date": format_local_datetime(inv.issue_date, "%d/%m/%Y", tenant, empty=""),
                 "method": inv.payment_method,
                 "status": inv.status,
                 "total": total,

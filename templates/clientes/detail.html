@@ -119,7 +119,7 @@
         <tbody>
           {% for inv in pending_invoices %}
           <tr class="hover:bg-slate-50">
-            <td class="text-sm text-slate-600 align-middle">{{ inv.issue_date.strftime('%d/%m/%Y') if inv.issue_date else '—' }}</td>
+            <td class="text-sm text-slate-600 align-middle">{{ inv.issue_date|local_date }}</td>
             <td class="font-mono text-xs text-indigo-600 align-middle">
               <a href="{{ url_for('facturas.detail', invoice_id=inv.id) }}" class="hover:underline">{{ inv.number }}</a>
             </td>
@@ -180,7 +180,7 @@
       <tbody>
         {% for inv in cash_invoices %}
         <tr class="hover:bg-slate-50">
-          <td class="text-sm text-slate-600 align-middle">{{ inv.issue_date.strftime('%d/%m/%Y') if inv.issue_date else '—' }}</td>
+          <td class="text-sm text-slate-600 align-middle">{{ inv.issue_date|local_date }}</td>
           <td class="font-mono text-xs text-indigo-600 align-middle">
             <a href="{{ url_for('facturas.detail', invoice_id=inv.id) }}" class="hover:underline">{{ inv.number }}</a>
           </td>
@@ -220,7 +220,7 @@
       <tbody>
         {% for inv in paid_invoices %}
         <tr class="hover:bg-slate-50">
-          <td class="text-sm text-slate-600 align-middle">{{ inv.issue_date.strftime('%d/%m/%Y') if inv.issue_date else '—' }}</td>
+          <td class="text-sm text-slate-600 align-middle">{{ inv.issue_date|local_date }}</td>
           <td class="font-mono text-xs text-indigo-600 align-middle">
             <a href="{{ url_for('facturas.detail', invoice_id=inv.id) }}" class="hover:underline">{{ inv.number }}</a>
           </td>
@@ -260,7 +260,7 @@
       <tbody>
         {% for payment in payments %}
         <tr class="hover:bg-slate-50">
-          <td class="text-sm text-slate-600 align-middle">{{ payment.paid_at.strftime('%d/%m/%Y') if payment.paid_at else '—' }}</td>
+          <td class="text-sm text-slate-600 align-middle">{{ payment.paid_at|local_date }}</td>
           <td class="font-mono text-xs text-indigo-600 align-middle">
             {% if payment.invoice %}
               <a href="{{ url_for('facturas.detail', invoice_id=payment.invoice.id) }}" class="hover:underline">{{ payment.invoice.number }}</a>
