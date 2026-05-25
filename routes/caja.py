@@ -36,7 +36,8 @@ VALID_INVOICE_STATUSES = ["issued", "paid", "partially_paid", "overdue"]
 def index():
     tenant = current_tenant()
     today = datetime.utcnow().date()
-    start_date = _parse_date(request.args.get("desde")) or today.replace(day=1)
+    # Default: solo el día de hoy. El cajero ve su caja del día limpia.
+    start_date = _parse_date(request.args.get("desde")) or today
     end_date = _parse_date(request.args.get("hasta")) or today
     if start_date > end_date:
         start_date, end_date = end_date, start_date
@@ -70,6 +71,21 @@ def index():
         .all()
     )
     summary = _cash_summary(tenant.id, period_start, period_end, closures)
+
+    # Estado de la caja del día actual
+    today_closure = (
+        CashClosure.query
+        .filter(CashClosure.tenant_id == tenant.id, CashClosure.closure_date == today)
+        .first()
+    )
+    today_summary = _suggested_closure_values(tenant.id, today)
+    is_single_day = (start_date == end_date)
+
+    # Atajos de fecha para los botones rápidos del filtro
+    yesterday = today - timedelta(days=1)
+    week_start = today - timedelta(days=today.weekday())  # lunes
+    month_start = today.replace(day=1)
+
     return render_template(
         "caja/index.html",
         tenant=tenant,
@@ -79,6 +95,14 @@ def index():
         summary=summary,
         desde=start_date.isoformat(),
         hasta=end_date.isoformat(),
+        today=today.isoformat(),
+        today_closure=today_closure,
+        today_summary=today_summary,
+        is_single_day=is_single_day,
+        is_today_view=(start_date == today and end_date == today),
+        yesterday_iso=yesterday.isoformat(),
+        week_start_iso=week_start.isoformat(),
+        month_start_iso=month_start.isoformat(),
     )
 
 
@@ -89,6 +113,20 @@ def index():
 def new_closure():
     tenant = current_tenant()
     closure_date = _parse_date(request.values.get("fecha")) or datetime.utcnow().date()
+
+    # Evitar duplicados: si ya hay un cierre para ese día, redirigir al editor
+    existing = (
+        CashClosure.query
+        .filter(CashClosure.tenant_id == tenant.id, CashClosure.closure_date == closure_date)
+        .first()
+    )
+    if existing is not None:
+        if current_user.has_permission("cash.edit_closure"):
+            flash(f"Ya existe un cierre para {closure_date.strftime('%d/%m/%Y')}. Lo abrimos para editarlo.", "info")
+            return redirect(url_for("caja.edit_closure", closure_id=existing.id))
+        flash(f"Ya existe un cierre para {closure_date.strftime('%d/%m/%Y')}. Solo un administrador puede editarlo.", "warning")
+        return redirect(url_for("caja.index", desde=closure_date.isoformat(), hasta=closure_date.isoformat()))
+
     suggested = _suggested_closure_values(tenant.id, closure_date)
     branches = _active_branches(tenant.id)
     warehouses = _active_warehouses(tenant.id)
