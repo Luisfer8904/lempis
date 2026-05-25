@@ -41,19 +41,19 @@
 
     <div class="grid md:grid-cols-3 gap-4 mt-5">
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Apertura</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Apertura de caja</label>
         <input type="number" step="0.01" min="0" name="opening_amount"
                value="{{ closure.opening_amount if closure else '0.00' }}"
                class="w-full rounded-lg border px-3 py-2" />
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Efectivo contado</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Efectivo contado (físico)</label>
         <input type="number" step="0.01" min="0" name="actual_cash_amount"
                value="{{ closure.actual_cash_amount if closure else suggested.cash_sales_amount + suggested.receivable_cash_amount - suggested.expenses_amount }}"
                class="w-full rounded-lg border px-3 py-2" />
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Dinero entregado</label>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Dinero entregado / retirado</label>
         <input type="number" step="0.01" min="0" name="delivered_cash_amount"
                value="{{ closure.delivered_cash_amount if closure else suggested.cash_sales_amount + suggested.receivable_cash_amount - suggested.expenses_amount }}"
                class="w-full rounded-lg border px-3 py-2" />
@@ -73,37 +73,45 @@
   </section>
 
   <aside class="bg-white rounded-xl border shadow-sm p-5 h-fit">
-    <h2 class="text-lg font-semibold text-slate-900">Resumen calculado</h2>
-    <div class="mt-4 space-y-3 text-sm">
+    <h2 class="text-lg font-semibold text-slate-900">Resumen del día</h2>
+    <p class="text-xs text-slate-500 mt-1">Calculado automáticamente desde ventas y gastos.</p>
+
+    <div class="mt-4 space-y-2.5 text-sm">
       <div class="flex justify-between gap-3">
-        <span class="text-slate-500">Ventas efectivo</span>
-        <span class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(suggested.cash_sales_amount) }}</span>
+        <span class="text-slate-500">Apertura de caja</span>
+        <span class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(closure.opening_amount if closure else 0) }}</span>
       </div>
       <div class="flex justify-between gap-3">
-        <span class="text-slate-500">Abonos efectivo</span>
+        <span class="text-slate-500">Ventas en efectivo</span>
+        <span class="font-mono text-emerald-700">{{ tenant.currency }} {{ '%.2f'|format(suggested.cash_sales_amount) }}</span>
+      </div>
+      <div class="flex justify-between gap-3">
+        <span class="text-slate-500">Ventas en transferencia</span>
+        <span class="font-mono text-indigo-700">{{ tenant.currency }} {{ '%.2f'|format(suggested.transfer_sales_amount) }}</span>
+      </div>
+      <div class="flex justify-between gap-3">
+        <span class="text-slate-500">Ventas por tarjeta</span>
+        <span class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(suggested.card_sales_amount) }}</span>
+      </div>
+      <div class="flex justify-between gap-3 border-t pt-2.5">
+        <span class="text-slate-700 font-semibold">Ventas de contado</span>
+        <span class="font-mono font-semibold">{{ tenant.currency }} {{ '%.2f'|format(suggested.contado_sales_amount) }}</span>
+      </div>
+      <div class="flex justify-between gap-3">
+        <span class="text-slate-500">Ventas a crédito</span>
+        <span class="font-mono text-slate-500">{{ tenant.currency }} {{ '%.2f'|format(suggested.credit_sales_amount) }}</span>
+      </div>
+      <div class="border-t pt-2.5 flex justify-between gap-3">
+        <span class="text-slate-500">Abonos en efectivo</span>
         <span class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(suggested.receivable_cash_amount) }}</span>
       </div>
       <div class="flex justify-between gap-3">
-        <span class="text-slate-500">Gastos efectivo</span>
-        <span class="font-mono text-rose-700">{{ tenant.currency }} {{ '%.2f'|format(suggested.expenses_amount) }}</span>
+        <span class="text-slate-500">Gastos en efectivo</span>
+        <span class="font-mono text-rose-700">- {{ tenant.currency }} {{ '%.2f'|format(suggested.expenses_amount) }}</span>
       </div>
-      <div class="border-t pt-3 flex justify-between gap-3 font-semibold">
-        <span>Efectivo esperado</span>
-        <span class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(suggested.cash_sales_amount + suggested.receivable_cash_amount - suggested.expenses_amount) }}</span>
-      </div>
-      <div class="border-t pt-3 grid grid-cols-2 gap-3 text-xs text-slate-500">
-        <div>
-          <p>Transferencias</p>
-          <p class="font-mono text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(suggested.transfer_sales_amount + suggested.receivable_transfer_amount) }}</p>
-        </div>
-        <div>
-          <p>Tarjeta</p>
-          <p class="font-mono text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(suggested.card_sales_amount + suggested.receivable_card_amount) }}</p>
-        </div>
-        <div>
-          <p>Crédito emitido</p>
-          <p class="font-mono text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(suggested.credit_sales_amount) }}</p>
-        </div>
+      <div class="border-t pt-2.5 flex justify-between gap-3 font-semibold text-slate-900">
+        <span>Efectivo esperado en caja</span>
+        <span class="font-mono">{{ tenant.currency }} {{ '%.2f'|format((closure.opening_amount if closure else 0) + suggested.cash_sales_amount + suggested.receivable_cash_amount - suggested.expenses_amount) }}</span>
       </div>
     </div>
   </aside>

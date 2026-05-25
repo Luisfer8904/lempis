@@ -32,6 +32,7 @@ PERMISSION_GROUPS = [
     ("Caja diaria", [
         ("cash.view", "Ver cierres, aperturas y gastos de caja"),
         ("cash.manage", "Registrar aperturas, gastos y cierres de caja"),
+        ("cash.edit_closure", "Editar o anular cierres ya realizados"),
     ]),
     ("Compras", [
         ("purchases.view", "Ver compras y proveedores"),
@@ -58,7 +59,8 @@ DEFAULT_ROLE_PERMISSIONS = {
     ],
     "contador": [
         "sales.view", "customers.view", "products.view", "receivables.view",
-        "receivables.manage", "cash.view", "cash.manage", "purchases.view", "reports.view",
+        "receivables.manage", "cash.view", "cash.manage", "cash.edit_closure",
+        "purchases.view", "reports.view",
     ],
     "viewer": ["sales.view", "customers.view", "products.view", "receivables.view", "purchases.view", "reports.view"],
 }

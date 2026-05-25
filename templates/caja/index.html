@@ -51,57 +51,87 @@
   </div>
 </section>
 
+<section class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
+  <div class="bg-white rounded-xl border shadow-sm p-5">
+    <p class="text-sm text-slate-500">Ventas de contado</p>
+    <p class="mt-2 text-2xl font-black text-emerald-700">{{ tenant.currency }} {{ '%.2f'|format(summary.contado_total) }}</p>
+    <p class="text-xs text-slate-400 mt-1">Efectivo + transferencia + tarjeta del periodo</p>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-5">
+    <p class="text-sm text-slate-500">Apertura acumulada</p>
+    <p class="mt-2 text-2xl font-black text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(summary.opening_total) }}</p>
+    <p class="text-xs text-slate-400 mt-1">Suma de aperturas de cierres del periodo</p>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-5">
+    <p class="text-sm text-slate-500">Gastos en efectivo</p>
+    <p class="mt-2 text-2xl font-black text-rose-700">{{ tenant.currency }} {{ '%.2f'|format(summary.expenses.get('efectivo', 0)) }}</p>
+    <p class="text-xs text-slate-400 mt-1">Otros métodos: {{ tenant.currency }} {{ '%.2f'|format((summary.expenses.get('transferencia', 0) + summary.expenses.get('tarjeta', 0) + summary.expenses.get('otro', 0))) }}</p>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-5">
+    <p class="text-sm text-slate-500">Efectivo esperado</p>
+    <p class="mt-2 text-2xl font-black text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(summary.expected_cash) }}</p>
+    <p class="text-xs text-slate-400 mt-1">Suma de los cierres del periodo</p>
+  </div>
+</section>
+
 <div class="grid xl:grid-cols-[1fr_380px] gap-5">
   <section class="bg-white rounded-xl border shadow-sm overflow-hidden">
     <div class="p-5 border-b flex items-start justify-between gap-3">
       <div>
         <h2 class="text-lg font-semibold text-slate-900">Cierres registrados</h2>
-        <p class="text-sm text-slate-500">Apertura, resumen de cobros, gastos en efectivo y entrega.</p>
+        <p class="text-sm text-slate-500">Cada cierre refleja los gastos del día en tiempo real, aunque se hayan registrado después.</p>
       </div>
     </div>
     <div class="overflow-x-auto">
-      <table class="saas-table w-full min-w-[920px]">
+      <table class="saas-table w-full min-w-[1100px]">
         <thead>
           <tr>
             <th>Fecha</th>
             <th>Sede</th>
-            <th>Apertura</th>
-            <th>Efectivo</th>
-            <th>Transferencia</th>
-            <th>Tarjeta</th>
-            <th>Gastos efectivo</th>
-            <th>Esperado</th>
-            <th>Contado</th>
-            <th>Entregado</th>
-            <th>Diferencia</th>
+            <th class="text-right">Apertura</th>
+            <th class="text-right">Efectivo</th>
+            <th class="text-right">Transferencia</th>
+            <th class="text-right">Tarjeta</th>
+            <th class="text-right">Contado</th>
+            <th class="text-right">Gastos</th>
+            <th class="text-right">Esperado</th>
+            <th class="text-right">Contado físico</th>
+            <th class="text-right">Entregado</th>
+            <th class="text-right">Diferencia</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           {% for c in closures %}
+            {% set cash_total = c.cash_sales_amount + c.receivable_cash_amount %}
+            {% set transfer_total = c.transfer_sales_amount + c.receivable_transfer_amount %}
+            {% set card_total = c.card_sales_amount + c.receivable_card_amount %}
             <tr>
-              <td>{{ c.closure_date.strftime('%d/%m/%Y') }}</td>
-              <td>{{ c.branch.name if c.branch else 'Toda la empresa' }}</td>
-              <td class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(c.opening_amount) }}</td>
-              <td class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(c.cash_sales_amount + c.receivable_cash_amount) }}</td>
-              <td class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(c.transfer_sales_amount + c.receivable_transfer_amount) }}</td>
-              <td class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(c.card_sales_amount + c.receivable_card_amount) }}</td>
-              <td class="font-mono text-rose-700">{{ tenant.currency }} {{ '%.2f'|format(c.expenses_amount) }}</td>
-              <td class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(c.expected_cash_amount) }}</td>
-              <td class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(c.actual_cash_amount) }}</td>
-              <td class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(c.delivered_cash_amount) }}</td>
-              <td class="font-mono {% if c.variance_amount < 0 %}text-rose-700{% else %}text-emerald-700{% endif %}">
+              <td class="align-middle">{{ c.closure_date.strftime('%d/%m/%Y') }}</td>
+              <td class="align-middle">{{ c.branch.name if c.branch else 'Toda la empresa' }}</td>
+              <td class="font-mono text-right">{{ tenant.currency }} {{ '%.2f'|format(c.opening_amount) }}</td>
+              <td class="font-mono text-right">{{ tenant.currency }} {{ '%.2f'|format(cash_total) }}</td>
+              <td class="font-mono text-right">{{ tenant.currency }} {{ '%.2f'|format(transfer_total) }}</td>
+              <td class="font-mono text-right">{{ tenant.currency }} {{ '%.2f'|format(card_total) }}</td>
+              <td class="font-mono text-right font-semibold">{{ tenant.currency }} {{ '%.2f'|format(cash_total + transfer_total + card_total) }}</td>
+              <td class="font-mono text-right text-rose-700">{{ tenant.currency }} {{ '%.2f'|format(c.expenses_amount) }}</td>
+              <td class="font-mono text-right">{{ tenant.currency }} {{ '%.2f'|format(c.expected_cash_amount) }}</td>
+              <td class="font-mono text-right">{{ tenant.currency }} {{ '%.2f'|format(c.actual_cash_amount) }}</td>
+              <td class="font-mono text-right">{{ tenant.currency }} {{ '%.2f'|format(c.delivered_cash_amount) }}</td>
+              <td class="font-mono text-right {% if c.variance_amount < 0 %}text-rose-700{% else %}text-emerald-700{% endif %}">
                 {{ tenant.currency }} {{ '%.2f'|format(c.variance_amount) }}
               </td>
-              <td>
-                {% if current_user.has_permission('cash.manage') %}
+              <td class="text-right">
+                {% if current_user.has_permission('cash.edit_closure') %}
                   <a href="{{ url_for('caja.edit_closure', closure_id=c.id) }}" class="text-indigo-600 hover:underline">Editar</a>
+                {% else %}
+                  <span class="text-xs text-slate-400" title="Solo administradores pueden editar cierres ya guardados">🔒</span>
                 {% endif %}
               </td>
             </tr>
           {% else %}
             <tr>
-              <td colspan="12" class="text-center py-10 text-slate-400">No hay cierres registrados en este periodo.</td>
+              <td colspan="13" class="text-center py-10 text-slate-400">No hay cierres registrados en este periodo.</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -113,7 +143,7 @@
     {% if current_user.has_permission('cash.manage') %}
     <form method="POST" action="{{ url_for('caja.create_expense') }}" class="bg-white rounded-xl border shadow-sm p-5">
       <h2 class="text-lg font-semibold text-slate-900">Registrar gasto</h2>
-      <p class="text-sm text-slate-500 mt-1">Gastos de caja o pagos operativos del día.</p>
+      <p class="text-sm text-slate-500 mt-1">Gastos de caja o pagos operativos del día. Si ya cerraste caja, el gasto se descuenta automáticamente del cierre del día.</p>
       <div class="grid gap-3 mt-4">
         <input type="datetime-local" name="expense_date" class="rounded-lg border px-3 py-2 text-sm" />
         <input name="description" required placeholder="Descripción" class="rounded-lg border px-3 py-2 text-sm" />
