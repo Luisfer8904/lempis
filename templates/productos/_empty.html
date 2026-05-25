@@ -11,8 +11,12 @@
   <p class="text-sm text-slate-500 mb-4">
     Los productos aparecerán aquí con imagen, precio y stock.
   </p>
-  <a href="{{ url_for('productos.new') }}"
-     class="inline-block bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
-    Crear el primer producto
-  </a>
+  {% if current_user.has_permission('products.manage') %}
+    <a href="{{ url_for('productos.new') }}"
+       class="inline-block bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+      Crear el primer producto
+    </a>
+  {% else %}
+    <p class="text-sm text-slate-400">Pide a un administrador que registre productos.</p>
+  {% endif %}
 </div>

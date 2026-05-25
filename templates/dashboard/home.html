@@ -236,9 +236,13 @@
     </li>
     <li class="flex items-center gap-2">
       {% if products_count > 0 %}✅{% else %}⬜{% endif %}
-      <a href="{{ url_for('productos.new') }}" class="text-indigo-600 hover:underline">
-        Carga tus productos
-      </a>
+      {% if current_user.has_permission('products.manage') %}
+        <a href="{{ url_for('productos.new') }}" class="text-indigo-600 hover:underline">
+          Carga tus productos
+        </a>
+      {% else %}
+        <span class="text-slate-500">Productos registrados por administración</span>
+      {% endif %}
     </li>
     <li class="flex items-center gap-2">
       {% if invoices_count > 0 %}✅{% else %}⬜{% endif %}

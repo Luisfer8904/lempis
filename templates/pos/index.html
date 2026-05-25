@@ -143,10 +143,14 @@
       <div class="bg-white rounded-xl border p-12 text-center">
         <div class="text-5xl mb-3">📦</div>
         <p class="text-slate-600 mb-3">No hay productos para mostrar.</p>
-        <a href="{{ url_for('productos.new') }}"
-           class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700 text-sm">
-          + Crear producto
-        </a>
+        {% if current_user.has_permission('products.manage') %}
+          <a href="{{ url_for('productos.new') }}"
+             class="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700 text-sm">
+            + Crear producto
+          </a>
+        {% else %}
+          <p class="text-sm text-slate-400">Pide a un administrador que registre productos.</p>
+        {% endif %}
       </div>
     {% endif %}
   </div>

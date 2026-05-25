@@ -3,6 +3,7 @@
 {% block heading %}Productos{% endblock %}
 
 {% block actions %}
+{% if current_user.has_permission('products.manage') %}
 <form method="POST" action="{{ url_for('productos.recompute_stocks') }}" class="inline mr-2"
       onsubmit="return confirm('¿Recalcular el stock de todos los productos sumando sus lotes? Es seguro.');">
   <button class="border border-slate-300 text-slate-700 px-3 py-2 rounded-lg hover:bg-slate-50 text-sm"
@@ -18,6 +19,7 @@
    class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
   + Nuevo producto
 </a>
+{% endif %}
 {% endblock %}
 
 {% block content %}

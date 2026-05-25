@@ -3,7 +3,7 @@ Decoradores de autorización: roles, permisos y verificación de tenant.
 """
 import json
 from functools import wraps
-from flask import abort, redirect, url_for, flash, session
+from flask import abort, redirect, url_for, flash, session, request
 from flask_login import current_user, logout_user
 
 from services.tenant_context import current_tenant
@@ -88,6 +88,14 @@ def user_has_permission(user, permission: str) -> bool:
     return permission in user_permissions(user)
 
 
+def _deny(message: str):
+    flash(message, "warning")
+    referrer = request.referrer
+    if referrer and "/app/" in referrer and referrer != request.url:
+        return redirect(referrer)
+    return redirect(url_for("dashboard.home"))
+
+
 def role_required(*role_codes):
     """Solo permite el acceso si el usuario tiene alguno de los roles indicados."""
     def decorator(fn):
@@ -97,8 +105,7 @@ def role_required(*role_codes):
                 return redirect(url_for("auth.login"))
             if current_user.is_owner or any(current_user.has_role(c) for c in role_codes):
                 return fn(*args, **kwargs)
-            flash("No tienes permisos para acceder a esta sección.", "danger")
-            return abort(403)
+            return _deny("No tienes permisos para acceder a esta sección.")
         return wrapper
     return decorator
 
@@ -110,8 +117,7 @@ def admin_required(fn):
         if not current_user.is_authenticated:
             return redirect(url_for("auth.login"))
         if not current_user.is_admin():
-            flash("Solo los administradores pueden acceder.", "danger")
-            return abort(403)
+            return _deny("Solo los administradores pueden acceder.")
         return fn(*args, **kwargs)
     return wrapper
 
@@ -125,8 +131,7 @@ def permission_required(permission: str):
                 return redirect(url_for("auth.login"))
             if current_user.has_permission(permission):
                 return fn(*args, **kwargs)
-            flash("No tienes permiso para realizar esta acción.", "danger")
-            return abort(403)
+            return _deny("No tienes permisos para realizar esa acción.")
         return wrapper
     return decorator
 
@@ -138,8 +143,7 @@ def superadmin_required(fn):
         if not current_user.is_authenticated:
             return redirect(url_for("auth.login"))
         if not getattr(current_user, "is_superadmin", False):
-            flash("Acceso restringido al equipo de Lempis.", "danger")
-            return abort(403)
+            return _deny("Acceso restringido al equipo de Lempis.")
         return fn(*args, **kwargs)
     return wrapper
 
