@@ -27,6 +27,14 @@ DELIMITER ;
 CALL lempis_add_column_if_missing('lempis_usuarios', 'is_superadmin',
   'BOOLEAN NOT NULL DEFAULT FALSE');
 
+-- ===== PLANES: límites comerciales =====
+CALL lempis_add_column_if_missing('lempis_planes', 'max_suppliers', 'INT DEFAULT 2');
+CALL lempis_add_column_if_missing('lempis_planes', 'max_branches', 'INT DEFAULT 1');
+CALL lempis_add_column_if_missing('lempis_planes', 'max_warehouses', 'INT DEFAULT 1');
+CALL lempis_add_column_if_missing('lempis_planes', 'can_use_advanced_reports', 'BOOLEAN DEFAULT FALSE');
+CALL lempis_add_column_if_missing('lempis_planes', 'can_use_multi_branch', 'BOOLEAN DEFAULT FALSE');
+CALL lempis_add_column_if_missing('lempis_planes', 'can_customize_roles', 'BOOLEAN DEFAULT FALSE');
+
 -- ===== EMPRESAS (Tenant): SAR + modo facturación =====
 CALL lempis_add_column_if_missing('lempis_empresas', 'cai_code', 'VARCHAR(40) NULL');
 CALL lempis_add_column_if_missing('lempis_empresas', 'cai_valid_from', 'DATETIME NULL');

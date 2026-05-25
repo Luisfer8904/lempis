@@ -16,6 +16,11 @@
 {% block content %}
 {% include "configuracion/_tabs.html" %}
 
+<div class="mb-4 rounded-xl border bg-white px-5 py-4 shadow-sm">
+  <p class="text-sm text-slate-500">Plan actual</p>
+  <p class="font-semibold text-slate-900">{{ plan_name }}</p>
+</div>
+
 <div class="bg-white rounded-xl shadow-sm border overflow-hidden overflow-x-auto">
   <table class="saas-table w-full min-w-[720px]">
     <thead>

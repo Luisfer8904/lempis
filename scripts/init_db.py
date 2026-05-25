@@ -3,7 +3,7 @@ Inicializa la base de datos:
 - Crea todas las tablas
 - Carga catálogo de países LatAm con sus impuestos
 - Crea roles por defecto
-- Crea planes por defecto (Free, Pro, Business)
+- Crea planes por defecto (Free, Basic, Pro, Business, Empresarial)
 
 Uso:
   python scripts/init_db.py
@@ -20,6 +20,7 @@ from models import db
 from models.country import Country, TaxConfig
 from models.user import Role
 from models.tenant import Plan
+from services.plan_catalog import PLAN_DEFINITIONS
 
 
 COUNTRIES = [
@@ -50,32 +51,7 @@ ROLES = [
 ]
 
 
-PLANS = [
-    {
-        "code": "free", "name": "Free",
-        "description": "Para empezar a probar. Ideal para freelancers.",
-        "price_monthly": 0, "price_yearly": 0, "currency": "USD",
-        "max_users": 1, "max_invoices_per_month": 20, "max_products": 50, "max_customers": 100,
-        "can_export_pdf": True, "can_export_excel": False,
-        "can_use_api": False, "can_custom_branding": False,
-    },
-    {
-        "code": "pro", "name": "Pro",
-        "description": "Para PYMEs en crecimiento.",
-        "price_monthly": 25, "price_yearly": 250, "currency": "USD",
-        "max_users": 5, "max_invoices_per_month": 500, "max_products": 1000, "max_customers": 2000,
-        "can_export_pdf": True, "can_export_excel": True,
-        "can_use_api": True, "can_custom_branding": False,
-    },
-    {
-        "code": "business", "name": "Business",
-        "description": "Para empresas que necesitan más usuarios y branding.",
-        "price_monthly": 55, "price_yearly": 550, "currency": "USD",
-        "max_users": 25, "max_invoices_per_month": 5000, "max_products": 10000, "max_customers": 20000,
-        "can_export_pdf": True, "can_export_excel": True,
-        "can_use_api": True, "can_custom_branding": True,
-    },
-]
+PLANS = PLAN_DEFINITIONS
 
 
 def seed_countries():

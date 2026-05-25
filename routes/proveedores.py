@@ -12,6 +12,7 @@ from models.suppliers import Supplier
 from models.country import Country
 from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
+from services.plan_limits import PlanLimitError, check_can_create_supplier
 
 proveedores_bp = Blueprint("proveedores", __name__, url_prefix="/app/proveedores")
 
@@ -59,6 +60,12 @@ def list():
 @permission_required("purchases.manage")
 def new():
     tenant = current_tenant()
+    try:
+        check_can_create_supplier(tenant)
+    except PlanLimitError as e:
+        flash(str(e), "warning")
+        return redirect(url_for("billing.index"))
+
     if request.method == "POST":
         s = Supplier(tenant_id=tenant.id, code=_next_code(tenant.id))
         _populate(s)

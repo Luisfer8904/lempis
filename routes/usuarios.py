@@ -23,10 +23,20 @@ from services.permissions import (
     role_permissions_for,
     tenant_required,
 )
-from services.plan_limits import check_can_add_user, PlanLimitError
+from services.plan_limits import (
+    PlanLimitError,
+    allowed_role_codes,
+    check_can_add_user,
+    current_plan,
+)
 
 usuarios_bp = Blueprint("usuarios", __name__, url_prefix="/app/usuarios")
 TEAM_ROLE_CODES = ["admin", "cajero", "vendedor", "contador", "viewer"]
+
+
+def _tenant_plan_name(tenant) -> str:
+    plan = current_plan(tenant)
+    return plan.name if plan else "Free"
 
 
 def _get_or_404(user_id: int) -> User:
@@ -44,7 +54,7 @@ def _get_or_404(user_id: int) -> User:
 def list():
     tenant = current_tenant()
     users = User.query.filter_by(tenant_id=tenant.id).order_by(User.created_at.asc()).all()
-    return render_template("usuarios/list.html", users=users)
+    return render_template("usuarios/list.html", users=users, plan_name=_tenant_plan_name(tenant))
 
 
 @usuarios_bp.route("/roles", methods=["GET", "POST"])
@@ -53,7 +63,8 @@ def list():
 @permission_required("users.manage")
 def roles():
     tenant = current_tenant()
-    roles = Role.query.filter(Role.code.in_(TEAM_ROLE_CODES)).order_by(Role.name.asc()).all()
+    allowed_codes = allowed_role_codes(tenant)
+    roles = Role.query.filter(Role.code.in_(allowed_codes)).order_by(Role.name.asc()).all()
 
     if request.method == "POST":
         valid = set(ALL_PERMISSIONS)
@@ -85,6 +96,8 @@ def roles():
         permission_groups=PERMISSION_GROUPS,
         role_permissions=role_permissions,
         defaults=defaults,
+        plan_name=_tenant_plan_name(tenant),
+        locked_roles=[code for code in TEAM_ROLE_CODES if code not in allowed_codes],
     )
 
 
@@ -105,7 +118,11 @@ def new():
         email = (request.form.get("email") or "").strip().lower()
         full_name = (request.form.get("full_name") or "").strip()
         password = request.form.get("password") or ""
-        role_code = request.form.get("role_code") or "vendedor"
+        allowed_codes = allowed_role_codes(tenant)
+        role_code = request.form.get("role_code") or allowed_codes[0]
+        if role_code not in allowed_codes:
+            flash("Ese rol no está incluido en el plan actual.", "warning")
+            return redirect(url_for("usuarios.new"))
 
         # Validaciones
         if not email or not password:
@@ -141,8 +158,8 @@ def new():
         flash(f"Usuario {email} creado. Comparte la contraseña con la persona.", "success")
         return redirect(url_for("usuarios.list"))
 
-    roles = Role.query.filter(Role.code.in_(TEAM_ROLE_CODES)).order_by(Role.name.asc()).all()
-    return render_template("usuarios/form.html", user=None, roles=roles)
+    roles = Role.query.filter(Role.code.in_(allowed_role_codes(tenant))).order_by(Role.name.asc()).all()
+    return render_template("usuarios/form.html", user=None, roles=roles, plan_name=_tenant_plan_name(tenant))
 
 
 @usuarios_bp.route("/<int:user_id>/edit", methods=["GET", "POST"])
@@ -167,7 +184,11 @@ def edit(user_id):
 
         # Actualizar rol — no permitido para el owner
         if not user.is_owner:
-            role_code = request.form.get("role_code") or "vendedor"
+            allowed_codes = allowed_role_codes(tenant)
+            role_code = request.form.get("role_code") or allowed_codes[0]
+            if role_code not in allowed_codes:
+                flash("Ese rol no está incluido en el plan actual.", "warning")
+                return redirect(url_for("usuarios.edit", user_id=user_id))
             # Eliminar roles previos
             UserRole.query.filter_by(user_id=user.id).delete()
             role = Role.query.filter_by(code=role_code).first()
@@ -178,9 +199,15 @@ def edit(user_id):
         flash(f"Usuario {user.email} actualizado.", "success")
         return redirect(url_for("usuarios.list"))
 
-    roles = Role.query.filter(Role.code.in_(TEAM_ROLE_CODES)).order_by(Role.name.asc()).all()
+    roles = Role.query.filter(Role.code.in_(allowed_role_codes(tenant))).order_by(Role.name.asc()).all()
     current_role = user.roles[0].code if user.roles else "vendedor"
-    return render_template("usuarios/form.html", user=user, roles=roles, current_role=current_role)
+    return render_template(
+        "usuarios/form.html",
+        user=user,
+        roles=roles,
+        current_role=current_role,
+        plan_name=_tenant_plan_name(tenant),
+    )
 
 
 @usuarios_bp.route("/<int:user_id>/toggle", methods=["POST"])

@@ -5,30 +5,53 @@
 {% block content %}
 {% include "configuracion/_tabs.html" %}
 
-<h1 class="text-3xl font-bold mb-6">Tu suscripción</h1>
-
-<div class="bg-white p-6 rounded-xl shadow-sm mb-8">
-  <p class="text-slate-500">Empresa</p>
-  <p class="text-2xl font-bold">{{ tenant.name }}</p>
+<div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+  <div>
+    <h1 class="text-3xl font-bold text-slate-900">Planes y suscripción</h1>
+    <p class="text-slate-500 mt-1">Elige el nivel que mejor calza con la operación de tu empresa.</p>
+  </div>
   {% if tenant.subscription %}
-    <p class="text-slate-500 mt-2">Plan actual</p>
-    <p class="text-xl">{{ tenant.subscription.plan.name }} —
-      <span class="text-sm text-indigo-600">{{ tenant.subscription.status }}</span>
-    </p>
+    <div class="rounded-xl border bg-white px-5 py-3 shadow-sm">
+      <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold">Plan actual</p>
+      <p class="font-semibold text-slate-900">{{ tenant.subscription.plan.name }}</p>
+      <p class="text-xs text-indigo-600">{{ tenant.subscription.status }}</p>
+    </div>
   {% endif %}
 </div>
 
-<h2 class="text-xl font-semibold mb-4">Cambiar plan</h2>
-<div class="grid md:grid-cols-3 gap-4">
+<div class="grid xl:grid-cols-5 md:grid-cols-2 gap-4">
   {% for plan in plans %}
-    <div class="bg-white border rounded-xl p-6">
-      <h3 class="font-bold text-lg">{{ plan.name }}</h3>
-      <p class="text-2xl font-bold my-2">
-        {% if plan.price_monthly == 0 %}Gratis{% else %}${{ plan.price_monthly }}/mes{% endif %}
+    {% set is_current = tenant.subscription and tenant.subscription.plan_id == plan.id %}
+    <div class="bg-white border rounded-xl p-5 shadow-sm flex flex-col {% if plan.code == 'pro' %}ring-2 ring-indigo-500{% endif %}">
+      <div class="flex items-start justify-between gap-3">
+        <h3 class="font-bold text-lg text-slate-900">{{ plan.name }}</h3>
+        {% if plan.code == 'pro' %}
+          <span class="text-xs rounded-full bg-indigo-50 text-indigo-700 px-2 py-1 font-semibold">Recomendado</span>
+        {% endif %}
+      </div>
+      <p class="text-sm text-slate-500 mt-2 min-h-[44px]">{{ plan.description or '' }}</p>
+      <p class="text-3xl font-black my-4 text-slate-950">
+        {% if plan.code == 'enterprise' %}
+          A medida
+        {% elif plan.price_monthly == 0 %}
+          Gratis
+        {% else %}
+          ${{ '%.0f'|format(plan.price_monthly) }}<span class="text-sm font-medium text-slate-500">/mes</span>
+        {% endif %}
       </p>
+      <div class="text-xs text-slate-500 mb-3">{{ role_summary_for(plan.code) }}</div>
+      <ul class="space-y-2 text-sm text-slate-600 mb-5 flex-1">
+        {% for feature in features_for(plan.code) %}
+          <li class="flex gap-2">
+            <span class="text-emerald-600">✓</span>
+            <span>{{ feature }}</span>
+          </li>
+        {% endfor %}
+      </ul>
       <form method="POST" action="{{ url_for('billing.checkout', plan_code=plan.code) }}">
-        <button class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">
-          Seleccionar
+        <button class="w-full py-2 rounded-lg font-medium {% if is_current %}bg-slate-100 text-slate-500{% else %}bg-indigo-600 text-white hover:bg-indigo-700{% endif %}"
+                {% if is_current %}disabled{% endif %}>
+          {{ 'Plan actual' if is_current else ('Contactar' if plan.code == 'enterprise' else 'Seleccionar') }}
         </button>
       </form>
     </div>

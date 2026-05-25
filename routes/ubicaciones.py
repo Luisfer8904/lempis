@@ -12,6 +12,11 @@ from models.catalog import Product
 from models.locations import Branch, Warehouse, WarehouseStock, StockMovement
 from services.locations import sync_default_warehouse_stock, transfer_stock
 from services.permissions import permission_required, tenant_required
+from services.plan_limits import (
+    PlanLimitError,
+    check_can_create_branch,
+    check_can_create_warehouse,
+)
 from services.tenant_context import current_tenant
 
 ubicaciones_bp = Blueprint("ubicaciones", __name__, url_prefix="/app/ubicaciones")
@@ -59,6 +64,12 @@ def index():
 
 
 def _create_branch(tenant):
+    try:
+        check_can_create_branch(tenant)
+    except PlanLimitError as e:
+        flash(str(e), "warning")
+        return redirect(url_for("billing.index"))
+
     name = (request.form.get("branch_name") or "").strip()
     if not name:
         flash("Escribe el nombre de la sede.", "warning")
@@ -77,6 +88,12 @@ def _create_branch(tenant):
 
 
 def _create_warehouse(tenant):
+    try:
+        check_can_create_warehouse(tenant)
+    except PlanLimitError as e:
+        flash(str(e), "warning")
+        return redirect(url_for("billing.index"))
+
     branch_id = request.form.get("warehouse_branch_id", type=int)
     branch = Branch.query.filter_by(id=branch_id, tenant_id=tenant.id, is_active=True).first()
     name = (request.form.get("warehouse_name") or "").strip()

@@ -11,6 +11,7 @@ from models import db
 from models.tenant import Plan, Subscription
 from services.tenant_context import current_tenant
 from services.permissions import admin_required, tenant_required
+from services.plan_catalog import features_for, ordered_plans, role_summary_for
 
 billing_bp = Blueprint("billing", __name__, url_prefix="/app/billing")
 
@@ -21,8 +22,14 @@ billing_bp = Blueprint("billing", __name__, url_prefix="/app/billing")
 @tenant_required
 def index():
     tenant = current_tenant()
-    plans = Plan.query.filter_by(is_active=True).order_by(Plan.price_monthly).all()
-    return render_template("billing/index.html", tenant=tenant, plans=plans)
+    plans = ordered_plans(Plan.query.filter_by(is_active=True).all())
+    return render_template(
+        "billing/index.html",
+        tenant=tenant,
+        plans=plans,
+        features_for=features_for,
+        role_summary_for=role_summary_for,
+    )
 
 
 @billing_bp.route("/checkout/<plan_code>", methods=["POST"])

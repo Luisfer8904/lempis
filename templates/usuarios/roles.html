@@ -17,6 +17,14 @@
     <p class="text-sm text-slate-500 mt-1">
       Define qué puede hacer cada tipo de usuario. El propietario siempre conserva acceso total.
     </p>
+    <p class="text-sm text-slate-500 mt-2">
+      Plan actual: <strong>{{ plan_name }}</strong>. Solo puedes personalizar los roles incluidos en el plan.
+    </p>
+    {% if locked_roles %}
+      <p class="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-3">
+        Roles disponibles en planes superiores: {{ locked_roles|join(', ') }}.
+      </p>
+    {% endif %}
   </div>
 
   <div class="grid xl:grid-cols-2 gap-5">

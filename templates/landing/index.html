@@ -44,14 +44,14 @@
         <div class="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur">
           <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Plan Pro</p>
           <p class="mt-2 text-2xl font-black text-slate-900">
-            {% if pro_plan %}${{ pro_plan.price_monthly }}{% else %}$25{% endif %}
+            {% if pro_plan %}${{ '%.0f'|format(pro_plan.price_monthly) }}{% else %}$30{% endif %}
           </p>
           <p class="mt-1 text-sm text-slate-500">para equipos pequeños que ya necesitan control real.</p>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur">
           <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Plan Business</p>
           <p class="mt-2 text-2xl font-black text-slate-900">
-            {% if business_plan %}${{ business_plan.price_monthly }}{% else %}$55{% endif %}
+            {% if business_plan %}${{ '%.0f'|format(business_plan.price_monthly) }}{% else %}$65{% endif %}
           </p>
           <p class="mt-1 text-sm text-slate-500">para empresas con más usuarios, más volumen y más marca.</p>
         </div>
@@ -248,7 +248,7 @@
       </a>
     </div>
 
-    <div class="mt-8 grid gap-5 md:grid-cols-3">
+    <div class="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-5">
       {% for plan in plans %}
         <article class="rounded-[1.5rem] border p-6 {% if plan.code == 'pro' %}border-indigo-500 bg-indigo-50/40 shadow-lg shadow-indigo-100{% else %}border-slate-200 bg-slate-50{% endif %}">
           <div class="flex items-center justify-between gap-3">
@@ -259,24 +259,27 @@
           </div>
           <p class="mt-3 text-sm leading-6 text-slate-600">{{ plan.description or '' }}</p>
           <div class="mt-5 text-4xl font-black text-slate-950">
-            {% if plan.price_monthly == 0 %}
+            {% if plan.code == 'enterprise' %}
+              A medida
+            {% elif plan.price_monthly == 0 %}
               Gratis
             {% else %}
-              ${{ plan.price_monthly }}<span class="text-base font-medium text-slate-500">/mes</span>
+              ${{ '%.0f'|format(plan.price_monthly) }}<span class="text-base font-medium text-slate-500">/mes</span>
             {% endif %}
           </div>
           <p class="mt-2 text-sm text-slate-500">
-            {% if plan.price_monthly == 0 %}
+            {% if plan.code == 'enterprise' %}
+              Configurado según la operación.
+            {% elif plan.price_monthly == 0 %}
               Ideal para probar el flujo básico.
             {% else %}
-              o ${{ plan.price_yearly }}/año con pago anual.
+              o ${{ '%.0f'|format(plan.price_yearly) }}/año con pago anual.
             {% endif %}
           </p>
           <ul class="mt-5 space-y-2 text-sm text-slate-600">
-            <li>Hasta {{ plan.max_users }} usuarios</li>
-            <li>{{ plan.max_invoices_per_month }} facturas por mes</li>
-            <li>{{ plan.max_products }} productos</li>
-            <li>{{ 'Exportación PDF incluida' if plan.can_export_pdf else 'Sin exportación PDF' }}</li>
+            {% for feature in features_for(plan.code)[:4] %}
+              <li>{{ feature }}</li>
+            {% endfor %}
           </ul>
         </article>
       {% endfor %}

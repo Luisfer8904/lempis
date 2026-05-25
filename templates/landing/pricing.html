@@ -7,26 +7,26 @@
   <p class="text-slate-600">Empieza gratis, escala cuando necesites.</p>
 </section>
 
-<section class="grid md:grid-cols-3 gap-6">
+<section class="grid md:grid-cols-2 xl:grid-cols-5 gap-6">
   {% for plan in plans %}
     <div class="bg-white border rounded-xl p-6 flex flex-col
                 {% if plan.code=='pro' %}ring-2 ring-indigo-500{% endif %}">
       <h2 class="text-2xl font-bold">{{ plan.name }}</h2>
       <p class="text-slate-500 mb-4">{{ plan.description or '' }}</p>
       <div class="text-4xl font-extrabold mb-4">
-        {% if plan.price_monthly == 0 %}
+        {% if plan.code == 'enterprise' %}
+          A medida
+        {% elif plan.price_monthly == 0 %}
           Gratis
         {% else %}
-          ${{ plan.price_monthly }}<span class="text-base font-normal text-slate-500">/mes</span>
+          ${{ '%.0f'|format(plan.price_monthly) }}<span class="text-base font-normal text-slate-500">/mes</span>
         {% endif %}
       </div>
+      <p class="text-xs text-slate-500 mb-4">{{ role_summary_for(plan.code) }}</p>
       <ul class="text-sm space-y-2 mb-6">
-        <li>✔️ Hasta {{ plan.max_users }} usuarios</li>
-        <li>✔️ {{ plan.max_invoices_per_month }} facturas/mes</li>
-        <li>✔️ {{ plan.max_products }} productos</li>
-        <li>{{ '✔️' if plan.can_export_pdf else '✖️' }} Exportar PDF</li>
-        <li>{{ '✔️' if plan.can_export_excel else '✖️' }} Exportar Excel</li>
-        <li>{{ '✔️' if plan.can_use_api else '✖️' }} Acceso API</li>
+        {% for feature in features_for(plan.code) %}
+          <li>✔️ {{ feature }}</li>
+        {% endfor %}
       </ul>
       <a href="{{ url_for('auth.signup') }}"
          class="mt-auto bg-indigo-600 text-white text-center py-2 rounded-lg hover:bg-indigo-700">

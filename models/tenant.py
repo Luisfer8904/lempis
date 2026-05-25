@@ -117,12 +117,18 @@ class Plan(db.Model, TimestampMixin):
     max_invoices_per_month = Column(Integer, default=20)
     max_products = Column(Integer, default=50)
     max_customers = Column(Integer, default=100)
+    max_suppliers = Column(Integer, default=2)
+    max_branches = Column(Integer, default=1)
+    max_warehouses = Column(Integer, default=1)
 
     # Features (flags simples)
     can_export_pdf = Column(Boolean, default=True)
     can_export_excel = Column(Boolean, default=False)
     can_use_api = Column(Boolean, default=False)
     can_custom_branding = Column(Boolean, default=False)
+    can_use_advanced_reports = Column(Boolean, default=False)
+    can_use_multi_branch = Column(Boolean, default=False)
+    can_customize_roles = Column(Boolean, default=False)
 
     # Stripe
     stripe_price_id_monthly = Column(String(120))
