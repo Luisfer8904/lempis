@@ -87,7 +87,7 @@
       <label class="block text-sm font-medium mb-1">Impuesto</label>
       <select name="tax_config_id"
               class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
-        <option value="">— Sin impuesto / Default del país —</option>
+        <option value="">— Sin impuesto —</option>
         {% for tax in impuestos %}
           <option value="{{ tax.id }}"
                   {% if producto and producto.tax_config_id == tax.id %}selected{% endif %}>

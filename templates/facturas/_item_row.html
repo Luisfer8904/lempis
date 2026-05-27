@@ -9,7 +9,7 @@
                 data-price-general="{{ p.price }}"
                 data-price-mayorista="{{ p.price_wholesale }}"
                 data-price-especial="{{ p.price_special }}"
-                data-tax="{{ (p.tax_config.rate if p.tax_config else 15) }}"
+                data-tax="{{ (p.tax_config.rate if p.tax_config else 0) }}"
                 data-batches="{{ '1' if p.track_batches else '0' }}"
                 {% if item.product_id == p.id %}selected{% endif %}>
           {{ p.sku }} — {{ p.name }}

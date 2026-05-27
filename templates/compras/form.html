@@ -168,7 +168,7 @@
                   data-name="{{ p.name }}"
                   data-price="{{ p.price }}"
                   data-cost="{{ p.cost or 0 }}"
-                  data-tax="{{ (p.tax_config.rate if p.tax_config else 15) }}"
+                  data-tax="{{ (p.tax_config.rate if p.tax_config else 0) }}"
                   data-batches="{{ '1' if p.track_batches else '0' }}">
             {{ p.sku }} — {{ p.name }}
           </option>
@@ -225,7 +225,7 @@ function onProductChange(select) {
   if (opt.value) {
     row.querySelector(".item-desc").value = opt.dataset.name;
     row.querySelector(".item-cost").value = parseFloat(opt.dataset.cost || 0).toFixed(2);
-    row.querySelector(".item-tax").value = parseFloat(opt.dataset.tax || 15).toFixed(2);
+    row.querySelector(".item-tax").value = Number.parseFloat(opt.dataset.tax || '0').toFixed(2);
     row.querySelector(".item-product-id").value = opt.value;
     // Si no maneja lotes, ocultar los campos de lote/venc
     if (opt.dataset.batches !== "1") {

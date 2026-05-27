@@ -106,7 +106,7 @@
                   data-price-general="{{ p.price }}"
                   data-price-mayorista="{{ p.price_wholesale }}"
                   data-price-especial="{{ p.price_special }}"
-                  data-tax="{{ (p.tax_config.rate if p.tax_config else 15) }}"
+                  data-tax="{{ (p.tax_config.rate if p.tax_config else 0) }}"
                   data-image="{{ p.image_url or '' }}"
                   data-stock="{{ p.warehouse_stock if p.track_stock else '' }}"
                   data-search="{{ (p.name ~ ' ' ~ p.sku ~ ' ' ~ (p.category.name if p.category else '')) | lower }}"
@@ -362,7 +362,7 @@ function addToCart(btn) {
         especial: btn.dataset.priceEspecial,
       },
       price: getPriceForTier(btn, tier),
-      tax: parseFloat(btn.dataset.tax) || 15,
+      tax: Number.parseFloat(btn.dataset.tax || '0'),
       image: btn.dataset.image,
       qty: 1,
     });

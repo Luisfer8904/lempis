@@ -170,7 +170,7 @@ def _parse_cart() -> list[dict]:
             "description": names[i] if i < len(names) else "",
             "quantity": quantities[i] if i < len(quantities) else 1,
             "unit_price": prices[i] if i < len(prices) else 0,
-            "tax_rate": taxes[i] if i < len(taxes) else 15,
+            "tax_rate": taxes[i] if i < len(taxes) else 0,
             "discount_amount": 0,
             "batch_id": None,  # FIFO automático
         })

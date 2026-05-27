@@ -8,7 +8,7 @@
                 data-name="{{ p.name }}"
                 data-price="{{ p.price }}"
                 data-cost="{{ p.cost or 0 }}"
-                data-tax="{{ (p.tax_config.rate if p.tax_config else 15) }}"
+                data-tax="{{ (p.tax_config.rate if p.tax_config else 0) }}"
                 data-batches="{{ '1' if p.track_batches else '0' }}"
                 {% if item.product_id == p.id %}selected{% endif %}>
           {{ p.sku }} — {{ p.name }}
