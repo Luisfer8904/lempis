@@ -128,6 +128,9 @@ def issue_invoice(
                     subtract_stock(tenant.id, warehouse.id, product.id, qty, None, "venta")
 
     inv.recalc_totals()
+    if status != "draft" and payment_method != "credito":
+        inv.status = "paid"
+        inv.amount_paid = inv.total
 
     db.session.add(inv)
 

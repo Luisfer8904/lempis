@@ -402,6 +402,9 @@ def _emit_draft(inv: Invoice, tenant) -> None:
     inv.emisor_name = tenant.legal_name or tenant.name
     inv.emisor_tax_id = tenant.tax_id
     inv.emisor_address = tenant.address
+    if inv.payment_method != "credito":
+        inv.status = "paid"
+        inv.amount_paid = inv.total
     tenant.next_invoice_number = correlativo + 1
     db.session.commit()
 
