@@ -23,6 +23,6 @@ class TenantPrintSettings(db.Model, TimestampMixin):
     receipt_paper_width = Column(String(10), nullable=False, default="80mm")
     document_page_format = Column(String(20), nullable=False, default="letter")
     thermal_printer_enabled = Column(Boolean, nullable=False, default=True)
+    open_cash_drawer_on_print = Column(Boolean, nullable=False, default=True)
 
     tenant = relationship("Tenant")
-

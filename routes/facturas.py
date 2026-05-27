@@ -224,6 +224,7 @@ def ticket(invoice_id):
         receipt_width=width,
         auto_print=request.args.get("print") == "1",
         open_drawer=request.args.get("drawer", "1") == "1",
+        next_url=request.args.get("next") or "",
     )
 
 
@@ -409,7 +410,12 @@ def _invoice_detail_url(inv: Invoice) -> str:
     if request.form.get("print_invoice") == "1":
         settings = _get_print_settings(current_tenant())
         if settings.thermal_printer_enabled and settings.detailed_sale_format == "thermal_receipt":
-            return url_for("facturas.ticket", invoice_id=inv.id, print=1, drawer=1)
+            return url_for(
+                "facturas.ticket",
+                invoice_id=inv.id,
+                print=1,
+                drawer=1 if settings.open_cash_drawer_on_print else 0,
+            )
         return url_for("facturas.detail", invoice_id=inv.id, print=1)
     return url_for("facturas.detail", invoice_id=inv.id)
 

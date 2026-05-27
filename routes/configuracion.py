@@ -153,6 +153,7 @@ def impresion():
         settings.receipt_paper_width = (request.form.get("receipt_paper_width") or "80mm").strip()
         settings.document_page_format = (request.form.get("document_page_format") or "letter").strip()
         settings.thermal_printer_enabled = bool(request.form.get("thermal_printer_enabled"))
+        settings.open_cash_drawer_on_print = bool(request.form.get("open_cash_drawer_on_print"))
         db.session.commit()
         flash("Configuración de impresión actualizada.", "success")
         return redirect(url_for("configuracion.impresion"))

@@ -23,6 +23,16 @@
         </div>
       </label>
 
+      <label class="md:col-span-2 flex items-start gap-3 p-4 rounded-lg border bg-slate-50">
+        <input type="checkbox" name="open_cash_drawer_on_print" value="1"
+               {% if settings.open_cash_drawer_on_print %}checked{% endif %}
+               class="mt-1 accent-indigo-600" />
+        <div>
+          <p class="font-medium text-slate-900">Abrir cajón al imprimir ticket</p>
+          <p class="text-sm text-slate-500">Cuando la venta rápida imprima en térmica, intenta enviar el pulso de apertura al cajón.</p>
+        </div>
+      </label>
+
       <div>
         <label class="block text-sm font-medium mb-1">Formato de venta rápida</label>
         <select name="quick_sale_format"
@@ -94,7 +104,7 @@
       <li>Venta rápida: normalmente usa recibo térmico.</li>
       <li>Venta detallada: normalmente usa carta.</li>
       <li>Recibos de cobro: pueden salir en térmica o carta según tu flujo.</li>
-      <li>Para abrir la caja al imprimir, configura el pulso de gaveta en el driver de la impresora o usa el botón “Abrir caja e imprimir” del ticket térmico.</li>
+      <li>El cajón solo se intenta abrir si está activa la opción de arriba y el navegador tiene permiso para usar la impresora o puerto serial.</li>
     </ul>
   </div>
 

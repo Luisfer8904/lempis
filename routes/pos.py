@@ -142,12 +142,19 @@ def cobrar():
             warehouse_id=warehouse_id,
         )
         flash(f"Venta {inv.number} emitida correctamente.", "success")
+        next_sale_url = url_for("pos.quick_sale")
         if request.form.get("print_invoice") == "1":
             settings = _get_print_settings(tenant)
             if settings.thermal_printer_enabled and settings.quick_sale_format == "thermal_receipt":
-                return redirect(url_for("facturas.ticket", invoice_id=inv.id, print=1, drawer=1))
-            return redirect(url_for("facturas.detail", invoice_id=inv.id, print=1))
-        return redirect(url_for("facturas.detail", invoice_id=inv.id))
+                return redirect(url_for(
+                    "facturas.ticket",
+                    invoice_id=inv.id,
+                    print=1,
+                    drawer=1 if settings.open_cash_drawer_on_print else 0,
+                    next=next_sale_url,
+                ))
+            return redirect(url_for("facturas.detail", invoice_id=inv.id, print=1, next=next_sale_url))
+        return redirect(next_sale_url)
     except CAIError as e:
         flash(str(e), "danger")
         return redirect(url_for("pos.quick_sale"))

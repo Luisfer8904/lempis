@@ -287,7 +287,15 @@
   <script>
     const SHOULD_AUTO_PRINT = {{ 'true' if auto_print else 'false' }};
     const SHOULD_OPEN_DRAWER = {{ 'true' if open_drawer else 'false' }};
+    const NEXT_URL = {{ next_url|tojson }};
     const DRAWER_PULSE = new Uint8Array([27, 112, 0, 25, 250]);
+    let didRedirect = false;
+
+    function goNextAfterPrint() {
+      if (!NEXT_URL || didRedirect) return;
+      didRedirect = true;
+      window.location.href = NEXT_URL;
+    }
 
     async function pulseCashDrawer({ requestPort = false } = {}) {
       if (!('serial' in navigator)) return false;
@@ -327,8 +335,12 @@
           console.warn('La caja no se abrio automaticamente. Revisa permisos Web Serial o el driver de la impresora.', error);
         }
       }
-      setTimeout(() => window.print(), 250);
+      setTimeout(() => {
+        window.print();
+        setTimeout(goNextAfterPrint, 1500);
+      }, 250);
     });
+    window.addEventListener('afterprint', () => setTimeout(goNextAfterPrint, 300));
   </script>
 </body>
 </html>

@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS lempis_config_impresion (
   receipt_paper_width VARCHAR(10) NOT NULL DEFAULT '80mm',
   document_page_format VARCHAR(20) NOT NULL DEFAULT 'letter',
   thermal_printer_enabled TINYINT(1) NOT NULL DEFAULT 1,
+  open_cash_drawer_on_print TINYINT(1) NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -15,4 +16,3 @@ CREATE TABLE IF NOT EXISTS lempis_config_impresion (
     FOREIGN KEY (tenant_id) REFERENCES lempis_empresas(id)
     ON DELETE CASCADE
 );
-

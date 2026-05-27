@@ -254,9 +254,22 @@
 </div>
 {% if request.args.get('print') == '1' %}
   <script>
+    const NEXT_URL = {{ (request.args.get('next') or '')|tojson }};
+    let didRedirect = false;
+
+    function goNextAfterPrint() {
+      if (!NEXT_URL || didRedirect) return;
+      didRedirect = true;
+      window.location.href = NEXT_URL;
+    }
+
     window.addEventListener('load', () => {
-      setTimeout(() => window.print(), 250);
+      setTimeout(() => {
+        window.print();
+        setTimeout(goNextAfterPrint, 1500);
+      }, 250);
     });
+    window.addEventListener('afterprint', () => setTimeout(goNextAfterPrint, 300));
   </script>
 {% endif %}
 {% endblock %}
