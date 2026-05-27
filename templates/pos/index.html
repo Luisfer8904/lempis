@@ -249,12 +249,20 @@
           <span>Total</span>
           <span class="font-mono text-indigo-600" id="sum-total">{{ tenant.currency }} 0.00</span>
         </div>
-        <button id="checkout-btn" type="submit" disabled
-                {% if not can_emit %}disabled title="{{ reason }}"{% endif %}
-                class="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold
-                       hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed">
-          Cobrar
-        </button>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="save-draft-btn" name="action" value="draft" type="submit" disabled
+                  class="rounded-xl border border-indigo-200 bg-white py-3 font-bold text-indigo-700
+                         hover:bg-indigo-50 disabled:border-slate-200 disabled:text-slate-300 disabled:cursor-not-allowed">
+            Guardar factura
+          </button>
+          <button id="checkout-btn" name="action" value="charge" type="submit" disabled
+                  data-can-emit="{{ '1' if can_emit else '0' }}"
+                  {% if not can_emit %}disabled title="{{ reason }}"{% endif %}
+                  class="rounded-xl bg-emerald-600 py-3 font-bold text-white
+                         hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed">
+            Cobrar
+          </button>
+        </div>
       </div>
     </form>
   </div>
@@ -454,6 +462,7 @@ function renderCart() {
   const container = document.getElementById('cart-items');
   const empty = document.getElementById('cart-empty');
   const checkoutBtn = document.getElementById('checkout-btn');
+  const saveDraftBtn = document.getElementById('save-draft-btn');
 
   // Limpiar pero conservar el empty state
   Array.from(container.children).forEach(c => {
@@ -466,6 +475,7 @@ function renderCart() {
     document.getElementById('sum-tax').textContent = fmt(0);
     document.getElementById('sum-total').textContent = fmt(0);
     checkoutBtn.disabled = true;
+    saveDraftBtn.disabled = true;
     updatePaymentFields();
     return;
   }
@@ -510,7 +520,8 @@ function renderCart() {
   document.getElementById('sum-sub').textContent = fmt(subtotal);
   document.getElementById('sum-tax').textContent = fmt(taxTotal);
   document.getElementById('sum-total').textContent = fmt(subtotal + taxTotal);
-  checkoutBtn.disabled = false;
+  checkoutBtn.disabled = checkoutBtn.dataset.canEmit !== '1';
+  saveDraftBtn.disabled = false;
   updatePaymentFields();
 }
 
@@ -582,6 +593,15 @@ document.getElementById('cash-received-modal').addEventListener('input', cashCha
 document.getElementById('checkout-cancel').addEventListener('click', closeCheckoutModal);
 document.getElementById('checkout-confirm').addEventListener('click', confirmCheckout);
 document.getElementById('checkout-form').addEventListener('submit', e => {
+  const action = e.submitter?.value || 'charge';
+  if (action === 'draft') {
+    document.getElementById('print-invoice').value = '0';
+    document.getElementById('cash-received-input').value = '';
+    document.getElementById('cash-change-input').value = '0.00';
+    checkoutConfirmed = false;
+    return;
+  }
+
   const method = document.getElementById('payment-method').value;
   if (!checkoutConfirmed && method !== 'credito') {
     e.preventDefault();

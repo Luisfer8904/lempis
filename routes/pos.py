@@ -108,9 +108,10 @@ def detailed_sale():
 @tenant_required
 @permission_required("sales.create")
 def cobrar():
-    """Emite la factura con los items del carrito enviados via form."""
+    """Guarda o emite la factura con los items del carrito enviados via form."""
     tenant = current_tenant()
     try:
+        action = request.form.get("action", "charge")
         items_data = _parse_cart()
         if not items_data:
             flash("Agrega al menos un producto al carrito.", "warning")
@@ -129,6 +130,7 @@ def cobrar():
             flash("No puedes facturar desde una bodega de otra sede.", "warning")
             return redirect(url_for("pos.quick_sale"))
         notes = _notes_with_cash_details(request.form.get("notes", ""), payment_method)
+        status = "draft" if action == "draft" else "issued"
 
         inv = issue_invoice(
             tenant=tenant,
@@ -138,9 +140,13 @@ def cobrar():
             payment_terms_days=int(request.form.get("payment_terms_days") or 0),
             notes=notes,
             issued_by_user_id=current_user.id,
-            status="issued",
+            status=status,
             warehouse_id=warehouse_id,
         )
+        if status == "draft":
+            flash("Factura guardada como borrador. Puedes recuperarla en Facturas > Borradores.", "success")
+            return redirect(url_for("pos.quick_sale"))
+
         flash(f"Venta {inv.number} emitida correctamente.", "success")
         next_sale_url = url_for("pos.quick_sale")
         if request.form.get("print_invoice") == "1":

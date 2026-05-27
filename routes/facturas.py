@@ -24,11 +24,13 @@ from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
 from services.invoice_service import (
     issue_invoice, update_invoice, next_invoice_number,
-    validate_can_emit, CAIError,
+    validate_can_emit, CAIError, _resolve_batch,
 )
+from services.inventory import consume_from_batch, recompute_product_stock
 from services.locations import (
     can_user_sell_from_warehouse,
     sale_warehouses_for_user,
+    subtract_stock,
     sync_default_warehouse_stock,
 )
 
@@ -102,7 +104,8 @@ def new():
     if request.method == "POST":
         try:
             inv = _create_from_form(tenant)
-            flash(f"Factura {inv.number} {'emitida' if inv.status == 'issued' else 'guardada como borrador'}.", "success")
+            label = "guardada como borrador" if inv.status == "draft" else "emitida"
+            flash(f"Factura {inv.number} {label}.", "success")
             return redirect(_invoice_detail_url(inv))
         except CAIError as e:
             flash(str(e), "danger")
@@ -402,6 +405,22 @@ def _emit_draft(inv: Invoice, tenant) -> None:
     inv.emisor_name = tenant.legal_name or tenant.name
     inv.emisor_tax_id = tenant.tax_id
     inv.emisor_address = tenant.address
+    for item in inv.items:
+        if not item.product_id:
+            continue
+        batch = _resolve_batch(tenant.id, item.product_id, item.batch_id, item.quantity, inv.status, inv.warehouse_id)
+        if batch is not None:
+            item.batch_id = batch.id
+            consume_from_batch(batch, item.quantity, inv.warehouse_id)
+            if batch.product:
+                recompute_product_stock(batch.product)
+            continue
+
+        product = db.session.get(Product, int(item.product_id))
+        if product is not None and product.tenant_id == tenant.id and product.track_stock:
+            product.stock = max(0, int(Decimal(product.stock or 0) - item.quantity))
+            if inv.warehouse_id:
+                subtract_stock(inv.tenant_id, inv.warehouse_id, product.id, item.quantity, None, "venta")
     if inv.payment_method != "credito":
         inv.status = "paid"
         inv.amount_paid = inv.total

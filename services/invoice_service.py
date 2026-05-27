@@ -45,6 +45,12 @@ def next_invoice_number(tenant: Tenant) -> tuple[int, str]:
     return get_provider(tenant).next_number(tenant)
 
 
+def draft_invoice_number(tenant: Tenant) -> str:
+    """Genera un número interno único para borradores sin consumir correlativo."""
+    stamp = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
+    return f"BORRADOR-{tenant.id}-{stamp}"
+
+
 def issue_invoice(
     tenant: Tenant,
     customer: Optional[Customer],
@@ -66,7 +72,10 @@ def issue_invoice(
     if status != "draft":
         validate_can_emit(tenant)
 
-    correlativo, formatted = next_invoice_number(tenant)
+    correlativo = None
+    formatted = draft_invoice_number(tenant)
+    if status != "draft":
+        correlativo, formatted = next_invoice_number(tenant)
     warehouse = warehouse_for_tenant(tenant.id, warehouse_id)
 
     inv = Invoice(
@@ -136,6 +145,7 @@ def issue_invoice(
 
     # Avanzar el correlativo solo si emitimos (no en draft)
     if status != "draft":
+        assert correlativo is not None
         tenant.next_invoice_number = correlativo + 1
 
     db.session.commit()
