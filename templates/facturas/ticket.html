@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ticket {{ factura.number }}</title>
+  <style>
+    :root {
+      --paper-width: {{ receipt_width }};
+      --font-size: {% if receipt_width == '58mm' %}10px{% else %}11px{% endif %};
+      --line-height: 1.25;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f1f5f9;
+      color: #111827;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: var(--font-size);
+      line-height: var(--line-height);
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      padding: 14px;
+    }
+
+    .toolbar a,
+    .toolbar button {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #fff;
+      color: #0f172a;
+      cursor: pointer;
+      font: 600 13px Arial, Helvetica, sans-serif;
+      padding: 9px 12px;
+      text-decoration: none;
+    }
+
+    .toolbar button.primary {
+      background: #059669;
+      border-color: #059669;
+      color: #fff;
+    }
+
+    .ticket {
+      width: var(--paper-width);
+      margin: 0 auto 20px;
+      padding: {% if receipt_width == '58mm' %}2mm{% else %}3mm{% endif %};
+      background: #fff;
+      overflow-wrap: anywhere;
+    }
+
+    .center { text-align: center; }
+    .right { text-align: right; }
+    .muted { color: #374151; }
+    .bold { font-weight: 700; }
+    .uppercase { text-transform: uppercase; }
+    .small { font-size: 0.86em; }
+    .mono { font-family: "Courier New", Courier, monospace; }
+    .mt { margin-top: 6px; }
+    .mb { margin-bottom: 6px; }
+    .divider {
+      border-top: 1px dashed #111827;
+      margin: 6px 0;
+    }
+
+    h1,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 1.18em;
+      line-height: 1.15;
+      margin-bottom: 2px;
+    }
+
+    .meta-row,
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .meta-row span:first-child,
+    .total-row span:first-child {
+      flex: 1;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th,
+    td {
+      padding: 2px 0;
+      vertical-align: top;
+    }
+
+    th {
+      border-bottom: 1px solid #111827;
+      font-size: 0.86em;
+      font-weight: 700;
+      text-align: left;
+    }
+
+    td.qty,
+    th.qty {
+      width: {% if receipt_width == '58mm' %}13mm{% else %}15mm{% endif %};
+      text-align: right;
+    }
+
+    td.amount,
+    th.amount {
+      width: {% if receipt_width == '58mm' %}17mm{% else %}22mm{% endif %};
+      text-align: right;
+    }
+
+    .item-name {
+      display: block;
+      padding-right: 4px;
+    }
+
+    .item-meta {
+      display: block;
+      color: #4b5563;
+      font-size: 0.86em;
+    }
+
+    .grand-total {
+      border-top: 1px solid #111827;
+      font-size: 1.14em;
+      font-weight: 800;
+      padding-top: 4px;
+      margin-top: 4px;
+    }
+
+    @page {
+      size: {{ receipt_width }} 297mm;
+      margin: 0;
+    }
+
+    @media print {
+      html,
+      body {
+        width: var(--paper-width);
+        background: #fff;
+      }
+
+      .toolbar { display: none !important; }
+
+      .ticket {
+        width: var(--paper-width);
+        margin: 0;
+        padding: {% if receipt_width == '58mm' %}2mm{% else %}3mm{% endif %};
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <a href="{{ url_for('facturas.detail', invoice_id=factura.id) }}">Volver</a>
+    <button type="button" onclick="window.print()">Imprimir</button>
+    <button type="button" class="primary" onclick="openDrawerAndPrint()">Abrir caja e imprimir</button>
+  </div>
+
+  <main class="ticket">
+    <section class="center mb">
+      <h1 class="uppercase">{{ factura.emisor_name or tenant.legal_name or tenant.name }}</h1>
+      {% if factura.emisor_tax_id or tenant.tax_id %}
+        <p class="small">RTN: {{ factura.emisor_tax_id or tenant.tax_id }}</p>
+      {% endif %}
+      {% if factura.emisor_address or tenant.address %}
+        <p class="small">{{ factura.emisor_address or tenant.address }}</p>
+      {% endif %}
+      {% if tenant.phone or tenant.email %}
+        <p class="small">{{ tenant.phone or '' }}{% if tenant.phone and tenant.email %} / {% endif %}{{ tenant.email or '' }}</p>
+      {% endif %}
+    </section>
+
+    <div class="divider"></div>
+
+    <section>
+      <p class="center bold uppercase">Factura</p>
+      <p class="center mono bold">{{ factura.number }}</p>
+      <div class="meta-row mt">
+        <span>Fecha</span>
+        <span class="right">{{ factura.issue_date|local_datetime('%d/%m/%Y %H:%M') }}</span>
+      </div>
+      {% set methods = {'efectivo': 'Efectivo', 'transferencia': 'Transferencia', 'tarjeta': 'Tarjeta', 'credito': 'Credito'} %}
+      <div class="meta-row">
+        <span>Pago</span>
+        <span class="right">{{ methods.get(factura.payment_method, factura.payment_method) }}</span>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <section>
+      <p class="small muted uppercase">Cliente</p>
+      <p class="bold">{{ factura.receptor_name or (factura.customer.name if factura.customer else 'Consumidor final') }}</p>
+      {% if factura.receptor_tax_id %}
+        <p class="small">RTN: {{ factura.receptor_tax_id }}</p>
+      {% endif %}
+    </section>
+
+    <div class="divider"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th class="qty">Cant.</th>
+          <th class="amount">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for it in factura.items %}
+          <tr>
+            <td>
+              <span class="item-name">{{ it.description }}</span>
+              <span class="item-meta">{{ '%.2f'|format(it.unit_price) }} c/u{% if it.tax_rate %} · ISV {{ '%.0f'|format(it.tax_rate) }}%{% endif %}</span>
+            </td>
+            <td class="qty mono">{{ '%.2f'|format(it.quantity) }}</td>
+            <td class="amount mono">{{ '%.2f'|format(it.subtotal) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="divider"></div>
+
+    <section>
+      <div class="total-row">
+        <span>Subtotal</span>
+        <span class="mono">{{ '%.2f'|format(factura.subtotal) }}</span>
+      </div>
+      {% if factura.discount_total %}
+        <div class="total-row">
+          <span>Descuento</span>
+          <span class="mono">{{ '%.2f'|format(factura.discount_total) }}</span>
+        </div>
+      {% endif %}
+      <div class="total-row">
+        <span>ISV</span>
+        <span class="mono">{{ '%.2f'|format(factura.tax_total) }}</span>
+      </div>
+      <div class="total-row grand-total">
+        <span>Total</span>
+        <span class="mono">{{ factura.currency }} {{ '%.2f'|format(factura.total) }}</span>
+      </div>
+    </section>
+
+    {% if factura.notes %}
+      <div class="divider"></div>
+      <section>
+        <p class="small muted uppercase">Notas</p>
+        <p class="small">{{ factura.notes }}</p>
+      </section>
+    {% endif %}
+
+    {% if factura.cai_code %}
+      <div class="divider"></div>
+      <section class="small">
+        <p><span class="muted">CAI:</span> <span class="mono">{{ factura.cai_code }}</span></p>
+        <p><span class="muted">Rango:</span> <span class="mono">{{ factura.cai_range_start }} - {{ factura.cai_range_end }}</span></p>
+        {% if factura.cai_valid_until %}
+          <p><span class="muted">Fecha limite:</span> {{ factura.cai_valid_until.strftime('%d/%m/%Y') }}</p>
+        {% endif %}
+      </section>
+    {% endif %}
+
+    <div class="divider"></div>
+    <p class="center small">Gracias por su preferencia</p>
+  </main>
+
+  <script>
+    const SHOULD_AUTO_PRINT = {{ 'true' if auto_print else 'false' }};
+    const SHOULD_OPEN_DRAWER = {{ 'true' if open_drawer else 'false' }};
+    const DRAWER_PULSE = new Uint8Array([27, 112, 0, 25, 250]);
+
+    async function pulseCashDrawer({ requestPort = false } = {}) {
+      if (!('serial' in navigator)) return false;
+
+      let port = null;
+      if (requestPort) {
+        port = await navigator.serial.requestPort();
+      } else {
+        const ports = await navigator.serial.getPorts();
+        port = ports[0] || null;
+      }
+      if (!port) return false;
+
+      await port.open({ baudRate: 9600 });
+      const writer = port.writable.getWriter();
+      await writer.write(DRAWER_PULSE);
+      writer.releaseLock();
+      await port.close();
+      return true;
+    }
+
+    async function openDrawerAndPrint() {
+      try {
+        await pulseCashDrawer({ requestPort: true });
+      } catch (error) {
+        console.warn('No se pudo enviar el pulso de caja desde el navegador.', error);
+      }
+      window.print();
+    }
+
+    window.addEventListener('load', async () => {
+      if (!SHOULD_AUTO_PRINT) return;
+      if (SHOULD_OPEN_DRAWER) {
+        try {
+          await pulseCashDrawer({ requestPort: false });
+        } catch (error) {
+          console.warn('La caja no se abrio automaticamente. Revisa permisos Web Serial o el driver de la impresora.', error);
+        }
+      }
+      setTimeout(() => window.print(), 250);
+    });
+  </script>
+</body>
+</html>

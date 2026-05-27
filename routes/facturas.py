@@ -19,6 +19,7 @@ from models import db
 from models.invoice import Invoice
 from models.catalog import Customer, Product
 from models.country import TaxConfig
+from models.printing import TenantPrintSettings
 from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
 from services.invoice_service import (
@@ -40,6 +41,15 @@ def _get_or_404(invoice_id: int) -> Invoice:
     if inv is None:
         abort(404)
     return inv
+
+
+def _get_print_settings(tenant):
+    settings = TenantPrintSettings.query.filter_by(tenant_id=tenant.id).first()
+    if settings is None:
+        settings = TenantPrintSettings(tenant_id=tenant.id)
+        db.session.add(settings)
+        db.session.flush()
+    return settings
 
 
 # ---------------- LISTAR ----------------
@@ -188,7 +198,33 @@ def edit(invoice_id):
 @permission_required("sales.view")
 def detail(invoice_id):
     inv = _get_or_404(invoice_id)
-    return render_template("facturas/detail.html", factura=inv, tenant=current_tenant())
+    tenant = current_tenant()
+    return render_template(
+        "facturas/detail.html",
+        factura=inv,
+        tenant=tenant,
+        print_settings=_get_print_settings(tenant),
+    )
+
+
+@facturas_bp.route("/<int:invoice_id>/ticket")
+@login_required
+@tenant_required
+@permission_required("sales.view")
+def ticket(invoice_id):
+    inv = _get_or_404(invoice_id)
+    tenant = current_tenant()
+    settings = _get_print_settings(tenant)
+    width = settings.receipt_paper_width if settings.receipt_paper_width in ("58mm", "80mm") else "80mm"
+    return render_template(
+        "facturas/ticket.html",
+        factura=inv,
+        tenant=tenant,
+        settings=settings,
+        receipt_width=width,
+        auto_print=request.args.get("print") == "1",
+        open_drawer=request.args.get("drawer", "1") == "1",
+    )
 
 
 # ---------------- CAMBIAR ESTADO ----------------
@@ -370,10 +406,12 @@ def _emit_draft(inv: Invoice, tenant) -> None:
 
 
 def _invoice_detail_url(inv: Invoice) -> str:
-    args = {"invoice_id": inv.id}
     if request.form.get("print_invoice") == "1":
-        args["print"] = 1
-    return url_for("facturas.detail", **args)
+        settings = _get_print_settings(current_tenant())
+        if settings.thermal_printer_enabled and settings.detailed_sale_format == "thermal_receipt":
+            return url_for("facturas.ticket", invoice_id=inv.id, print=1, drawer=1)
+        return url_for("facturas.detail", invoice_id=inv.id, print=1)
+    return url_for("facturas.detail", invoice_id=inv.id)
 
 
 def _notes_with_cash_details(notes: str, payment_method: str) -> str:

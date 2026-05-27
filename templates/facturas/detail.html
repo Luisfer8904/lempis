@@ -7,6 +7,10 @@
   ← Volver
 </a>
 {% if factura.status != 'void' %}
+  <a href="{{ url_for('facturas.ticket', invoice_id=factura.id) }}"
+     class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 text-sm">
+    🧾 Ticket
+  </a>
   <a href="{{ url_for('facturas.pdf', invoice_id=factura.id) }}"
      class="bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-800 text-sm">
     📄 Descargar PDF

@@ -13,6 +13,7 @@ from sqlalchemy import or_
 
 from models import db
 from models.catalog import Product, Category, Customer
+from models.printing import TenantPrintSettings
 from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
 from services.invoice_service import issue_invoice, validate_can_emit, CAIError, next_invoice_number
@@ -24,6 +25,15 @@ from services.locations import (
 )
 
 pos_bp = Blueprint("pos", __name__, url_prefix="/app/venta")
+
+
+def _get_print_settings(tenant):
+    settings = TenantPrintSettings.query.filter_by(tenant_id=tenant.id).first()
+    if settings is None:
+        settings = TenantPrintSettings(tenant_id=tenant.id)
+        db.session.add(settings)
+        db.session.flush()
+    return settings
 
 
 @pos_bp.route("/")
@@ -132,10 +142,12 @@ def cobrar():
             warehouse_id=warehouse_id,
         )
         flash(f"Venta {inv.number} emitida correctamente.", "success")
-        detail_args = {"invoice_id": inv.id}
         if request.form.get("print_invoice") == "1":
-            detail_args["print"] = 1
-        return redirect(url_for("facturas.detail", **detail_args))
+            settings = _get_print_settings(tenant)
+            if settings.thermal_printer_enabled and settings.quick_sale_format == "thermal_receipt":
+                return redirect(url_for("facturas.ticket", invoice_id=inv.id, print=1, drawer=1))
+            return redirect(url_for("facturas.detail", invoice_id=inv.id, print=1))
+        return redirect(url_for("facturas.detail", invoice_id=inv.id))
     except CAIError as e:
         flash(str(e), "danger")
         return redirect(url_for("pos.quick_sale"))
