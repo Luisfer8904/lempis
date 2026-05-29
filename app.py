@@ -8,6 +8,7 @@ from config import config
 from models import db, login_manager, migrate
 from services.tenant_context import resolve_tenant
 from services.datetime_utils import format_local_datetime
+from services.security import csrf_token, validate_csrf
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -69,12 +70,17 @@ def create_app(config_name: str | None = None) -> Flask:
     def _attach_tenant():
         resolve_tenant()
 
+    @app.before_request
+    def _validate_csrf():
+        validate_csrf()
+
     # Variables globales para los templates
     @app.context_processor
     def _inject_globals():
         return {
             "APP_NAME": app.config["APP_NAME"],
             "tenant": getattr(g, "tenant", None),
+            "csrf_token": csrf_token,
         }
 
     @app.template_filter("local_datetime")

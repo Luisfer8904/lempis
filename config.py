@@ -64,6 +64,7 @@ class BaseConfig:
     SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "False") == "True"
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
+    WTF_CSRF_ENABLED = os.environ.get("WTF_CSRF_ENABLED", "True") == "True"
     PERMANENT_SESSION_LIFETIME = timedelta(
         days=int(os.environ.get("PERMANENT_SESSION_LIFETIME_DAYS", 7))
     )

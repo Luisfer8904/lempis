@@ -33,6 +33,7 @@ instance/
 # --- Logs ---
 *.log
 logs/
+backups/
 
 # --- Uploads / Storage ---
 uploads/

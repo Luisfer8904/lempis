@@ -14,6 +14,9 @@ from models import db
 from models.ivg import IVGAgendaItem, IVGCashSummary, IVGClient, IVGPayment, IVGSale, IVGUser
 
 
+OVERWRITE_PASSWORDS_VALUE = "OVERWRITE_IGH_PASSWORDS"
+
+
 DEFAULT_USERS = [
     {
         "username": "Luis",
@@ -49,6 +52,7 @@ def ensure_tables():
 
 
 def seed_users():
+    overwrite_passwords = os.environ.get("LEMPIS_INIT_IVG_OVERWRITE_PASSWORDS") == OVERWRITE_PASSWORDS_VALUE
     for payload in DEFAULT_USERS:
         existing = IVGUser.query.filter_by(username=payload["username"]).first()
         if existing:
@@ -56,7 +60,8 @@ def seed_users():
             existing.full_name = payload["full_name"]
             existing.role = payload["role"]
             existing.is_active = True
-            existing.set_password(payload["password"])
+            if overwrite_passwords:
+                existing.set_password(payload["password"])
             continue
 
         user = IVGUser(
@@ -78,6 +83,8 @@ def main():
         print("→ Seedeando usuarios IVG...")
         seed_users()
         db.session.commit()
+        if os.environ.get("LEMPIS_INIT_IVG_OVERWRITE_PASSWORDS") != OVERWRITE_PASSWORDS_VALUE:
+            print("ℹ️  Claves de usuarios IVG existentes conservadas.")
         print("✅ IVG listo.")
 
 

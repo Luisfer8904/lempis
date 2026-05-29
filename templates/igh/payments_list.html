@@ -37,7 +37,7 @@
     <tbody>
       {% for payment in payments %}
       <tr class="hover:bg-slate-50">
-        <td class="text-sm text-slate-600 align-middle">{{ payment.payment_date.strftime('%d/%m/%Y %H:%M') if payment.payment_date else '—' }}</td>
+        <td class="text-sm text-slate-600 align-middle">{{ payment.payment_date.strftime('%d/%m/%Y') if payment.payment_date else '—' }}</td>
         <td class="font-mono text-xs text-slate-600 align-middle">
           {{ payment.sale.reference_number or ('FACT-' ~ payment.sale.id) if payment.sale else '—' }}
         </td>

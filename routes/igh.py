@@ -116,6 +116,10 @@ def _can_delete_operational_records(user: IVGUser | None) -> bool:
     return bool(user and (user.is_superadmin() or user.is_admin()))
 
 
+def _can_edit_ivg_sale(user: IVGUser | None) -> bool:
+    return bool(user and (user.is_superadmin() or user.is_admin()))
+
+
 def _safe_count(model) -> int:
     if not _table_exists(model):
         return 0
@@ -170,6 +174,12 @@ def _format_datetime_local(value):
     if not value:
         return ""
     return value.strftime("%Y-%m-%dT%H:%M")
+
+
+def _format_date_local(value):
+    if not value:
+        return ""
+    return value.strftime("%Y-%m-%d")
 
 
 def _recalculate_sale_balance(sale: IVGSale) -> None:
@@ -303,6 +313,7 @@ def _base_context():
         "igh_can_access_users_module": _can_access_users_module(current_igh_user),
         "igh_can_access_reports_module": _can_access_reports_module(current_igh_user),
         "igh_can_delete_records": _can_delete_operational_records(current_igh_user),
+        "igh_can_edit_sales": _can_edit_ivg_sale(current_igh_user),
         "company_name": "Inversiones Guevara Herrera",
         "ivg_counts": {
             "users": _safe_count(IVGUser),
@@ -383,8 +394,8 @@ def _build_sale_form_data(sale: IVGSale | None = None, form=None):
             "category": sale.category or "herbicidas",
             "gross_amount": str(sale.gross_amount or ""),
             "reference_number": sale.reference_number or "",
-            "sale_date": _format_datetime_local(sale.sale_date),
-            "due_date": _format_datetime_local(sale.due_date),
+            "sale_date": _format_date_local(sale.sale_date),
+            "due_date": _format_date_local(sale.due_date),
             "notes": sale.notes or "",
         }
 
@@ -394,8 +405,8 @@ def _build_sale_form_data(sale: IVGSale | None = None, form=None):
         "category": "herbicidas",
         "gross_amount": "",
         "reference_number": "",
-        "sale_date": _format_datetime_local(now),
-        "due_date": _format_datetime_local(now + timedelta(days=30)),
+        "sale_date": _format_date_local(now),
+        "due_date": _format_date_local(now + timedelta(days=30)),
         "notes": "",
     }
 
@@ -841,6 +852,9 @@ def ventas_new():
 def ventas_edit(sale_id: int):
     sale = _get_ivg_sale_or_404(sale_id)
     context = _base_context()
+    if not _can_edit_ivg_sale(context["igh_current_user"]):
+        abort(403)
+
     context["clients"] = IVGClient.query.filter_by(is_active=True).order_by(IVGClient.name.asc()).all() if _table_exists(IVGClient) else []
     context["form_data"] = _build_sale_form_data(sale=sale)
 
@@ -1032,7 +1046,7 @@ def pagos_new():
         "payment_kind": "abono",
         "payment_method": "",
         "amount": "",
-        "payment_date": _format_datetime_local(datetime.utcnow()),
+        "payment_date": _format_date_local(datetime.utcnow()),
         "notes": "",
     }
 
@@ -1111,7 +1125,7 @@ def pagos_edit(payment_id: int):
         "payment_kind": payment.payment_kind or "abono",
         "payment_method": payment.payment_method or "",
         "amount": payment.amount if payment.amount is not None else "",
-        "payment_date": _format_datetime_local(payment.payment_date),
+        "payment_date": _format_date_local(payment.payment_date),
         "notes": payment.notes or "",
     }
 

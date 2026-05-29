@@ -37,7 +37,7 @@
     <tbody>
       {% for sale in sales %}
       <tr class="hover:bg-slate-50">
-        <td class="text-sm text-slate-600 align-middle">{{ sale.sale_date.strftime('%d/%m/%Y %H:%M') if sale.sale_date else '—' }}</td>
+        <td class="text-sm text-slate-600 align-middle">{{ sale.sale_date.strftime('%d/%m/%Y') if sale.sale_date else '—' }}</td>
         <td class="font-medium align-middle">
           <div class="font-semibold text-slate-900">{{ sale.client.name if sale.client else '—' }}</div>
           {% if sale.due_date %}
@@ -59,8 +59,10 @@
           </span>
         </td>
         <td class="text-right whitespace-nowrap align-middle">
-          <a href="{{ url_for('igh.ventas_edit', sale_id=sale.id) }}"
-             class="text-indigo-600 hover:underline text-sm mr-3">Editar</a>
+          {% if igh_can_edit_sales %}
+            <a href="{{ url_for('igh.ventas_edit', sale_id=sale.id) }}"
+               class="text-indigo-600 hover:underline text-sm mr-3">Editar</a>
+          {% endif %}
           {% if igh_can_delete_records %}
             <form method="POST" action="{{ url_for('igh.ventas_delete', sale_id=sale.id) }}" class="inline">
               <button type="submit"
