@@ -20,8 +20,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _database_url() -> str:
-    load_dotenv(ROOT / ".env")
-    url = os.environ.get("DATABASE_URL", "")
+    env_path = ROOT / ".env"
+    url = ""
+    if env_path.exists():
+        for line in env_path.read_text(errors="ignore").splitlines():
+            if line.startswith("DATABASE_URL="):
+                url = line.split("=", 1)[1].strip().strip("'\"")
+                break
+    if not url:
+        load_dotenv(env_path)
+        url = os.environ.get("DATABASE_URL", "")
     if not url:
         raise SystemExit("DATABASE_URL no está configurado.")
     if url.startswith("mysql+pymysql://"):
