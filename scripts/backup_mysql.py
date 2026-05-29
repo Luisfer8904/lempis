@@ -7,11 +7,11 @@ Uso:
 El archivo se guarda en ./backups con timestamp. Requiere `mysqldump`.
 """
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import unquote, urlparse
 
 from dotenv import load_dotenv
 
@@ -31,9 +31,26 @@ def _database_url() -> str:
     return url
 
 
+def _parse_mysql_url(url: str):
+    match = re.match(
+        r"^mysql(?:\+pymysql)?://([^:]+):(.+)@([^:/]+)(?::(\d+))?/([^?\s]+)",
+        url,
+    )
+    if not match:
+        raise SystemExit("DATABASE_URL de MySQL no tiene un formato válido.")
+    username, password, host, port, database = match.groups()
+    return {
+        "username": username,
+        "password": password,
+        "host": host,
+        "port": port or "3306",
+        "database": database.split("?")[0],
+    }
+
+
 def main() -> None:
-    parsed = urlparse(_database_url())
-    database = parsed.path.lstrip("/")
+    parsed = _parse_mysql_url(_database_url())
+    database = parsed["database"]
     if not database:
         raise SystemExit("DATABASE_URL no incluye nombre de base de datos.")
 
@@ -43,7 +60,7 @@ def main() -> None:
     output_path = backup_dir / f"{database}_{timestamp}.sql"
 
     env = os.environ.copy()
-    env["MYSQL_PWD"] = unquote(parsed.password or "")
+    env["MYSQL_PWD"] = parsed["password"]
     command = [
         "mysqldump",
         "--single-transaction",
@@ -51,11 +68,11 @@ def main() -> None:
         "--triggers",
         "--set-gtid-purged=OFF",
         "-h",
-        parsed.hostname or "localhost",
+        parsed["host"],
         "-P",
-        str(parsed.port or 3306),
+        parsed["port"],
         "-u",
-        unquote(parsed.username or ""),
+        parsed["username"],
         database,
     ]
 
