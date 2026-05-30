@@ -220,6 +220,16 @@ def _ivg_category_label(value: str | None) -> str:
     return IVG_SALE_CATEGORY_LABELS.get(category, category.title())
 
 
+def _duplicate_sale_reference(reference_number: str | None, exclude_sale_id: int | None = None):
+    reference = (reference_number or "").strip()
+    if not reference or not _table_exists(IVGSale):
+        return None
+    query = IVGSale.query.filter(func.lower(IVGSale.reference_number) == reference.lower())
+    if exclude_sale_id is not None:
+        query = query.filter(IVGSale.id != exclude_sale_id)
+    return query.first()
+
+
 def _xlsx_response(filename: str, title: str, headers: list[str], rows: list[list[object]]):
     wb = Workbook()
     ws = wb.active
@@ -987,6 +997,11 @@ def ventas_new():
             flash("Debes seleccionar un cliente válido.", "danger")
             context["sale"] = None
             return render_template("igh/sales_form.html", **context)
+        duplicate_sale = _duplicate_sale_reference(reference_number)
+        if duplicate_sale is not None:
+            flash(f"La referencia {reference_number} ya existe en otra factura.", "danger")
+            context["sale"] = None
+            return render_template("igh/sales_form.html", **context)
 
         sale = IVGSale(
             client_id=client.id,
@@ -1043,6 +1058,11 @@ def ventas_edit(sale_id: int):
         client = db.session.get(IVGClient, client_id) if client_id else None
         if client is None:
             flash("Debes seleccionar un cliente válido.", "danger")
+            context["sale"] = sale
+            return render_template("igh/sales_form.html", **context)
+        duplicate_sale = _duplicate_sale_reference(reference_number, exclude_sale_id=sale.id)
+        if duplicate_sale is not None:
+            flash(f"La referencia {reference_number} ya existe en otra factura.", "danger")
             context["sale"] = sale
             return render_template("igh/sales_form.html", **context)
 
