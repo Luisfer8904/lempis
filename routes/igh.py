@@ -16,7 +16,7 @@ from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from sqlalchemy import func, inspect
+from sqlalchemy import func, inspect, or_
 from sqlalchemy.exc import IntegrityError
 
 from models import db
@@ -759,11 +759,26 @@ def usuarios_delete(user_id: int):
 @igh_bp.route("/clientes")
 @igh_login_required
 def clientes():
-    clients = IVGClient.query.order_by(IVGClient.created_at.desc()).all() if _table_exists(IVGClient) else []
+    search_query = (request.args.get("q") or "").strip()
+    clients = []
+    if _table_exists(IVGClient):
+        query = IVGClient.query
+        if search_query:
+            term = f"%{search_query}%"
+            query = query.filter(or_(
+                IVGClient.name.ilike(term),
+                IVGClient.legal_name.ilike(term),
+                IVGClient.tax_id.ilike(term),
+                IVGClient.email.ilike(term),
+                IVGClient.phone.ilike(term),
+                IVGClient.city.ilike(term),
+            ))
+        clients = query.order_by(IVGClient.created_at.desc()).all()
     for client in clients:
         client.can_delete = _client_delete_block_reason(client) is None
     context = _base_context()
     context["clients"] = clients
+    context["search_query"] = search_query
     return render_template("igh/clients_list.html", **context)
 
 
@@ -919,9 +934,25 @@ def clientes_delete(client_id: int):
 @igh_bp.route("/ventas")
 @igh_login_required
 def ventas():
-    sales = IVGSale.query.order_by(IVGSale.sale_date.desc(), IVGSale.id.desc()).all() if _table_exists(IVGSale) else []
+    search_query = (request.args.get("q") or "").strip()
+    sales = []
+    if _table_exists(IVGSale):
+        query = IVGSale.query.outerjoin(IVGClient, IVGSale.client_id == IVGClient.id)
+        if search_query:
+            term = f"%{search_query}%"
+            query = query.filter(or_(
+                IVGSale.reference_number.ilike(term),
+                IVGSale.category.ilike(term),
+                IVGSale.status.ilike(term),
+                IVGSale.notes.ilike(term),
+                IVGClient.name.ilike(term),
+                IVGClient.legal_name.ilike(term),
+                IVGClient.tax_id.ilike(term),
+            ))
+        sales = query.order_by(IVGSale.sale_date.desc(), IVGSale.id.desc()).all()
     context = _base_context()
     context["sales"] = sales
+    context["search_query"] = search_query
     return render_template("igh/sales_list.html", **context)
 
 
@@ -1162,9 +1193,31 @@ def contado_delete(summary_id: int):
 @igh_bp.route("/pagos")
 @igh_login_required
 def pagos():
-    payments = IVGPayment.query.order_by(IVGPayment.payment_date.desc(), IVGPayment.id.desc()).all() if _table_exists(IVGPayment) else []
+    search_query = (request.args.get("q") or "").strip()
+    payments = []
+    if _table_exists(IVGPayment):
+        query = (
+            IVGPayment.query
+            .outerjoin(IVGSale, IVGPayment.sale_id == IVGSale.id)
+            .outerjoin(IVGClient, IVGSale.client_id == IVGClient.id)
+        )
+        if search_query:
+            term = f"%{search_query}%"
+            query = query.filter(or_(
+                IVGPayment.payment_kind.ilike(term),
+                IVGPayment.payment_method.ilike(term),
+                IVGPayment.category.ilike(term),
+                IVGPayment.notes.ilike(term),
+                IVGSale.reference_number.ilike(term),
+                IVGSale.category.ilike(term),
+                IVGClient.name.ilike(term),
+                IVGClient.legal_name.ilike(term),
+                IVGClient.tax_id.ilike(term),
+            ))
+        payments = query.order_by(IVGPayment.payment_date.desc(), IVGPayment.id.desc()).all()
     context = _base_context()
     context["payments"] = payments
+    context["search_query"] = search_query
     return render_template("igh/payments_list.html", **context)
 
 
