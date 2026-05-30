@@ -5,8 +5,10 @@ Acceso separado usando usuarios IVG desde el mismo login de Lempis.
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import wraps
+import csv
+from io import StringIO
 
-from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, Response, abort, current_app, flash, redirect, render_template, request, session, url_for
 from sqlalchemy import func, inspect
 from sqlalchemy.exc import IntegrityError
 
@@ -180,6 +182,29 @@ def _format_date_local(value):
     if not value:
         return ""
     return value.strftime("%Y-%m-%d")
+
+
+def _format_report_date(value):
+    if not value:
+        return ""
+    return value.strftime("%d/%m/%Y")
+
+
+def _money_value(value) -> str:
+    return f"{_to_decimal(value):.2f}"
+
+
+def _csv_response(filename: str, headers: list[str], rows: list[list[object]]):
+    output = StringIO()
+    output.write("\ufeff")
+    writer = csv.writer(output)
+    writer.writerow(headers)
+    writer.writerows(rows)
+    return Response(
+        output.getvalue(),
+        content_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 def _recalculate_sale_balance(sale: IVGSale) -> None:
@@ -1320,7 +1345,175 @@ def reportes():
     context["recent_sales"] = IVGSale.query.order_by(IVGSale.sale_date.desc(), IVGSale.id.desc()).limit(8).all() if _table_exists(IVGSale) else []
     context["recent_payments"] = IVGPayment.query.order_by(IVGPayment.payment_date.desc(), IVGPayment.id.desc()).limit(8).all() if _table_exists(IVGPayment) else []
     context["pending_agenda"] = IVGAgendaItem.query.filter(IVGAgendaItem.status != "completada").order_by(IVGAgendaItem.scheduled_for.asc()).limit(6).all() if _table_exists(IVGAgendaItem) else []
+    context["download_reports"] = [
+        ("cierres", "Resumen de cierres", "Apertura, ventas, retiros, transferencias y diferencias."),
+        ("ventas-contado", "Ventas de contado", "Venta diaria separada por efectivo y transferencia."),
+        ("ventas-credito", "Ventas de crédito", "Facturas a crédito con cliente, categoría, total y saldo."),
+        ("cobros", "Cobros registrados", "Pagos y abonos aplicados a facturas de crédito."),
+        ("cartera", "Cartera por cobrar", "Facturas pendientes, parciales y vencimientos."),
+        ("clientes-saldos", "Clientes con saldo", "Saldo pendiente acumulado por cliente."),
+        ("agenda", "Agenda pendiente", "Seguimientos y actividades no completadas."),
+    ]
     return render_template("igh/reports.html", **context)
+
+
+@igh_bp.route("/reportes/descargar/<report_type>")
+@igh_login_required
+@igh_admin_required
+def reportes_descargar(report_type: str):
+    today = datetime.utcnow().strftime("%Y%m%d")
+
+    if report_type == "cierres":
+        summaries = IVGCashSummary.query.order_by(IVGCashSummary.summary_date.desc(), IVGCashSummary.id.desc()).all() if _table_exists(IVGCashSummary) else []
+        rows = [
+            [
+                _format_report_date(summary.summary_date),
+                _money_value(summary.opening_amount),
+                _money_value(summary.cash_amount),
+                _money_value(_to_decimal(summary.opening_amount) + _to_decimal(summary.cash_amount)),
+                _money_value(summary.withdrawal_amount),
+                _money_value(summary.transfer_amount),
+                _money_value(summary.expected_close_amount),
+                _money_value(summary.actual_close_amount),
+                _money_value(summary.variance_amount),
+                summary.notes or "",
+            ]
+            for summary in summaries
+        ]
+        return _csv_response(
+            f"ivg-resumen-cierres-{today}.csv",
+            ["Fecha", "Apertura", "Venta efectivo", "Venta efectivo + apertura", "Retiro efectivo", "Transferencias", "Cierre esperado", "Cierre real", "Diferencia", "Notas"],
+            rows,
+        )
+
+    if report_type == "ventas-contado":
+        summaries = IVGCashSummary.query.order_by(IVGCashSummary.summary_date.desc(), IVGCashSummary.id.desc()).all() if _table_exists(IVGCashSummary) else []
+        rows = [
+            [
+                _format_report_date(summary.summary_date),
+                _money_value(summary.cash_amount),
+                _money_value(summary.transfer_amount),
+                _money_value(summary.total_amount),
+                _money_value(summary.withdrawal_amount),
+                _money_value(summary.actual_close_amount),
+                summary.notes or "",
+            ]
+            for summary in summaries
+        ]
+        return _csv_response(
+            f"ivg-ventas-contado-{today}.csv",
+            ["Fecha", "Efectivo", "Transferencias", "Venta total", "Retiro efectivo", "Cierre real", "Notas"],
+            rows,
+        )
+
+    if report_type == "ventas-credito":
+        sales = IVGSale.query.order_by(IVGSale.sale_date.desc(), IVGSale.id.desc()).all() if _table_exists(IVGSale) else []
+        rows = [
+            [
+                _format_report_date(sale.sale_date),
+                sale.reference_number or f"FACT-{sale.id}",
+                sale.client.name if sale.client else "",
+                sale.category,
+                sale.status,
+                _format_report_date(sale.due_date),
+                _money_value(sale.gross_amount),
+                _money_value(sale.balance_due),
+                sale.notes or "",
+            ]
+            for sale in sales
+        ]
+        return _csv_response(
+            f"ivg-ventas-credito-{today}.csv",
+            ["Fecha", "Referencia", "Cliente", "Categoria", "Estado", "Vencimiento", "Total", "Saldo", "Notas"],
+            rows,
+        )
+
+    if report_type == "cobros":
+        payments = IVGPayment.query.order_by(IVGPayment.payment_date.desc(), IVGPayment.id.desc()).all() if _table_exists(IVGPayment) else []
+        rows = [
+            [
+                _format_report_date(payment.payment_date),
+                payment.sale.reference_number or f"FACT-{payment.sale.id}" if payment.sale else "",
+                payment.sale.client.name if payment.sale and payment.sale.client else "",
+                payment.payment_kind,
+                payment.payment_method,
+                payment.category,
+                _money_value(payment.amount),
+                payment.notes or "",
+            ]
+            for payment in payments
+        ]
+        return _csv_response(
+            f"ivg-cobros-{today}.csv",
+            ["Fecha", "Factura", "Cliente", "Tipo", "Metodo", "Categoria", "Monto", "Notas"],
+            rows,
+        )
+
+    if report_type == "cartera":
+        sales = IVGSale.query.filter(IVGSale.balance_due > 0).order_by(IVGSale.due_date.asc(), IVGSale.sale_date.desc()).all() if _table_exists(IVGSale) else []
+        rows = [
+            [
+                sale.reference_number or f"FACT-{sale.id}",
+                sale.client.name if sale.client else "",
+                sale.category,
+                sale.status,
+                _format_report_date(sale.sale_date),
+                _format_report_date(sale.due_date),
+                _money_value(sale.gross_amount),
+                _money_value(sale.balance_due),
+            ]
+            for sale in sales
+        ]
+        return _csv_response(
+            f"ivg-cartera-por-cobrar-{today}.csv",
+            ["Factura", "Cliente", "Categoria", "Estado", "Fecha venta", "Vencimiento", "Total", "Saldo"],
+            rows,
+        )
+
+    if report_type == "clientes-saldos":
+        rows = []
+        if _table_exists(IVGClient) and _table_exists(IVGSale):
+            data = (
+                db.session.query(
+                    IVGClient.name,
+                    func.count(IVGSale.id),
+                    func.coalesce(func.sum(IVGSale.gross_amount), 0),
+                    func.coalesce(func.sum(IVGSale.balance_due), 0),
+                )
+                .join(IVGSale, IVGSale.client_id == IVGClient.id)
+                .filter(IVGSale.balance_due > 0)
+                .group_by(IVGClient.id, IVGClient.name)
+                .order_by(func.coalesce(func.sum(IVGSale.balance_due), 0).desc())
+                .all()
+            )
+            rows = [[name, count, _money_value(total), _money_value(balance)] for name, count, total, balance in data]
+        return _csv_response(
+            f"ivg-clientes-con-saldo-{today}.csv",
+            ["Cliente", "Facturas pendientes", "Total facturado", "Saldo pendiente"],
+            rows,
+        )
+
+    if report_type == "agenda":
+        items = IVGAgendaItem.query.filter(IVGAgendaItem.status != "completada").order_by(IVGAgendaItem.scheduled_for.asc()).all() if _table_exists(IVGAgendaItem) else []
+        rows = [
+            [
+                _format_report_date(item.scheduled_for),
+                item.client.name if item.client else "",
+                item.title,
+                item.activity_type,
+                item.priority,
+                item.status,
+                item.notes or "",
+            ]
+            for item in items
+        ]
+        return _csv_response(
+            f"ivg-agenda-pendiente-{today}.csv",
+            ["Fecha", "Cliente", "Actividad", "Tipo", "Prioridad", "Estado", "Notas"],
+            rows,
+        )
+
+    abort(404)
 
 
 @igh_bp.route("/productos")
