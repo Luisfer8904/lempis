@@ -45,7 +45,7 @@
         <div class="flex items-center justify-between gap-3">
           <div>
             <h3 class="font-semibold text-slate-900">Crédito por categoría</h3>
-            <p class="text-xs text-slate-500">Herbicidas y concentrados</p>
+            <p class="text-xs text-slate-500">Herbicidas, concentrados y semillas</p>
           </div>
           <span class="text-sm font-bold text-amber-700">HNL {{ "{:,.2f}".format(ivg_metrics.receivable_total) }}</span>
         </div>
@@ -123,20 +123,15 @@
   <div class="bg-white rounded-xl border shadow-sm p-6">
     <h3 class="text-lg font-semibold mb-4">Crédito por categoría</h3>
     <div class="space-y-4">
+      {% for item in ivg_category_metrics %}
       <div>
         <div class="flex justify-between text-sm mb-1">
-          <span class="text-slate-600">Herbicidas</span>
-          <span class="font-semibold">HNL {{ "{:,.2f}".format(ivg_metrics.herbicidas_credito) }}</span>
+          <span class="text-slate-600">{{ item.label }}</span>
+          <span class="font-semibold">HNL {{ "{:,.2f}".format(item.gross_total) }}</span>
         </div>
-        <div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-emerald-500" style="width: {{ 100 if ivg_metrics.herbicidas_credito > 0 else 8 }}%"></div></div>
+        <div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full {{ item.color_class }}" style="width: {{ 100 if item.gross_total > 0 else 8 }}%"></div></div>
       </div>
-      <div>
-        <div class="flex justify-between text-sm mb-1">
-          <span class="text-slate-600">Concentrados</span>
-          <span class="font-semibold">HNL {{ "{:,.2f}".format(ivg_metrics.concentrados_credito) }}</span>
-        </div>
-        <div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-violet-500" style="width: {{ 100 if ivg_metrics.concentrados_credito > 0 else 8 }}%"></div></div>
-      </div>
+      {% endfor %}
     </div>
   </div>
 
@@ -231,7 +226,7 @@
             </span>
           </td>
           <td class="text-sm align-middle">{{ payment.payment_method }}</td>
-          <td class="text-sm align-middle">{{ payment.category }}</td>
+          <td class="text-sm align-middle">{{ ivg_category_labels.get(payment.category, payment.category) }}</td>
           <td class="text-right font-semibold text-emerald-700 align-middle">HNL {{ "{:,.2f}".format(payment.amount or 0) }}</td>
         </tr>
         {% else %}

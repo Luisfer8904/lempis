@@ -52,7 +52,7 @@
           </span>
         </td>
         <td class="text-sm align-middle">{{ payment.payment_method }}</td>
-        <td class="text-sm align-middle">{{ payment.category }}</td>
+        <td class="text-sm align-middle">{{ ivg_category_labels.get(payment.category, payment.category) }}</td>
         <td class="text-right font-semibold text-emerald-700 align-middle">HNL {{ "{:,.2f}".format(payment.amount or 0) }}</td>
         <td class="text-right whitespace-nowrap align-middle">
           <a href="{{ url_for('igh.pagos_edit', payment_id=payment.id) }}"

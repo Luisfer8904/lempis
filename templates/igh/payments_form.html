@@ -39,9 +39,9 @@
                   data-category="{{ sale.category }}"
                   data-client="{{ sale.client.name if sale.client else 'Sin cliente' }}"
                   data-balance="{{ '{:,.2f}'.format(sale.balance_due or 0) }}"
-                  data-search="{{ sale.reference_number or ('FACT-' ~ sale.id) }} {{ sale.client.name if sale.client else 'Sin cliente' }} {{ sale.category }} {{ '{:,.2f}'.format(sale.balance_due or 0) }}"
+                  data-search="{{ sale.reference_number or ('FACT-' ~ sale.id) }} {{ sale.client.name if sale.client else 'Sin cliente' }} {{ ivg_category_labels.get(sale.category, sale.category) }} {{ '{:,.2f}'.format(sale.balance_due or 0) }}"
                   class="sale-option w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-indigo-50">
-            {{ sale.reference_number or ('FACT-' ~ sale.id) }} · {{ sale.client.name if sale.client else 'Sin cliente' }} · Saldo HNL {{ "{:,.2f}".format(sale.balance_due or 0) }}
+            {{ sale.reference_number or ('FACT-' ~ sale.id) }} · {{ sale.client.name if sale.client else 'Sin cliente' }} · {{ ivg_category_labels.get(sale.category, sale.category) }} · Saldo HNL {{ "{:,.2f}".format(sale.balance_due or 0) }}
             </button>
         {% endfor %}
           </div>
@@ -88,7 +88,7 @@
     <div>
       <label class="block text-sm font-medium mb-1">Categoría de la factura</label>
       <input id="category_display" type="text" readonly
-             value="{{ payment.category if payment else '' }}"
+             value="{{ ivg_category_labels.get(payment.category, payment.category) if payment else '' }}"
              class="w-full px-3 py-2 border rounded-lg bg-slate-50 text-slate-700" />
     </div>
     <div>
@@ -137,10 +137,8 @@
     const saleCategory = document.getElementById('selected-sale-category');
     const saleBalance = document.getElementById('selected-sale-balance');
 
-    const formatCategory = (value) => {
-      if (!value) return '—';
-      return value === 'herbicidas' ? 'Herbicidas' : 'Concentrados';
-    };
+    const categoryLabels = {{ ivg_category_labels|tojson }};
+    const formatCategory = (value) => value ? (categoryLabels[value] || value) : '—';
     const normalize = (value) => (value || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const saleOptions = Array.from(document.querySelectorAll('.sale-option'));
     let selectedSaleOption = saleOptions.find((option) => option.dataset.value === saleInput.value) || saleOptions[0];

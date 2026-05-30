@@ -44,7 +44,7 @@
             <div class="text-xs text-slate-400 mt-1">Vence {{ sale.due_date.strftime('%d/%m/%Y') }}</div>
           {% endif %}
         </td>
-        <td class="text-sm align-middle">{{ sale.category }}</td>
+        <td class="text-sm align-middle">{{ ivg_category_labels.get(sale.category, sale.category) }}</td>
         <td class="font-mono text-xs text-slate-600 align-middle">{{ sale.reference_number or '—' }}</td>
         <td class="text-right font-semibold align-middle">HNL {{ "{:,.2f}".format(sale.gross_amount or 0) }}</td>
         <td class="text-right font-semibold align-middle {% if sale.balance_due and sale.balance_due > 0 %}text-amber-700{% else %}text-slate-500{% endif %}">

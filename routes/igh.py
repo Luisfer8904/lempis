@@ -25,6 +25,13 @@ from models.ivg import IVGAgendaItem, IVGCashSummary, IVGClient, IVGPayment, IVG
 
 igh_bp = Blueprint("igh", __name__, url_prefix="/igh")
 
+IVG_SALE_CATEGORIES = [
+    ("herbicidas", "Herbicidas", "bg-emerald-500"),
+    ("concentrados", "Concentrados", "bg-violet-500"),
+    ("semillas", "Semillas", "bg-amber-500"),
+]
+IVG_SALE_CATEGORY_LABELS = {code: label for code, label, _ in IVG_SALE_CATEGORIES}
+
 
 def _table_exists(model) -> bool:
     return inspect(db.engine).has_table(model.__tablename__)
@@ -199,6 +206,18 @@ def _format_report_date(value):
 
 def _money_value(value) -> str:
     return f"{_to_decimal(value):.2f}"
+
+
+def _normalize_ivg_category(value: str | None) -> str:
+    category = (value or "herbicidas").strip().lower()
+    if category not in IVG_SALE_CATEGORY_LABELS:
+        return "herbicidas"
+    return category
+
+
+def _ivg_category_label(value: str | None) -> str:
+    category = _normalize_ivg_category(value)
+    return IVG_SALE_CATEGORY_LABELS.get(category, category.title())
 
 
 def _xlsx_response(filename: str, title: str, headers: list[str], rows: list[list[object]]):
@@ -395,6 +414,16 @@ def _base_context():
         _to_decimal(latest_cash_summary.opening_amount) + _to_decimal(latest_cash_summary.cash_amount)
         if latest_cash_summary else Decimal("0.00")
     )
+    category_metrics = [
+        {
+            "code": code,
+            "label": label,
+            "color_class": color_class,
+            "gross_total": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.category == code) if _table_exists(IVGSale) else 0,
+            "balance_total": _safe_sum(IVGSale, IVGSale.balance_due, IVGSale.category == code) if _table_exists(IVGSale) else 0,
+        }
+        for code, label, color_class in IVG_SALE_CATEGORIES
+    ]
     cashier_missing_dates = _cashier_missing_summary_dates()
     pending_agenda_count = (
         IVGAgendaItem.query.filter(IVGAgendaItem.status != "completada").count()
@@ -414,6 +443,9 @@ def _base_context():
         "igh_can_delete_records": _can_delete_operational_records(current_igh_user),
         "igh_can_edit_sales": _can_edit_ivg_sale(current_igh_user),
         "company_name": "Inversiones Guevara Herrera",
+        "ivg_sale_categories": IVG_SALE_CATEGORIES,
+        "ivg_category_labels": IVG_SALE_CATEGORY_LABELS,
+        "ivg_category_metrics": category_metrics,
         "ivg_counts": {
             "users": _safe_count(IVGUser),
             "clients": _safe_count(IVGClient),
@@ -437,6 +469,7 @@ def _base_context():
             "efectivo_total": _safe_sum(IVGCashSummary, IVGCashSummary.cash_amount) if _table_exists(IVGCashSummary) else 0,
             "herbicidas_credito": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.category == "herbicidas") if _table_exists(IVGSale) else 0,
             "concentrados_credito": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.category == "concentrados") if _table_exists(IVGSale) else 0,
+            "semillas_credito": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.category == "semillas") if _table_exists(IVGSale) else 0,
             "latest_opening_amount": float(_to_decimal(latest_cash_summary.opening_amount)) if latest_cash_summary else 0,
             "latest_withdrawal_amount": float(_to_decimal(latest_cash_summary.withdrawal_amount)) if latest_cash_summary else 0,
             "latest_opening_plus_sales_amount": float(latest_opening_plus_sales) if latest_cash_summary else 0,
@@ -479,7 +512,7 @@ def _build_sale_form_data(sale: IVGSale | None = None, form=None):
     if form is not None:
         return {
             "client_id": (form.get("client_id") or "").strip(),
-            "category": (form.get("category") or "herbicidas").strip(),
+            "category": _normalize_ivg_category(form.get("category")),
             "gross_amount": (form.get("gross_amount") or "").strip(),
             "reference_number": (form.get("reference_number") or "").strip(),
             "sale_date": (form.get("sale_date") or "").strip(),
@@ -490,7 +523,7 @@ def _build_sale_form_data(sale: IVGSale | None = None, form=None):
     if sale is not None:
         return {
             "client_id": str(sale.client_id or ""),
-            "category": sale.category or "herbicidas",
+            "category": _normalize_ivg_category(sale.category),
             "gross_amount": str(sale.gross_amount or ""),
             "reference_number": sale.reference_number or "",
             "sale_date": _format_date_local(sale.sale_date),
@@ -905,7 +938,7 @@ def ventas_new():
             client_id = int(request.form.get("client_id") or "0")
         except ValueError:
             client_id = 0
-        category = (request.form.get("category") or "herbicidas").strip()
+        category = _normalize_ivg_category(request.form.get("category"))
         reference_number = (request.form.get("reference_number") or "").strip() or None
         notes = (request.form.get("notes") or "").strip() or None
 
@@ -963,7 +996,7 @@ def ventas_edit(sale_id: int):
             client_id = int(request.form.get("client_id") or "0")
         except ValueError:
             client_id = 0
-        category = (request.form.get("category") or sale.category).strip()
+        category = _normalize_ivg_category(request.form.get("category") or sale.category)
         reference_number = (request.form.get("reference_number") or "").strip() or None
         notes = (request.form.get("notes") or "").strip() or None
 
@@ -1196,7 +1229,7 @@ def pagos_new():
             sale_id=sale.id,
             payment_kind=payment_kind,
             payment_method=payment_method,
-            category=sale.category,
+            category=_normalize_ivg_category(sale.category),
             amount=amount,
             payment_date=payment_date,
             notes=notes,
@@ -1266,7 +1299,7 @@ def pagos_edit(payment_id: int):
         payment.sale_id = sale.id
         payment.payment_kind = payment_kind
         payment.payment_method = payment_method
-        payment.category = sale.category
+        payment.category = _normalize_ivg_category(sale.category)
         payment.amount = amount
         payment.payment_date = payment_date
         payment.notes = notes
@@ -1441,15 +1474,15 @@ def reportes():
             {"label": "Transferencias", "value": context["ivg_metrics"]["transfer_total"]},
         ],
         "credit_categories": [
-            {"label": "Herbicidas", "value": context["ivg_metrics"]["herbicidas_credito"]},
-            {"label": "Concentrados", "value": context["ivg_metrics"]["concentrados_credito"]},
+            {"label": item["label"], "value": item["gross_total"]}
+            for item in context["ivg_category_metrics"]
         ],
         "sale_status": [
             {"label": status or "Sin estado", "value": count}
             for status, count in sales_status_rows
         ],
         "receivable_categories": [
-            {"label": category or "Sin categoria", "value": float(_to_decimal(total))}
+            {"label": _ivg_category_label(category), "value": float(_to_decimal(total))}
             for category, total in receivable_category_rows
         ],
     }
@@ -1518,7 +1551,7 @@ def _ivg_report_payload(report_type: str):
                 _format_report_date(sale.sale_date),
                 sale.reference_number or f"FACT-{sale.id}",
                 sale.client.name if sale.client else "",
-                sale.category,
+                _ivg_category_label(sale.category),
                 sale.status,
                 _format_report_date(sale.due_date),
                 _money_value(sale.gross_amount),
@@ -1543,7 +1576,7 @@ def _ivg_report_payload(report_type: str):
                 payment.sale.client.name if payment.sale and payment.sale.client else "",
                 payment.payment_kind,
                 payment.payment_method,
-                payment.category,
+                _ivg_category_label(payment.category),
                 _money_value(payment.amount),
                 payment.notes or "",
             ]
@@ -1562,7 +1595,7 @@ def _ivg_report_payload(report_type: str):
             [
                 sale.reference_number or f"FACT-{sale.id}",
                 sale.client.name if sale.client else "",
-                sale.category,
+                _ivg_category_label(sale.category),
                 sale.status,
                 _format_report_date(sale.sale_date),
                 _format_report_date(sale.due_date),

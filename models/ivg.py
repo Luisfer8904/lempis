@@ -88,7 +88,7 @@ class IVGSale(db.Model, TimestampMixin):
     client_id = Column(Integer, ForeignKey("ivg_clientes.id", ondelete="SET NULL"), index=True)
 
     sale_type = Column(String(20), default="credito", nullable=False)          # legado; IVG usa credito
-    category = Column(String(30), default="herbicidas", nullable=False)        # herbicidas | concentrados
+    category = Column(String(30), default="herbicidas", nullable=False)        # herbicidas | concentrados | semillas
     status = Column(String(20), default="registrada", nullable=False)          # registrada | parcial | pagada
 
     gross_amount = Column(Numeric(12, 2), default=0, nullable=False)

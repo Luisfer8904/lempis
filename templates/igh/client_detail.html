@@ -101,7 +101,7 @@
         <tr class="hover:bg-slate-50">
           <td class="text-sm text-slate-600 align-middle">{{ sale.sale_date.strftime('%d/%m/%Y') if sale.sale_date else '—' }}</td>
           <td class="font-mono text-xs text-slate-600 align-middle">{{ sale.reference_number or ('FACT-' ~ sale.id) }}</td>
-          <td class="text-sm align-middle">{{ sale.category }}</td>
+          <td class="text-sm align-middle">{{ ivg_category_labels.get(sale.category, sale.category) }}</td>
           <td class="text-right font-semibold align-middle">HNL {{ "{:,.2f}".format(sale.gross_amount or 0) }}</td>
           <td class="text-right font-semibold align-middle {% if sale.balance_due and sale.balance_due > 0 %}text-amber-700{% else %}text-slate-500{% endif %}">
             HNL {{ "{:,.2f}".format(sale.balance_due or 0) }}
@@ -129,7 +129,7 @@
       {% for sale in client_pending_sales %}
       <div class="rounded-xl border px-4 py-3">
         <p class="font-medium text-slate-900">{{ sale.reference_number or ('FACT-' ~ sale.id) }}</p>
-        <p class="text-xs text-slate-500 mt-1">{{ sale.category }} · vence {{ sale.due_date.strftime('%d/%m/%Y') if sale.due_date else 'sin fecha' }}</p>
+        <p class="text-xs text-slate-500 mt-1">{{ ivg_category_labels.get(sale.category, sale.category) }} · vence {{ sale.due_date.strftime('%d/%m/%Y') if sale.due_date else 'sin fecha' }}</p>
         <p class="text-lg font-bold text-amber-700 mt-2">HNL {{ "{:,.2f}".format(sale.balance_due or 0) }}</p>
       </div>
       {% else %}
@@ -166,7 +166,7 @@
       <tr class="hover:bg-slate-50">
         <td class="text-sm text-slate-600 align-middle">{{ sale.sale_date.strftime('%d/%m/%Y') if sale.sale_date else '—' }}</td>
         <td class="font-mono text-xs text-slate-600 align-middle">{{ sale.reference_number or ('FACT-' ~ sale.id) }}</td>
-        <td class="text-sm align-middle">{{ sale.category }}</td>
+        <td class="text-sm align-middle">{{ ivg_category_labels.get(sale.category, sale.category) }}</td>
         <td class="text-right font-semibold align-middle">HNL {{ "{:,.2f}".format(sale.gross_amount or 0) }}</td>
         <td class="text-right font-semibold text-slate-500 align-middle">HNL {{ "{:,.2f}".format(sale.balance_due or 0) }}</td>
         <td class="align-middle">
@@ -218,7 +218,7 @@
           </span>
         </td>
         <td class="text-sm align-middle">{{ payment.payment_method }}</td>
-        <td class="text-sm align-middle">{{ payment.category }}</td>
+        <td class="text-sm align-middle">{{ ivg_category_labels.get(payment.category, payment.category) }}</td>
         <td class="text-right font-semibold text-emerald-700 align-middle">HNL {{ "{:,.2f}".format(payment.amount or 0) }}</td>
       </tr>
       {% else %}

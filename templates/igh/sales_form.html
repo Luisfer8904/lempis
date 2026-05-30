@@ -50,7 +50,7 @@
     <div>
       <label class="block text-sm font-medium mb-1">Categoría *</label>
       <select name="category" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
-        {% for code, label in [('herbicidas', 'Herbicidas'), ('concentrados', 'Concentrados')] %}
+        {% for code, label, color_class in ivg_sale_categories %}
           <option value="{{ code }}" {% if values and values.category == code %}selected{% elif (sale and sale.category == code) or (not sale and code == 'herbicidas') %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
