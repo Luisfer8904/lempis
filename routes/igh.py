@@ -431,6 +431,7 @@ def _base_context():
             "color_class": color_class,
             "gross_total": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.category == code) if _table_exists(IVGSale) else 0,
             "balance_total": _safe_sum(IVGSale, IVGSale.balance_due, IVGSale.category == code) if _table_exists(IVGSale) else 0,
+            "collections_total": _safe_sum(IVGPayment, IVGPayment.amount, IVGPayment.category == code) if _table_exists(IVGPayment) else 0,
         }
         for code, label, color_class in IVG_SALE_CATEGORIES
     ]
@@ -1547,8 +1548,8 @@ def reportes():
             {"label": "Efectivo", "value": context["ivg_metrics"]["efectivo_total"]},
             {"label": "Transferencias", "value": context["ivg_metrics"]["transfer_total"]},
         ],
-        "credit_categories": [
-            {"label": item["label"], "value": item["gross_total"]}
+        "collection_categories": [
+            {"label": item["label"], "value": item["collections_total"]}
             for item in context["ivg_category_metrics"]
         ],
         "sale_status": [

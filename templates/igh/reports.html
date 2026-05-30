@@ -44,13 +44,13 @@
       <div class="rounded-xl border border-slate-200 p-4">
         <div class="flex items-center justify-between gap-3">
           <div>
-            <h3 class="font-semibold text-slate-900">Crédito por categoría</h3>
-            <p class="text-xs text-slate-500">Herbicidas, concentrados y semillas</p>
+            <h3 class="font-semibold text-slate-900">Cobros por categoría</h3>
+            <p class="text-xs text-slate-500">Pagos y abonos registrados</p>
           </div>
-          <span class="text-sm font-bold text-amber-700">HNL {{ "{:,.2f}".format(ivg_metrics.credit_total) }}</span>
+          <span class="text-sm font-bold text-emerald-700">HNL {{ "{:,.2f}".format(ivg_metrics.payment_total) }}</span>
         </div>
         <div class="mt-4 h-56">
-          <canvas id="creditCategoryChart"></canvas>
+          <canvas id="collectionCategoryChart"></canvas>
         </div>
       </div>
     </div>
@@ -121,15 +121,15 @@
   </div>
 
   <div class="bg-white rounded-xl border shadow-sm p-6">
-    <h3 class="text-lg font-semibold mb-4">Crédito por categoría</h3>
+    <h3 class="text-lg font-semibold mb-4">Cobros por categoría</h3>
     <div class="space-y-4">
       {% for item in ivg_category_metrics %}
       <div>
         <div class="flex justify-between text-sm mb-1">
           <span class="text-slate-600">{{ item.label }}</span>
-          <span class="font-semibold">HNL {{ "{:,.2f}".format(item.gross_total) }}</span>
+          <span class="font-semibold">HNL {{ "{:,.2f}".format(item.collections_total) }}</span>
         </div>
-        <div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full {{ item.color_class }}" style="width: {{ 100 if item.gross_total > 0 else 8 }}%"></div></div>
+        <div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full {{ item.color_class }}" style="width: {{ 100 if item.collections_total > 0 else 8 }}%"></div></div>
       </div>
       {% endfor %}
     </div>
@@ -382,7 +382,7 @@
   }
 
   renderDoughnut('paymentMethodsChart', chartData.payment_methods || [], (value) => currency.format(value));
-  renderDoughnut('creditCategoryChart', chartData.credit_categories || [], (value) => currency.format(value));
+  renderDoughnut('collectionCategoryChart', chartData.collection_categories || [], (value) => currency.format(value));
   renderDoughnut('saleStatusChart', chartData.sale_status || [], (value) => `${value} factura(s)`);
   renderDoughnut('receivableCategoryChart', chartData.receivable_categories || [], (value) => currency.format(value));
 
