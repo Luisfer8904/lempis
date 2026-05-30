@@ -93,9 +93,11 @@
     </div>
     <div>
       <label class="block text-sm font-medium mb-1">Monto *</label>
-      <input type="number" step="0.01" min="0" name="amount"
-             value="{{ form_data.amount }}"
+      <input id="amount" type="text" inputmode="decimal" name="amount"
+             value="{% if form_data.amount is string %}{{ form_data.amount }}{% elif form_data.amount %}{{ '{:,.2f}'.format(form_data.amount) }}{% endif %}"
+             placeholder="0.00"
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+      <p class="mt-1 text-xs text-slate-500">Puedes escribir montos con coma, por ejemplo 1,250.00.</p>
     </div>
 
     <div>
@@ -136,6 +138,7 @@
     const saleClient = document.getElementById('selected-sale-client');
     const saleCategory = document.getElementById('selected-sale-category');
     const saleBalance = document.getElementById('selected-sale-balance');
+    const amountInput = document.getElementById('amount');
 
     const categoryLabels = {{ ivg_category_labels|tojson }};
     const formatCategory = (value) => value ? (categoryLabels[value] || value) : '—';
@@ -196,6 +199,18 @@
     });
     saleOptions.forEach((option) => option.addEventListener('click', () => selectSale(option)));
     saleSearch?.addEventListener('input', filterSales);
+    amountInput?.addEventListener('input', () => {
+      amountInput.value = amountInput.value.replace(/[^\d.,]/g, '');
+    });
+    amountInput?.addEventListener('blur', () => {
+      const numeric = Number(amountInput.value.replace(/,/g, ''));
+      if (Number.isFinite(numeric) && amountInput.value.trim()) {
+        amountInput.value = numeric.toLocaleString('en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+      }
+    });
     document.addEventListener('click', (event) => {
       if (!saleCombo.contains(event.target)) closeMenu();
     });
