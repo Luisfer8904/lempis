@@ -1419,6 +1419,40 @@ def reportes():
     context["recent_sales"] = IVGSale.query.order_by(IVGSale.sale_date.desc(), IVGSale.id.desc()).limit(8).all() if _table_exists(IVGSale) else []
     context["recent_payments"] = IVGPayment.query.order_by(IVGPayment.payment_date.desc(), IVGPayment.id.desc()).limit(8).all() if _table_exists(IVGPayment) else []
     context["pending_agenda"] = IVGAgendaItem.query.filter(IVGAgendaItem.status != "completada").order_by(IVGAgendaItem.scheduled_for.asc()).limit(6).all() if _table_exists(IVGAgendaItem) else []
+    sales_status_rows = []
+    receivable_category_rows = []
+    if _table_exists(IVGSale):
+        sales_status_rows = (
+            db.session.query(IVGSale.status, func.count(IVGSale.id))
+            .group_by(IVGSale.status)
+            .order_by(func.count(IVGSale.id).desc())
+            .all()
+        )
+        receivable_category_rows = (
+            db.session.query(IVGSale.category, func.coalesce(func.sum(IVGSale.balance_due), 0))
+            .filter(IVGSale.balance_due > 0)
+            .group_by(IVGSale.category)
+            .order_by(func.coalesce(func.sum(IVGSale.balance_due), 0).desc())
+            .all()
+        )
+    context["report_chart_data"] = {
+        "payment_methods": [
+            {"label": "Efectivo", "value": context["ivg_metrics"]["efectivo_total"]},
+            {"label": "Transferencias", "value": context["ivg_metrics"]["transfer_total"]},
+        ],
+        "credit_categories": [
+            {"label": "Herbicidas", "value": context["ivg_metrics"]["herbicidas_credito"]},
+            {"label": "Concentrados", "value": context["ivg_metrics"]["concentrados_credito"]},
+        ],
+        "sale_status": [
+            {"label": status or "Sin estado", "value": count}
+            for status, count in sales_status_rows
+        ],
+        "receivable_categories": [
+            {"label": category or "Sin categoria", "value": float(_to_decimal(total))}
+            for category, total in receivable_category_rows
+        ],
+    }
     context["download_reports"] = [
         ("cierres", "Resumen de cierres", "Apertura, ventas, retiros, transferencias y diferencias."),
         ("ventas-contado", "Ventas de contado", "Venta diaria separada por efectivo y transferencia."),
