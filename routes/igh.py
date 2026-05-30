@@ -5,10 +5,17 @@ Acceso separado usando usuarios IVG desde el mismo login de Lempis.
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import wraps
-import csv
-from io import StringIO
+from io import BytesIO
 
-from flask import Blueprint, Response, abort, current_app, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, send_file, session, url_for
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
+from openpyxl.utils import get_column_letter
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import landscape, letter
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from sqlalchemy import func, inspect
 from sqlalchemy.exc import IntegrityError
 
@@ -194,17 +201,86 @@ def _money_value(value) -> str:
     return f"{_to_decimal(value):.2f}"
 
 
-def _csv_response(filename: str, headers: list[str], rows: list[list[object]]):
-    output = StringIO()
-    output.write("\ufeff")
-    writer = csv.writer(output)
-    writer.writerow(headers)
-    writer.writerows(rows)
-    return Response(
-        output.getvalue(),
-        content_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
+def _xlsx_response(filename: str, title: str, headers: list[str], rows: list[list[object]]):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = title[:31] or "Reporte"
+    ws.append([title])
+    ws.append(["Generado", datetime.utcnow().strftime("%d/%m/%Y")])
+    ws.append([])
+    ws.append(headers)
+    for row in rows:
+        ws.append(row)
+
+    title_fill = PatternFill("solid", fgColor="EEF2FF")
+    header_fill = PatternFill("solid", fgColor="E0E7FF")
+    ws["A1"].font = Font(bold=True, size=14, color="1E293B")
+    ws["A1"].fill = title_fill
+    for cell in ws[4]:
+        cell.font = Font(bold=True, color="1E293B")
+        cell.fill = header_fill
+    ws.freeze_panes = "A5"
+    for col in ws.columns:
+        letter = get_column_letter(col[0].column)
+        width = max(len(str(cell.value or "")) for cell in col)
+        ws.column_dimensions[letter].width = min(max(width + 2, 12), 44)
+
+    stream = BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+    return send_file(
+        stream,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
+
+
+def _pdf_response(filename: str, title: str, headers: list[str], rows: list[list[object]]):
+    stream = BytesIO()
+    doc = SimpleDocTemplate(
+        stream,
+        pagesize=landscape(letter),
+        rightMargin=10 * mm,
+        leftMargin=10 * mm,
+        topMargin=10 * mm,
+        bottomMargin=10 * mm,
+    )
+    styles = getSampleStyleSheet()
+    story = [
+        Paragraph(title, styles["Title"]),
+        Paragraph(f"Generado: {datetime.utcnow().strftime('%d/%m/%Y')}", styles["Normal"]),
+        Spacer(1, 8),
+    ]
+    table_rows = [headers]
+    table_rows.extend([["" if value is None else str(value) for value in row] for row in rows[:250]])
+    if len(table_rows) == 1:
+        table_rows.append(["Sin datos"] + [""] * (len(headers) - 1))
+    if len(rows) > 250:
+        table_rows.append([f"Mostrando 250 de {len(rows)} registros. Use Excel para el detalle completo."] + [""] * (len(headers) - 1))
+
+    table = Table(table_rows, colWidths=_pdf_report_widths(len(headers)), repeatRows=1)
+    table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#CBD5E1")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EEF2FF")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8FAFC")]),
+    ]))
+    story.append(table)
+    doc.build(story)
+    stream.seek(0)
+    return send_file(stream, as_attachment=True, download_name=filename, mimetype="application/pdf")
+
+
+def _pdf_report_widths(count: int):
+    usable = 258 * mm
+    if count <= 4:
+        return [usable / count] * count
+    first = usable * 0.18
+    return [first] + [(usable - first) / (count - 1)] * (count - 1)
 
 
 def _recalculate_sale_balance(sale: IVGSale) -> None:
@@ -1357,12 +1433,7 @@ def reportes():
     return render_template("igh/reports.html", **context)
 
 
-@igh_bp.route("/reportes/descargar/<report_type>")
-@igh_login_required
-@igh_admin_required
-def reportes_descargar(report_type: str):
-    today = datetime.utcnow().strftime("%Y%m%d")
-
+def _ivg_report_payload(report_type: str):
     if report_type == "cierres":
         summaries = IVGCashSummary.query.order_by(IVGCashSummary.summary_date.desc(), IVGCashSummary.id.desc()).all() if _table_exists(IVGCashSummary) else []
         rows = [
@@ -1380,8 +1451,9 @@ def reportes_descargar(report_type: str):
             ]
             for summary in summaries
         ]
-        return _csv_response(
-            f"ivg-resumen-cierres-{today}.csv",
+        return (
+            "ivg-resumen-cierres",
+            "Resumen de cierres",
             ["Fecha", "Apertura", "Venta efectivo", "Venta efectivo + apertura", "Retiro efectivo", "Transferencias", "Cierre esperado", "Cierre real", "Diferencia", "Notas"],
             rows,
         )
@@ -1400,8 +1472,9 @@ def reportes_descargar(report_type: str):
             ]
             for summary in summaries
         ]
-        return _csv_response(
-            f"ivg-ventas-contado-{today}.csv",
+        return (
+            "ivg-ventas-contado",
+            "Ventas de contado",
             ["Fecha", "Efectivo", "Transferencias", "Venta total", "Retiro efectivo", "Cierre real", "Notas"],
             rows,
         )
@@ -1422,8 +1495,9 @@ def reportes_descargar(report_type: str):
             ]
             for sale in sales
         ]
-        return _csv_response(
-            f"ivg-ventas-credito-{today}.csv",
+        return (
+            "ivg-ventas-credito",
+            "Ventas de credito",
             ["Fecha", "Referencia", "Cliente", "Categoria", "Estado", "Vencimiento", "Total", "Saldo", "Notas"],
             rows,
         )
@@ -1443,8 +1517,9 @@ def reportes_descargar(report_type: str):
             ]
             for payment in payments
         ]
-        return _csv_response(
-            f"ivg-cobros-{today}.csv",
+        return (
+            "ivg-cobros",
+            "Cobros registrados",
             ["Fecha", "Factura", "Cliente", "Tipo", "Metodo", "Categoria", "Monto", "Notas"],
             rows,
         )
@@ -1464,8 +1539,9 @@ def reportes_descargar(report_type: str):
             ]
             for sale in sales
         ]
-        return _csv_response(
-            f"ivg-cartera-por-cobrar-{today}.csv",
+        return (
+            "ivg-cartera-por-cobrar",
+            "Cartera por cobrar",
             ["Factura", "Cliente", "Categoria", "Estado", "Fecha venta", "Vencimiento", "Total", "Saldo"],
             rows,
         )
@@ -1487,8 +1563,9 @@ def reportes_descargar(report_type: str):
                 .all()
             )
             rows = [[name, count, _money_value(total), _money_value(balance)] for name, count, total, balance in data]
-        return _csv_response(
-            f"ivg-clientes-con-saldo-{today}.csv",
+        return (
+            "ivg-clientes-con-saldo",
+            "Clientes con saldo",
             ["Cliente", "Facturas pendientes", "Total facturado", "Saldo pendiente"],
             rows,
         )
@@ -1507,12 +1584,26 @@ def reportes_descargar(report_type: str):
             ]
             for item in items
         ]
-        return _csv_response(
-            f"ivg-agenda-pendiente-{today}.csv",
+        return (
+            "ivg-agenda-pendiente",
+            "Agenda pendiente",
             ["Fecha", "Cliente", "Actividad", "Tipo", "Prioridad", "Estado", "Notas"],
             rows,
         )
 
+    abort(404)
+
+
+@igh_bp.route("/reportes/descargar/<report_type>/<fmt>")
+@igh_login_required
+@igh_admin_required
+def reportes_descargar(report_type: str, fmt: str):
+    today = datetime.utcnow().strftime("%Y%m%d")
+    slug, title, headers, rows = _ivg_report_payload(report_type)
+    if fmt == "xlsx":
+        return _xlsx_response(f"{slug}-{today}.xlsx", title, headers, rows)
+    if fmt == "pdf":
+        return _pdf_response(f"{slug}-{today}.pdf", title, headers, rows)
     abort(404)
 
 
