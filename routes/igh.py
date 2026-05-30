@@ -253,11 +253,9 @@ def _pdf_response(filename: str, title: str, headers: list[str], rows: list[list
         Spacer(1, 8),
     ]
     table_rows = [headers]
-    table_rows.extend([["" if value is None else str(value) for value in row] for row in rows[:250]])
+    table_rows.extend([["" if value is None else str(value) for value in row] for row in rows])
     if len(table_rows) == 1:
         table_rows.append(["Sin datos"] + [""] * (len(headers) - 1))
-    if len(rows) > 250:
-        table_rows.append([f"Mostrando 250 de {len(rows)} registros. Use Excel para el detalle completo."] + [""] * (len(headers) - 1))
 
     table = Table(table_rows, colWidths=_pdf_report_widths(len(headers)), repeatRows=1)
     table.setStyle(TableStyle([
