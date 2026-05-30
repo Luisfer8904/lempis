@@ -468,6 +468,7 @@ def _base_context():
         },
         "ivg_metrics": {
             "receivable_total": _safe_sum(IVGSale, IVGSale.balance_due) if _table_exists(IVGSale) else 0,
+            "credit_total": _safe_sum(IVGSale, IVGSale.gross_amount) if _table_exists(IVGSale) else 0,
             "cash_total": _safe_sum(IVGCashSummary, IVGCashSummary.total_amount) if _table_exists(IVGCashSummary) else 0,
             "payment_total": _safe_sum(IVGPayment, IVGPayment.amount) if _table_exists(IVGPayment) else 0,
             "sales_month_total": (
