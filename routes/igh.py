@@ -1123,20 +1123,7 @@ def ventas_delete(sale_id: int):
 @igh_bp.route("/facturas-por-cobrar")
 @igh_login_required
 def facturas_por_cobrar():
-    sort_key = request.args.get("sort") or "oldest"
-    if sort_key not in {"oldest", "amount_desc"}:
-        sort_key = "oldest"
-    overdue_sales = _overdue_invoice_rows(sort_key)
-    today = datetime.utcnow().date()
-    overdue_total = sum(_to_decimal(sale.balance_due) for sale in overdue_sales)
-    context = _base_context()
-    context.update({
-        "overdue_sales": overdue_sales,
-        "overdue_total": overdue_total,
-        "overdue_today": today,
-        "sort_key": sort_key,
-    })
-    return render_template("igh/receivables_list.html", **context)
+    return redirect(url_for("igh.reportes", tab="receivables", sort=request.args.get("sort") or "oldest"))
 
 
 @igh_bp.route("/facturas-por-cobrar/descargar/<fmt>")
@@ -1600,9 +1587,20 @@ def agenda_delete(item_id: int):
 @igh_admin_required
 def reportes():
     context = _base_context()
+    report_sort_key = request.args.get("sort") or "oldest"
+    if report_sort_key not in {"oldest", "amount_desc"}:
+        report_sort_key = "oldest"
+    active_report_tab = request.args.get("tab") or "overview"
+    if active_report_tab not in {"overview", "receivables", "downloads"}:
+        active_report_tab = "overview"
     context["recent_sales"] = IVGSale.query.order_by(IVGSale.sale_date.desc(), IVGSale.id.desc()).limit(8).all() if _table_exists(IVGSale) else []
     context["recent_payments"] = IVGPayment.query.order_by(IVGPayment.payment_date.desc(), IVGPayment.id.desc()).limit(8).all() if _table_exists(IVGPayment) else []
     context["pending_agenda"] = IVGAgendaItem.query.filter(IVGAgendaItem.status != "completada").order_by(IVGAgendaItem.scheduled_for.asc()).limit(6).all() if _table_exists(IVGAgendaItem) else []
+    context["overdue_sales"] = _overdue_invoice_rows(report_sort_key)
+    context["overdue_total"] = sum(_to_decimal(sale.balance_due) for sale in context["overdue_sales"])
+    context["overdue_today"] = datetime.utcnow().date()
+    context["sort_key"] = report_sort_key
+    context["active_report_tab"] = active_report_tab
     sales_status_rows = []
     receivable_category_rows = []
     if _table_exists(IVGSale):
