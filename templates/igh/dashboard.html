@@ -322,16 +322,16 @@
 
 <section class="grid md:grid-cols-2 gap-4">
   <div class="bg-white p-6 rounded-xl border shadow-sm">
-    <h3 class="text-lg font-semibold mb-4">Ventas a crédito por categoría</h3>
+    <h3 class="text-lg font-semibold mb-4">Saldos pendientes por categoría</h3>
     <div class="space-y-4">
       {% for item in ivg_category_metrics %}
       <div>
         <div class="flex justify-between text-sm mb-1">
           <span class="text-slate-600">{{ item.label }}</span>
-          <span class="font-semibold">HNL {{ "{:,.2f}".format(item.gross_total) }}</span>
+          <span class="font-semibold">HNL {{ "{:,.2f}".format(item.balance_total) }}</span>
         </div>
         <div class="h-2 rounded-full bg-slate-100">
-          <div class="h-2 rounded-full {{ item.color_class }}" style="width: {{ 100 if item.gross_total > 0 else 8 }}%"></div>
+          <div class="h-2 rounded-full {{ item.color_class }}" style="width: {{ 100 if item.balance_total > 0 else 8 }}%"></div>
         </div>
       </div>
       {% endfor %}
