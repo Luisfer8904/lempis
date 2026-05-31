@@ -127,6 +127,29 @@ class IVGCashSummary(db.Model, TimestampMixin):
     variance_amount = Column(Numeric(12, 2), default=0, nullable=False)
     notes = Column(Text)
 
+    expenses = relationship("IVGCashExpense", back_populates="closure")
+
+
+class IVGCashExpense(db.Model, TimestampMixin):
+    """
+    Gasto individual pagado con efectivo de caja IVG.
+    Queda pendiente hasta que se asocia a un cierre del día.
+    """
+    __tablename__ = "ivg_gastos_caja"
+
+    id = Column(Integer, primary_key=True)
+    closure_id = Column(Integer, ForeignKey("ivg_contado.id", ondelete="SET NULL"), index=True)
+    user_id = Column(Integer, ForeignKey("ivg_usuarios.id", ondelete="SET NULL"), index=True)
+    expense_date = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    category = Column(String(80), default="General", nullable=False)
+    description = Column(String(180), nullable=False)
+    amount = Column(Numeric(12, 2), default=0, nullable=False)
+    status = Column(String(20), default="pendiente", nullable=False)
+    notes = Column(Text)
+
+    closure = relationship("IVGCashSummary", back_populates="expenses")
+    user = relationship("IVGUser")
+
 
 class IVGPayment(db.Model, TimestampMixin):
     """
