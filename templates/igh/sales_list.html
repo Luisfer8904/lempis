@@ -1,12 +1,14 @@
 {% extends "igh/_layout.html" %}
-{% block title %}Facturas crédito IVG — {{ company_name }}{% endblock %}
-{% block heading %}Facturas crédito IVG{% endblock %}
+{% block title %}{{ sales_page_title or 'Facturas crédito' }} IVG — {{ company_name }}{% endblock %}
+{% block heading %}{{ sales_page_title or 'Facturas crédito' }} IVG{% endblock %}
 
 {% block actions %}
-  <a href="{{ url_for('igh.ventas_new') }}"
-     class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
-    + Registrar factura
-  </a>
+  {% if request.endpoint == 'igh.ventas' %}
+    <a href="{{ url_for('igh.ventas_new') }}"
+       class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
+      + Registrar factura
+    </a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
@@ -14,8 +16,8 @@
   <div class="saas-list-card__header">
     <div class="flex items-start justify-between gap-4">
       <div>
-        <h2 class="text-lg font-semibold text-slate-900">Facturas crédito</h2>
-        <p class="text-sm text-slate-500 mt-1">Registro de ventas individuales a crédito y su saldo pendiente.</p>
+        <h2 class="text-lg font-semibold text-slate-900">{{ sales_page_title or 'Facturas crédito' }}</h2>
+        <p class="text-sm text-slate-500 mt-1">{{ sales_page_description or 'Registro de ventas individuales a crédito y su saldo pendiente.' }}</p>
       </div>
       <div class="text-sm text-slate-500 whitespace-nowrap">{{ sales|length }} factura(s)</div>
     </div>
@@ -30,7 +32,7 @@
         Buscar
       </button>
       {% if search_query %}
-        <a href="{{ url_for('igh.ventas') }}"
+        <a href="{{ url_for(sales_search_endpoint or 'igh.ventas') }}"
            class="rounded-lg border px-4 py-2 text-center text-sm font-semibold text-slate-600 hover:bg-slate-50">
           Limpiar
         </a>
@@ -94,7 +96,7 @@
       {% else %}
       <tr>
         <td colspan="8" class="px-6 py-10 text-center text-slate-500">
-          No hay facturas crédito IVG registradas todavía.
+          {{ sales_empty_message or 'No hay facturas crédito IVG registradas todavía.' }}
         </td>
       </tr>
       {% endfor %}

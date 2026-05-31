@@ -972,7 +972,7 @@ def ventas():
     search_query = (request.args.get("q") or "").strip()
     sales = []
     if _table_exists(IVGSale):
-        query = IVGSale.query.outerjoin(IVGClient, IVGSale.client_id == IVGClient.id)
+        query = IVGSale.query.outerjoin(IVGClient, IVGSale.client_id == IVGClient.id).filter(IVGSale.balance_due > 0)
         if search_query:
             term = f"%{search_query}%"
             query = query.filter(or_(
@@ -988,6 +988,39 @@ def ventas():
     context = _base_context()
     context["sales"] = sales
     context["search_query"] = search_query
+    context["sales_page_title"] = "Facturas crédito"
+    context["sales_page_description"] = "Facturas a crédito con saldo pendiente por cobrar."
+    context["sales_empty_message"] = "No hay facturas crédito pendientes."
+    context["sales_search_endpoint"] = "igh.ventas"
+    return render_template("igh/sales_list.html", **context)
+
+
+@igh_bp.route("/ventas-canceladas")
+@igh_login_required
+def ventas_canceladas():
+    search_query = (request.args.get("q") or "").strip()
+    sales = []
+    if _table_exists(IVGSale):
+        query = IVGSale.query.outerjoin(IVGClient, IVGSale.client_id == IVGClient.id).filter(IVGSale.balance_due <= 0)
+        if search_query:
+            term = f"%{search_query}%"
+            query = query.filter(or_(
+                IVGSale.reference_number.ilike(term),
+                IVGSale.category.ilike(term),
+                IVGSale.status.ilike(term),
+                IVGSale.notes.ilike(term),
+                IVGClient.name.ilike(term),
+                IVGClient.legal_name.ilike(term),
+                IVGClient.tax_id.ilike(term),
+            ))
+        sales = query.order_by(IVGSale.sale_date.desc(), IVGSale.id.desc()).all()
+    context = _base_context()
+    context["sales"] = sales
+    context["search_query"] = search_query
+    context["sales_page_title"] = "Facturas canceladas"
+    context["sales_page_description"] = "Facturas de crédito pagadas y sin saldo pendiente."
+    context["sales_empty_message"] = "No hay facturas canceladas todavía."
+    context["sales_search_endpoint"] = "igh.ventas_canceladas"
     return render_template("igh/sales_list.html", **context)
 
 
