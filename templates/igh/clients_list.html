@@ -19,9 +19,9 @@
       </div>
       <div class="text-sm text-slate-500 whitespace-nowrap">{{ clients|length }} cliente(s)</div>
     </div>
-    <form method="GET" class="mt-4 flex flex-col gap-2 sm:flex-row">
+    <form method="GET" data-auto-search class="mt-4 flex flex-col gap-2 sm:flex-row">
       <div class="relative flex-1">
-        <input type="search" name="q" value="{{ search_query or '' }}"
+        <input type="search" name="q" value="{{ search_query or '' }}" autocomplete="off"
                placeholder="Buscar por nombre, razón social, RTN, teléfono, correo o ciudad..."
                class="w-full rounded-lg border px-3 py-2 pr-10 text-sm focus:ring-2 focus:ring-indigo-500" />
         <span class="pointer-events-none absolute right-3 top-2.5 text-slate-400">⌕</span>
@@ -98,4 +98,16 @@
   </table>
   </div>
 </div>
+<script>
+(() => {
+  const form = document.querySelector('[data-auto-search]');
+  const input = form?.querySelector('input[name="q"]');
+  if (!form || !input) return;
+  let timer;
+  input.addEventListener('input', () => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => form.requestSubmit(), 450);
+  });
+})();
+</script>
 {% endblock %}
