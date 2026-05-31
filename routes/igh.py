@@ -372,13 +372,21 @@ def _client_delete_block_reason(client: IVGClient | None) -> str | None:
     return None
 
 
-def _calculate_day_close(opening_amount: Decimal, cash_amount: Decimal, withdrawal_amount: Decimal, transfer_amount: Decimal):
+def _calculate_day_close(
+    opening_amount: Decimal,
+    cash_amount: Decimal,
+    withdrawal_amount: Decimal,
+    transfer_amount: Decimal,
+    expense_amount: Decimal | None = None,
+):
     sales_total = cash_amount + transfer_amount
     opening_plus_sales_amount = opening_amount + cash_amount
-    expected_close_amount = opening_plus_sales_amount - withdrawal_amount
+    cash_outflows = withdrawal_amount + _to_decimal(expense_amount)
+    expected_close_amount = opening_plus_sales_amount - cash_outflows
     return {
         "sales_total": sales_total,
         "opening_plus_sales_amount": opening_plus_sales_amount,
+        "cash_outflows": cash_outflows,
         "expected_close_amount": expected_close_amount,
     }
 
@@ -483,11 +491,13 @@ def _base_context():
             "collections_month_total": _safe_sum(IVGPayment, IVGPayment.amount, IVGPayment.payment_date >= month_start) if _table_exists(IVGPayment) else 0,
             "transfer_total": _safe_sum(IVGCashSummary, IVGCashSummary.transfer_amount) if _table_exists(IVGCashSummary) else 0,
             "efectivo_total": _safe_sum(IVGCashSummary, IVGCashSummary.cash_amount) if _table_exists(IVGCashSummary) else 0,
+            "expense_total": _safe_sum(IVGCashSummary, IVGCashSummary.expense_amount) if _table_exists(IVGCashSummary) else 0,
             "herbicidas_credito": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.category == "herbicidas") if _table_exists(IVGSale) else 0,
             "concentrados_credito": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.category == "concentrados") if _table_exists(IVGSale) else 0,
             "semillas_credito": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.category == "semillas") if _table_exists(IVGSale) else 0,
             "latest_opening_amount": float(_to_decimal(latest_cash_summary.opening_amount)) if latest_cash_summary else 0,
             "latest_withdrawal_amount": float(_to_decimal(latest_cash_summary.withdrawal_amount)) if latest_cash_summary else 0,
+            "latest_expense_amount": float(_to_decimal(latest_cash_summary.expense_amount)) if latest_cash_summary else 0,
             "latest_opening_plus_sales_amount": float(latest_opening_plus_sales) if latest_cash_summary else 0,
             "latest_expected_close_amount": float(_to_decimal(latest_cash_summary.expected_close_amount)) if latest_cash_summary else 0,
             "latest_actual_close_amount": float(_to_decimal(latest_cash_summary.actual_close_amount)) if latest_cash_summary else 0,
@@ -1215,14 +1225,15 @@ def contado_new():
             summary_date = _parse_datetime(request.form.get("summary_date"), "La fecha del cierre", required=True)
             opening_amount = _parse_decimal(request.form.get("opening_amount"), "La apertura")
             cash_amount = _parse_decimal(request.form.get("cash_amount"), "La venta del día")
-            withdrawal_amount = _parse_decimal(request.form.get("withdrawal_amount"), "El retiro en efectivo")
+            expense_amount = _parse_decimal(request.form.get("expense_amount"), "Los gastos del día")
+            withdrawal_amount = _parse_decimal(request.form.get("withdrawal_amount"), "Los retiros o entregas parciales")
             transfer_amount = _parse_decimal(request.form.get("transfer_amount"), "Las transferencias")
             actual_close_amount = _parse_decimal(request.form.get("actual_close_amount"), "El cierre real")
         except ValueError as exc:
             flash(str(exc), "danger")
             return redirect(url_for("igh.contado_new"))
 
-        close_values = _calculate_day_close(opening_amount, cash_amount, withdrawal_amount, transfer_amount)
+        close_values = _calculate_day_close(opening_amount, cash_amount, withdrawal_amount, transfer_amount, expense_amount)
         total_amount = close_values["sales_total"]
         if total_amount <= 0:
             flash("Debes registrar al menos una venta o transferencia mayor que cero.", "danger")
@@ -1235,6 +1246,7 @@ def contado_new():
             opening_amount=opening_amount,
             cash_amount=cash_amount,
             withdrawal_amount=withdrawal_amount,
+            expense_amount=expense_amount,
             transfer_amount=transfer_amount,
             total_amount=total_amount,
             expected_close_amount=expected_close_amount,
@@ -1263,14 +1275,15 @@ def contado_edit(summary_id: int):
             summary_date = _parse_datetime(request.form.get("summary_date"), "La fecha del cierre", required=True)
             opening_amount = _parse_decimal(request.form.get("opening_amount"), "La apertura")
             cash_amount = _parse_decimal(request.form.get("cash_amount"), "La venta del día")
-            withdrawal_amount = _parse_decimal(request.form.get("withdrawal_amount"), "El retiro en efectivo")
+            expense_amount = _parse_decimal(request.form.get("expense_amount"), "Los gastos del día")
+            withdrawal_amount = _parse_decimal(request.form.get("withdrawal_amount"), "Los retiros o entregas parciales")
             transfer_amount = _parse_decimal(request.form.get("transfer_amount"), "Las transferencias")
             actual_close_amount = _parse_decimal(request.form.get("actual_close_amount"), "El cierre real")
         except ValueError as exc:
             flash(str(exc), "danger")
             return redirect(url_for("igh.contado_edit", summary_id=summary.id))
 
-        close_values = _calculate_day_close(opening_amount, cash_amount, withdrawal_amount, transfer_amount)
+        close_values = _calculate_day_close(opening_amount, cash_amount, withdrawal_amount, transfer_amount, expense_amount)
         total_amount = close_values["sales_total"]
         if total_amount <= 0:
             flash("Debes registrar al menos una venta o transferencia mayor que cero.", "danger")
@@ -1282,6 +1295,7 @@ def contado_edit(summary_id: int):
         summary.opening_amount = opening_amount
         summary.cash_amount = cash_amount
         summary.withdrawal_amount = withdrawal_amount
+        summary.expense_amount = expense_amount
         summary.transfer_amount = transfer_amount
         summary.total_amount = total_amount
         summary.expected_close_amount = expected_close_amount
@@ -1689,6 +1703,7 @@ def _ivg_report_payload(report_type: str):
                 _money_value(summary.opening_amount),
                 _money_value(summary.cash_amount),
                 _money_value(_to_decimal(summary.opening_amount) + _to_decimal(summary.cash_amount)),
+                _money_value(summary.expense_amount),
                 _money_value(summary.withdrawal_amount),
                 _money_value(summary.transfer_amount),
                 _money_value(summary.expected_close_amount),
@@ -1701,7 +1716,7 @@ def _ivg_report_payload(report_type: str):
         return (
             "ivg-resumen-cierres",
             "Resumen de cierres",
-            ["Fecha", "Apertura", "Venta efectivo", "Venta efectivo + apertura", "Retiro efectivo", "Transferencias", "Cierre esperado", "Cierre real", "Diferencia", "Notas"],
+            ["Fecha", "Apertura", "Venta efectivo", "Venta efectivo + apertura", "Gastos", "Retiros / entregas", "Transferencias", "Cierre esperado", "Cierre real", "Diferencia", "Notas"],
             rows,
         )
 
@@ -1713,6 +1728,7 @@ def _ivg_report_payload(report_type: str):
                 _money_value(summary.cash_amount),
                 _money_value(summary.transfer_amount),
                 _money_value(summary.total_amount),
+                _money_value(summary.expense_amount),
                 _money_value(summary.withdrawal_amount),
                 _money_value(summary.actual_close_amount),
                 summary.notes or "",
@@ -1722,7 +1738,7 @@ def _ivg_report_payload(report_type: str):
         return (
             "ivg-ventas-contado",
             "Ventas de contado",
-            ["Fecha", "Efectivo", "Transferencias", "Venta total", "Retiro efectivo", "Cierre real", "Notas"],
+            ["Fecha", "Efectivo", "Transferencias", "Venta total", "Gastos", "Retiros / entregas", "Cierre real", "Notas"],
             rows,
         )
 

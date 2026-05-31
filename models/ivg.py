@@ -109,7 +109,7 @@ class IVGCashSummary(db.Model, TimestampMixin):
     La apertura normalmente corresponde al cierre real del día anterior.
     La venta del día registra el total vendido en efectivo durante la jornada.
     Las transferencias se registran aparte porque no ingresan a caja física.
-    El retiro registra el efectivo que sale de caja antes del cierre esperado.
+    Los gastos y retiros registran el efectivo que sale antes del cierre esperado.
     La diferencia muestra sobrante (>0) o faltante (<0).
     """
     __tablename__ = "ivg_contado"
@@ -120,6 +120,7 @@ class IVGCashSummary(db.Model, TimestampMixin):
     total_amount = Column(Numeric(12, 2), default=0, nullable=False)
     cash_amount = Column(Numeric(12, 2), default=0, nullable=False)
     withdrawal_amount = Column(Numeric(12, 2), default=0, nullable=False)
+    expense_amount = Column(Numeric(12, 2), default=0, nullable=False)
     transfer_amount = Column(Numeric(12, 2), default=0, nullable=False)
     expected_close_amount = Column(Numeric(12, 2), default=0, nullable=False)
     actual_close_amount = Column(Numeric(12, 2), default=0, nullable=False)

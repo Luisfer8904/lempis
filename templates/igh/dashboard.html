@@ -192,8 +192,11 @@
         <p class="text-2xl font-bold text-amber-600">HNL {{ "{:,.2f}".format(ivg_metrics.latest_opening_plus_sales_amount) }}</p>
       </div>
       <div>
-        <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-1">Retiro en efectivo</p>
-          <p class="text-2xl font-bold text-rose-600">HNL {{ "{:,.2f}".format(ivg_metrics.latest_withdrawal_amount) }}</p>
+        <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-1">Gastos + retiros</p>
+          <p class="text-2xl font-bold text-rose-600">HNL {{ "{:,.2f}".format(ivg_metrics.latest_withdrawal_amount + ivg_metrics.latest_expense_amount) }}</p>
+          {% if ivg_metrics.latest_expense_amount %}
+            <p class="text-xs text-slate-500 mt-1">Gastos: HNL {{ "{:,.2f}".format(ivg_metrics.latest_expense_amount) }}</p>
+          {% endif %}
       </div>
       <div>
         <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-1">Cierre real</p>
@@ -309,7 +312,8 @@
           <p class="flex justify-between gap-2"><span class="text-slate-500">Transferencias</span><strong>HNL {{ "{:,.2f}".format(summary.transfer_amount or 0) }}</strong></p>
           <p class="flex justify-between gap-2"><span class="text-slate-500">Apertura</span><strong>HNL {{ "{:,.2f}".format(summary.opening_amount or 0) }}</strong></p>
           <p class="flex justify-between gap-2"><span class="text-slate-500">Venta + apertura</span><strong>HNL {{ "{:,.2f}".format((summary.opening_amount or 0) + (summary.cash_amount or 0)) }}</strong></p>
-          <p class="flex justify-between gap-2"><span class="text-slate-500">Retiro en efectivo</span><strong>HNL {{ "{:,.2f}".format(summary.withdrawal_amount or 0) }}</strong></p>
+          <p class="flex justify-between gap-2"><span class="text-slate-500">Gastos</span><strong>HNL {{ "{:,.2f}".format(summary.expense_amount or 0) }}</strong></p>
+          <p class="flex justify-between gap-2"><span class="text-slate-500">Retiros</span><strong>HNL {{ "{:,.2f}".format(summary.withdrawal_amount or 0) }}</strong></p>
           <p class="flex justify-between gap-2"><span class="text-slate-500">Cierre real</span><strong>HNL {{ "{:,.2f}".format(summary.actual_close_amount or 0) }}</strong></p>
         </div>
       </div>

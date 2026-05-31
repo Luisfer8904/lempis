@@ -9,7 +9,7 @@
 {% endblock %}
 
 {% block content %}
-<form method="POST" class="bg-white p-6 rounded-xl shadow-sm border max-w-4xl">
+<form method="POST" data-cash-close-form class="bg-white p-6 rounded-xl shadow-sm border max-w-4xl">
   <div class="grid md:grid-cols-2 gap-4">
     <div>
       <label class="block text-sm font-medium mb-1">Fecha del cierre *</label>
@@ -31,7 +31,7 @@
 
     <div>
       <label class="block text-sm font-medium mb-1">Apertura de caja *</label>
-      <input type="number" step="0.01" min="0" name="opening_amount"
+      <input type="number" step="0.01" min="0" name="opening_amount" data-cash-field="opening"
              value="{{ summary.opening_amount if summary else default_opening_amount }}"
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
     </div>
@@ -39,57 +39,66 @@
 
     <div>
       <label class="block text-sm font-medium mb-1">Venta del día *</label>
-      <input type="number" step="0.01" min="0" name="cash_amount"
+      <input type="number" step="0.01" min="0" name="cash_amount" data-cash-field="cash"
              value="{{ summary.cash_amount if summary else '' }}"
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
     </div>
     <div>
       <label class="block text-sm font-medium mb-1">Transferencias *</label>
-      <input type="number" step="0.01" min="0" name="transfer_amount"
+      <input type="number" step="0.01" min="0" name="transfer_amount" data-cash-field="transfer"
              value="{{ summary.transfer_amount if summary else '' }}"
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
     </div>
 
     <div>
-      <label class="block text-sm font-medium mb-1">Retiro en efectivo *</label>
-      <input type="number" step="0.01" min="0" name="withdrawal_amount"
-             value="{{ summary.withdrawal_amount if summary else '' }}"
+      <label class="block text-sm font-medium mb-1">Gastos del día *</label>
+      <input type="number" step="0.01" min="0" name="expense_amount" data-cash-field="expense"
+             value="{{ summary.expense_amount if summary else '0' }}"
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+      <p class="mt-1 text-xs text-slate-500">Compras o gastos pagados con efectivo de caja.</p>
     </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Retiros / entregas parciales *</label>
+      <input type="number" step="0.01" min="0" name="withdrawal_amount" data-cash-field="withdrawal"
+             value="{{ summary.withdrawal_amount if summary else '0' }}"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+      <p class="mt-1 text-xs text-slate-500">Efectivo entregado o retirado antes del cierre.</p>
+    </div>
+
     <div class="rounded-xl border bg-slate-50 px-4 py-3 text-sm text-slate-600">
       <p><strong>Venta + apertura:</strong> HNL {{ "{:,.2f}".format(((summary.opening_amount or 0) + (summary.cash_amount or 0)) if summary else (default_opening_amount or 0)) }}</p>
-      <p class="mt-1">La venta del día se registra aparte; el retiro en efectivo es el dinero que sale físicamente de caja.</p>
+      <p class="mt-1">Los gastos y retiros restan al efectivo físico esperado en caja.</p>
     </div>
 
     <div>
-      <label class="block text-sm font-medium mb-1">Cierre real de caja *</label>
-      <input type="number" step="0.01" min="0" name="actual_close_amount"
+      <label class="block text-sm font-medium mb-1">Efectivo contado al final *</label>
+      <input type="number" step="0.01" min="0" name="actual_close_amount" data-cash-field="actual"
              value="{{ summary.actual_close_amount if summary else '' }}"
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+      <p class="mt-1 text-xs text-slate-500">Dinero físico que queda en caja después de gastos y retiros.</p>
     </div>
     <div class="rounded-xl border bg-slate-50 px-4 py-3 text-sm text-slate-600">
-      <p><strong>Cálculo:</strong> cierre esperado = apertura + venta del día - retiro en efectivo.</p>
+      <p><strong>Cálculo:</strong> cierre esperado = apertura + venta del día - gastos - retiros.</p>
       <p class="mt-1">Las transferencias suman a las ventas del día, pero no al efectivo físico de caja.</p>
     </div>
 
-    {% if summary %}
     <div class="md:col-span-2 rounded-xl bg-slate-50 border px-4 py-3 text-sm text-slate-600">
-      <div class="grid md:grid-cols-5 gap-3">
-        <div>Venta del día: <strong>HNL {{ "{:,.2f}".format(summary.cash_amount or 0) }}</strong></div>
-        <div>Venta + apertura: <strong>HNL {{ "{:,.2f}".format((summary.opening_amount or 0) + (summary.cash_amount or 0)) }}</strong></div>
-        <div>Transferencias: <strong>HNL {{ "{:,.2f}".format(summary.transfer_amount or 0) }}</strong></div>
-        <div>Retiro en efectivo: <strong>HNL {{ "{:,.2f}".format(summary.withdrawal_amount or 0) }}</strong></div>
-        <div>Cierre esperado: <strong>HNL {{ "{:,.2f}".format(summary.expected_close_amount or 0) }}</strong></div>
-        <div>Cierre real: <strong>HNL {{ "{:,.2f}".format(summary.actual_close_amount or 0) }}</strong></div>
+      <div class="grid md:grid-cols-6 gap-3">
+        <div>Venta del día: <strong data-cash-output="cash">HNL 0.00</strong></div>
+        <div>Venta + apertura: <strong data-cash-output="openingPlusSales">HNL 0.00</strong></div>
+        <div>Transferencias: <strong data-cash-output="transfer">HNL 0.00</strong></div>
+        <div>Gastos: <strong data-cash-output="expense">HNL 0.00</strong></div>
+        <div>Retiros: <strong data-cash-output="withdrawal">HNL 0.00</strong></div>
+        <div>Cierre esperado: <strong data-cash-output="expected">HNL 0.00</strong></div>
+        <div>Cierre real: <strong data-cash-output="actual">HNL 0.00</strong></div>
         <div>
           Diferencia:
-          <strong class="{% if (summary.variance_amount or 0) < 0 %}text-rose-600{% elif (summary.variance_amount or 0) > 0 %}text-emerald-600{% else %}text-slate-800{% endif %}">
-            HNL {{ "{:,.2f}".format(summary.variance_amount or 0) }}
+          <strong data-cash-output="variance" class="text-slate-800">
+            HNL 0.00
           </strong>
         </div>
       </div>
     </div>
-    {% endif %}
 
     <div class="md:col-span-2">
       <label class="block text-sm font-medium mb-1">Notas</label>
@@ -106,4 +115,45 @@
        class="border px-6 py-2 rounded-lg hover:bg-slate-50">Cancelar</a>
   </div>
 </form>
+<script>
+(() => {
+  const form = document.querySelector('[data-cash-close-form]');
+  if (!form) return;
+  const money = new Intl.NumberFormat('es-HN', { style: 'currency', currency: 'HNL' });
+  const fields = Object.fromEntries(
+    Array.from(form.querySelectorAll('[data-cash-field]')).map((input) => [input.dataset.cashField, input])
+  );
+  const outputs = Object.fromEntries(
+    Array.from(form.querySelectorAll('[data-cash-output]')).map((item) => [item.dataset.cashOutput, item])
+  );
+  const numberValue = (input) => Number(String(input?.value || '0').replace(/,/g, '')) || 0;
+  const setMoney = (key, value) => {
+    if (outputs[key]) outputs[key].textContent = money.format(value);
+  };
+  function refresh() {
+    const opening = numberValue(fields.opening);
+    const cash = numberValue(fields.cash);
+    const transfer = numberValue(fields.transfer);
+    const expense = numberValue(fields.expense);
+    const withdrawal = numberValue(fields.withdrawal);
+    const actual = numberValue(fields.actual);
+    const openingPlusSales = opening + cash;
+    const expected = openingPlusSales - expense - withdrawal;
+    const variance = actual - expected;
+    setMoney('cash', cash);
+    setMoney('openingPlusSales', openingPlusSales);
+    setMoney('transfer', transfer);
+    setMoney('expense', expense);
+    setMoney('withdrawal', withdrawal);
+    setMoney('expected', expected);
+    setMoney('actual', actual);
+    setMoney('variance', variance);
+    outputs.variance?.classList.toggle('text-rose-600', variance < 0);
+    outputs.variance?.classList.toggle('text-emerald-600', variance > 0);
+    outputs.variance?.classList.toggle('text-slate-800', variance === 0);
+  }
+  Object.values(fields).forEach((input) => input?.addEventListener('input', refresh));
+  refresh();
+})();
+</script>
 {% endblock %}

@@ -254,14 +254,15 @@
     </div>
   </div>
   <div class="overflow-x-auto">
-  <table class="saas-table w-full min-w-[1200px]">
+  <table class="saas-table w-full min-w-[1320px]">
     <thead>
       <tr>
         <th class="min-w-[160px]">Fecha</th>
         <th class="text-right min-w-[120px]">Apertura</th>
         <th class="text-right min-w-[120px]">Venta del día</th>
         <th class="text-right min-w-[140px]">Venta + apertura</th>
-        <th class="text-right min-w-[150px]">Retiro en efectivo</th>
+        <th class="text-right min-w-[130px]">Gastos</th>
+        <th class="text-right min-w-[150px]">Retiros / entregas</th>
         <th class="text-right min-w-[130px]">Transferencias</th>
         <th class="text-right min-w-[140px]">Cierre esperado</th>
         <th class="text-right min-w-[120px]">Cierre real</th>
@@ -276,6 +277,7 @@
         <td class="text-right font-medium align-middle">HNL {{ "{:,.2f}".format(summary.opening_amount or 0) }}</td>
         <td class="text-right font-medium text-emerald-700 align-middle">HNL {{ "{:,.2f}".format(summary.cash_amount or 0) }}</td>
         <td class="text-right font-semibold align-middle">HNL {{ "{:,.2f}".format((summary.opening_amount or 0) + (summary.cash_amount or 0)) }}</td>
+        <td class="text-right font-medium text-rose-700 align-middle">HNL {{ "{:,.2f}".format(summary.expense_amount or 0) }}</td>
         <td class="text-right font-medium text-rose-700 align-middle">HNL {{ "{:,.2f}".format(summary.withdrawal_amount or 0) }}</td>
         <td class="text-right font-medium text-indigo-700 align-middle">HNL {{ "{:,.2f}".format(summary.transfer_amount or 0) }}</td>
         <td class="text-right font-medium align-middle">HNL {{ "{:,.2f}".format(summary.expected_close_amount or 0) }}</td>
@@ -286,7 +288,7 @@
         <td class="text-sm text-slate-500 align-middle">{{ summary.notes or '—' }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="10" class="px-6 py-8 text-center text-slate-500">Sin cierres del día registrados.</td></tr>
+      <tr><td colspan="11" class="px-6 py-8 text-center text-slate-500">Sin cierres del día registrados.</td></tr>
       {% endfor %}
     </tbody>
   </table>
