@@ -1,0 +1,109 @@
+{% extends "igh/_layout.html" %}
+{% block title %}Facturas por cobrar IVG — {{ company_name }}{% endblock %}
+{% block heading %}Facturas por cobrar{% endblock %}
+
+{% block actions %}
+  <a href="{{ url_for('igh.facturas_por_cobrar_descargar', fmt='xlsx', sort=sort_key) }}"
+     class="rounded-lg bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100">
+    Excel
+  </a>
+  <a href="{{ url_for('igh.facturas_por_cobrar_descargar', fmt='pdf', sort=sort_key) }}"
+     class="rounded-lg bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100">
+    PDF
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+  <section class="grid gap-4 lg:grid-cols-[1fr_220px_220px]">
+    <div class="rounded-xl border bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Cartera vencida</p>
+      <h2 class="mt-1 text-2xl font-bold text-slate-900">Facturas vencidas con saldo pendiente</h2>
+      <p class="mt-2 text-sm text-slate-500">
+        Lista de prioridad para cobro. Solo incluye facturas con fecha de vencimiento anterior a hoy.
+      </p>
+    </div>
+    <div class="rounded-xl border bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Facturas</p>
+      <p class="mt-2 text-3xl font-bold text-slate-900">{{ overdue_sales|length }}</p>
+    </div>
+    <div class="rounded-xl border bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Saldo vencido</p>
+      <p class="mt-2 text-2xl font-bold text-amber-700">HNL {{ "{:,.2f}".format(overdue_total or 0) }}</p>
+    </div>
+  </section>
+
+  <div class="saas-list-card">
+    <div class="saas-list-card__header">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h3 class="text-lg font-semibold text-slate-900">Detalle de facturas vencidas</h3>
+          <p class="mt-1 text-sm text-slate-500">Ordena la lista según la prioridad de gestión de cobro.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <a href="{{ url_for('igh.facturas_por_cobrar', sort='oldest') }}"
+             class="rounded-lg border px-3 py-2 text-sm font-semibold {% if sort_key == 'oldest' %}border-indigo-200 bg-indigo-50 text-indigo-700{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+            Más viejas primero
+          </a>
+          <a href="{{ url_for('igh.facturas_por_cobrar', sort='amount_desc') }}"
+             class="rounded-lg border px-3 py-2 text-sm font-semibold {% if sort_key == 'amount_desc' %}border-indigo-200 bg-indigo-50 text-indigo-700{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+            Mayor saldo primero
+          </a>
+        </div>
+      </div>
+    </div>
+    <div class="saas-list-card__table-wrap overflow-x-auto">
+      <table class="saas-table w-full min-w-[1080px]">
+        <thead>
+          <tr>
+            <th class="min-w-[130px]">Vencimiento</th>
+            <th class="min-w-[110px]">Días</th>
+            <th class="min-w-[230px]">Cliente</th>
+            <th class="min-w-[130px]">Referencia</th>
+            <th class="min-w-[130px]">Categoría</th>
+            <th class="text-right min-w-[130px]">Total</th>
+            <th class="text-right min-w-[130px]">Saldo</th>
+            <th class="min-w-[110px]">Estado</th>
+            <th class="text-right min-w-[170px]">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sale in overdue_sales %}
+            {% set overdue_days = (overdue_today - sale.due_date.date()).days if sale.due_date else 0 %}
+            <tr class="hover:bg-slate-50">
+              <td class="align-middle text-sm font-semibold text-rose-700">{{ sale.due_date.strftime('%d/%m/%Y') if sale.due_date else '—' }}</td>
+              <td class="align-middle text-sm text-slate-600">{{ overdue_days }} día(s)</td>
+              <td class="align-middle">
+                <div class="font-semibold text-slate-900">{{ sale.client.name if sale.client else '—' }}</div>
+                <div class="mt-1 text-xs text-slate-400">Factura {{ sale.sale_date.strftime('%d/%m/%Y') if sale.sale_date else '—' }}</div>
+              </td>
+              <td class="align-middle font-mono text-xs text-slate-600">{{ sale.reference_number or '—' }}</td>
+              <td class="align-middle text-sm">{{ ivg_category_labels.get(sale.category, sale.category) }}</td>
+              <td class="align-middle text-right font-semibold">HNL {{ "{:,.2f}".format(sale.gross_amount or 0) }}</td>
+              <td class="align-middle text-right font-bold text-amber-700">HNL {{ "{:,.2f}".format(sale.balance_due or 0) }}</td>
+              <td class="align-middle">
+                <span class="inline-block rounded px-2 py-1 text-xs
+                             {% if sale.status == 'parcial' %}bg-indigo-100 text-indigo-700{% else %}bg-slate-200 text-slate-700{% endif %}">
+                  {{ sale.status }}
+                </span>
+              </td>
+              <td class="align-middle text-right whitespace-nowrap">
+                {% if sale.client %}
+                  <a href="{{ url_for('igh.clientes_detail', client_id=sale.client.id) }}" class="mr-3 text-sm text-indigo-600 hover:underline">Cliente</a>
+                {% endif %}
+                <a href="{{ url_for('igh.pagos_new', sale_id=sale.id) }}" class="text-sm text-emerald-700 hover:underline">Registrar cobro</a>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="9" class="px-6 py-10 text-center text-slate-500">
+                No hay facturas vencidas con saldo pendiente.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

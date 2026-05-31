@@ -220,6 +220,10 @@ def _ivg_category_label(value: str | None) -> str:
     return IVG_SALE_CATEGORY_LABELS.get(category, category.title())
 
 
+def _today_start_utc():
+    return datetime.combine(datetime.utcnow().date(), datetime.min.time())
+
+
 def _duplicate_sale_reference(reference_number: str | None, exclude_sale_id: int | None = None):
     reference = (reference_number or "").strip()
     if not reference or not _table_exists(IVGSale):
@@ -518,6 +522,25 @@ def _render_section(title: str, eyebrow: str, description: str, cta: str):
         "section_cta": cta,
     })
     return render_template("igh/section.html", **context)
+
+
+def _overdue_invoices_query(sort_key: str | None = None):
+    if not _table_exists(IVGSale):
+        return None
+
+    query = IVGSale.query.outerjoin(IVGClient, IVGSale.client_id == IVGClient.id).filter(
+        IVGSale.balance_due > 0,
+        IVGSale.due_date.isnot(None),
+        IVGSale.due_date < _today_start_utc(),
+    )
+    if sort_key == "amount_desc":
+        return query.order_by(IVGSale.balance_due.desc(), IVGSale.due_date.asc(), IVGSale.id.desc())
+    return query.order_by(IVGSale.due_date.asc(), IVGSale.sale_date.asc(), IVGSale.id.asc())
+
+
+def _overdue_invoice_rows(sort_key: str | None = None):
+    query = _overdue_invoices_query(sort_key)
+    return query.all() if query is not None else []
 
 
 def _build_sale_form_data(sale: IVGSale | None = None, form=None):
@@ -1097,6 +1120,58 @@ def ventas_delete(sale_id: int):
     return redirect(url_for("igh.ventas"))
 
 
+@igh_bp.route("/facturas-por-cobrar")
+@igh_login_required
+def facturas_por_cobrar():
+    sort_key = request.args.get("sort") or "oldest"
+    if sort_key not in {"oldest", "amount_desc"}:
+        sort_key = "oldest"
+    overdue_sales = _overdue_invoice_rows(sort_key)
+    today = datetime.utcnow().date()
+    overdue_total = sum(_to_decimal(sale.balance_due) for sale in overdue_sales)
+    context = _base_context()
+    context.update({
+        "overdue_sales": overdue_sales,
+        "overdue_total": overdue_total,
+        "overdue_today": today,
+        "sort_key": sort_key,
+    })
+    return render_template("igh/receivables_list.html", **context)
+
+
+@igh_bp.route("/facturas-por-cobrar/descargar/<fmt>")
+@igh_login_required
+def facturas_por_cobrar_descargar(fmt: str):
+    sort_key = request.args.get("sort") or "oldest"
+    if sort_key not in {"oldest", "amount_desc"}:
+        sort_key = "oldest"
+    today_date = datetime.utcnow().date()
+    sales = _overdue_invoice_rows(sort_key)
+    rows = [
+        [
+            sale.reference_number or f"FACT-{sale.id}",
+            sale.client.name if sale.client else "",
+            _ivg_category_label(sale.category),
+            sale.status,
+            _format_report_date(sale.sale_date),
+            _format_report_date(sale.due_date),
+            max((today_date - sale.due_date.date()).days, 0) if sale.due_date else 0,
+            _money_value(sale.gross_amount),
+            _money_value(sale.balance_due),
+            sale.notes or "",
+        ]
+        for sale in sales
+    ]
+    title = "Facturas por cobrar vencidas"
+    headers = ["Factura", "Cliente", "Categoria", "Estado", "Fecha venta", "Vencimiento", "Dias vencida", "Total", "Saldo", "Notas"]
+    file_date = datetime.utcnow().strftime("%Y%m%d")
+    if fmt == "xlsx":
+        return _xlsx_response(f"ivg-facturas-por-cobrar-{file_date}.xlsx", title, headers, rows)
+    if fmt == "pdf":
+        return _pdf_response(f"ivg-facturas-por-cobrar-{file_date}.pdf", title, headers, rows)
+    abort(404)
+
+
 @igh_bp.route("/contado")
 @igh_login_required
 def contado():
@@ -1248,8 +1323,9 @@ def pagos():
 def pagos_new():
     context = _base_context()
     context["credit_sales"] = IVGSale.query.filter(IVGSale.balance_due > 0).order_by(IVGSale.sale_date.desc()).all() if _table_exists(IVGSale) else []
+    selected_sale_id = (request.args.get("sale_id") or "").strip()
     context["form_data"] = {
-        "sale_id": "",
+        "sale_id": selected_sale_id,
         "payment_kind": "abono",
         "payment_method": "",
         "amount": "",
