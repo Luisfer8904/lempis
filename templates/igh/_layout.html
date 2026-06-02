@@ -114,6 +114,10 @@
              class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
             🧾 Registrar gasto de caja
           </a>
+          <a href="{{ url_for('igh.retiros_new') }}"
+             class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+            💸 Registrar retiro parcial
+          </a>
           <a href="{{ url_for('igh.contado_new') }}"
              class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
             🧮 Nuevo cierre del día
@@ -130,6 +134,7 @@
       {{ navlink('igh.ventas_canceladas', 'Facturas canceladas', '✅') }}
       {{ navlink('igh.contado', 'Cierre del día', '🧮') }}
       {{ navlink('igh.gastos', 'Gastos de caja', '🧾') }}
+      {{ navlink('igh.retiros', 'Retiros parciales', '💸') }}
       {{ navlink('igh.pagos', 'Pagos / abonos', '💰') }}
       {{ navlink('igh.agenda', 'Agenda', '🗓️') }}
       {% if igh_can_access_reports_module %}

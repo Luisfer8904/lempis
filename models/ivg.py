@@ -128,6 +128,7 @@ class IVGCashSummary(db.Model, TimestampMixin):
     notes = Column(Text)
 
     expenses = relationship("IVGCashExpense", back_populates="closure")
+    withdrawals = relationship("IVGCashWithdrawal", back_populates="closure")
 
 
 class IVGCashExpense(db.Model, TimestampMixin):
@@ -148,6 +149,27 @@ class IVGCashExpense(db.Model, TimestampMixin):
     notes = Column(Text)
 
     closure = relationship("IVGCashSummary", back_populates="expenses")
+    user = relationship("IVGUser")
+
+
+class IVGCashWithdrawal(db.Model, TimestampMixin):
+    """
+    Retiro o entrega parcial de efectivo de caja IVG.
+    Queda pendiente hasta que se asocia a un cierre del día.
+    """
+    __tablename__ = "ivg_retiros_caja"
+
+    id = Column(Integer, primary_key=True)
+    closure_id = Column(Integer, ForeignKey("ivg_contado.id", ondelete="SET NULL"), index=True)
+    user_id = Column(Integer, ForeignKey("ivg_usuarios.id", ondelete="SET NULL"), index=True)
+    withdrawal_date = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    recipient = Column(String(120), default="Caja", nullable=False)
+    description = Column(String(180), nullable=False)
+    amount = Column(Numeric(12, 2), default=0, nullable=False)
+    status = Column(String(20), default="pendiente", nullable=False)
+    notes = Column(Text)
+
+    closure = relationship("IVGCashSummary", back_populates="withdrawals")
     user = relationship("IVGUser")
 
 

@@ -20,7 +20,7 @@ from sqlalchemy import func, inspect, or_
 from sqlalchemy.exc import IntegrityError
 
 from models import db
-from models.ivg import IVGAgendaItem, IVGCashExpense, IVGCashSummary, IVGClient, IVGPayment, IVGSale, IVGUser
+from models.ivg import IVGAgendaItem, IVGCashExpense, IVGCashSummary, IVGCashWithdrawal, IVGClient, IVGPayment, IVGSale, IVGUser
 
 
 igh_bp = Blueprint("igh", __name__, url_prefix="/igh")
@@ -146,6 +146,15 @@ def _safe_sum(model, column, *filters):
     if not _table_exists(model):
         return 0
     query = db.session.query(func.coalesce(func.sum(column), 0))
+    if filters:
+        query = query.filter(*filters)
+    return float(query.scalar() or 0)
+
+
+def _safe_sum_expression(model, expression, *filters):
+    if not _table_exists(model):
+        return 0
+    query = db.session.query(func.coalesce(func.sum(expression), 0))
     if filters:
         query = query.filter(*filters)
     return float(query.scalar() or 0)
@@ -381,8 +390,28 @@ def _pending_cash_expenses_for_date(value):
     )
 
 
+def _pending_cash_withdrawals_for_date(value):
+    if not _table_exists(IVGCashWithdrawal):
+        return []
+    start, end = _day_bounds(value)
+    return (
+        IVGCashWithdrawal.query.filter(
+            IVGCashWithdrawal.status == "pendiente",
+            IVGCashWithdrawal.closure_id.is_(None),
+            IVGCashWithdrawal.withdrawal_date >= start,
+            IVGCashWithdrawal.withdrawal_date < end,
+        )
+        .order_by(IVGCashWithdrawal.withdrawal_date.asc(), IVGCashWithdrawal.id.asc())
+        .all()
+    )
+
+
 def _cash_expense_total(expenses) -> Decimal:
     return sum((_to_decimal(expense.amount) for expense in expenses), Decimal("0.00"))
+
+
+def _cash_withdrawal_total(withdrawals) -> Decimal:
+    return sum((_to_decimal(withdrawal.amount) for withdrawal in withdrawals), Decimal("0.00"))
 
 
 def _client_delete_block_reason(client: IVGClient | None) -> str | None:
@@ -405,9 +434,9 @@ def _calculate_day_close(
     transfer_amount: Decimal,
     expense_amount: Decimal | None = None,
 ):
-    sales_total = cash_amount + transfer_amount
+    sales_total = cash_amount
     opening_plus_sales_amount = opening_amount + cash_amount
-    cash_outflows = withdrawal_amount + _to_decimal(expense_amount)
+    cash_outflows = transfer_amount + withdrawal_amount + _to_decimal(expense_amount)
     expected_close_amount = opening_plus_sales_amount - cash_outflows
     return {
         "sales_total": sales_total,
@@ -424,6 +453,7 @@ def _base_context():
     recent_collections = []
     recent_cash_summaries = []
     pending_cash_expenses = []
+    pending_cash_withdrawals = []
     top_clients = []
     if _table_exists(IVGSale):
         pending_invoices = (
@@ -461,6 +491,13 @@ def _base_context():
         pending_cash_expenses = (
             IVGCashExpense.query.filter(IVGCashExpense.status == "pendiente")
             .order_by(IVGCashExpense.expense_date.asc(), IVGCashExpense.id.asc())
+            .limit(8)
+            .all()
+        )
+    if _table_exists(IVGCashWithdrawal):
+        pending_cash_withdrawals = (
+            IVGCashWithdrawal.query.filter(IVGCashWithdrawal.status == "pendiente")
+            .order_by(IVGCashWithdrawal.withdrawal_date.asc(), IVGCashWithdrawal.id.asc())
             .limit(8)
             .all()
         )
@@ -511,6 +548,7 @@ def _base_context():
             "cash_summaries": _safe_count(IVGCashSummary),
             "agenda": _safe_count(IVGAgendaItem),
             "cash_expenses": _safe_count(IVGCashExpense),
+            "cash_withdrawals": _safe_count(IVGCashWithdrawal),
             "credit_sales": _safe_count(IVGSale),
             "pending_invoices": _safe_count(IVGSale) if not _table_exists(IVGSale) else IVGSale.query.filter(IVGSale.balance_due > 0).count(),
         },
@@ -525,7 +563,7 @@ def _base_context():
             ),
             "collections_month_total": _safe_sum(IVGPayment, IVGPayment.amount, IVGPayment.payment_date >= month_start) if _table_exists(IVGPayment) else 0,
             "transfer_total": _safe_sum(IVGCashSummary, IVGCashSummary.transfer_amount) if _table_exists(IVGCashSummary) else 0,
-            "efectivo_total": _safe_sum(IVGCashSummary, IVGCashSummary.cash_amount) if _table_exists(IVGCashSummary) else 0,
+            "efectivo_total": _safe_sum_expression(IVGCashSummary, IVGCashSummary.cash_amount - IVGCashSummary.transfer_amount) if _table_exists(IVGCashSummary) else 0,
             "expense_total": _safe_sum(IVGCashSummary, IVGCashSummary.expense_amount) if _table_exists(IVGCashSummary) else 0,
             "herbicidas_credito": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.category == "herbicidas") if _table_exists(IVGSale) else 0,
             "concentrados_credito": _safe_sum(IVGSale, IVGSale.gross_amount, IVGSale.category == "concentrados") if _table_exists(IVGSale) else 0,
@@ -543,6 +581,7 @@ def _base_context():
         "recent_collections": recent_collections,
         "recent_cash_summaries": recent_cash_summaries,
         "pending_cash_expenses": pending_cash_expenses,
+        "pending_cash_withdrawals": pending_cash_withdrawals,
         "latest_cash_summary": latest_cash_summary,
         "top_clients": top_clients,
         "cashier_missing_dates": cashier_missing_dates,
@@ -555,6 +594,7 @@ def _base_context():
             "ivg_pagos",
             "ivg_contado",
             "ivg_gastos_caja",
+            "ivg_retiros_caja",
             "ivg_agenda",
         ],
     }
@@ -691,6 +731,15 @@ def _get_ivg_cash_expense_or_404(expense_id: int) -> IVGCashExpense:
     if expense is None:
         abort(404)
     return expense
+
+
+def _get_ivg_cash_withdrawal_or_404(withdrawal_id: int) -> IVGCashWithdrawal:
+    if not _table_exists(IVGCashWithdrawal):
+        abort(404)
+    withdrawal = db.session.get(IVGCashWithdrawal, withdrawal_id)
+    if withdrawal is None:
+        abort(404)
+    return withdrawal
 
 
 def _get_ivg_payment_or_404(payment_id: int) -> IVGPayment:
@@ -1334,6 +1383,92 @@ def gastos_delete(expense_id: int):
     return redirect(url_for("igh.gastos"))
 
 
+@igh_bp.route("/retiros")
+@igh_login_required
+def retiros():
+    withdrawals = []
+    if _table_exists(IVGCashWithdrawal):
+        withdrawals = (
+            IVGCashWithdrawal.query.order_by(
+                IVGCashWithdrawal.status.asc(),
+                IVGCashWithdrawal.withdrawal_date.desc(),
+                IVGCashWithdrawal.id.desc(),
+            )
+            .limit(120)
+            .all()
+        )
+    context = _base_context()
+    context["withdrawals"] = withdrawals
+    context["pending_withdrawal_total"] = _cash_withdrawal_total([item for item in withdrawals if item.status == "pendiente"])
+    return render_template("igh/cash_withdrawals_list.html", **context)
+
+
+@igh_bp.route("/retiros/new", methods=["GET", "POST"])
+@igh_login_required
+def retiros_new():
+    context = _base_context()
+    context["form_data"] = {
+        "withdrawal_date": _format_date_local(datetime.utcnow()),
+        "recipient": "",
+        "description": "",
+        "amount": "",
+        "notes": "",
+    }
+    if request.method == "POST":
+        context["form_data"] = {
+            "withdrawal_date": request.form.get("withdrawal_date") or "",
+            "recipient": (request.form.get("recipient") or "").strip(),
+            "description": (request.form.get("description") or "").strip(),
+            "amount": request.form.get("amount") or "",
+            "notes": request.form.get("notes") or "",
+        }
+        try:
+            withdrawal_date = _parse_datetime(request.form.get("withdrawal_date"), "La fecha del retiro", required=True)
+            amount = _parse_decimal(request.form.get("amount"), "El monto")
+        except ValueError as exc:
+            flash(str(exc), "danger")
+            return render_template("igh/cash_withdrawal_form.html", **context)
+
+        description = (request.form.get("description") or "").strip()
+        if not description:
+            flash("La descripción del retiro es obligatoria.", "danger")
+            return render_template("igh/cash_withdrawal_form.html", **context)
+        if amount <= 0:
+            flash("El monto debe ser mayor que cero.", "danger")
+            return render_template("igh/cash_withdrawal_form.html", **context)
+
+        current_user = _current_igh_user()
+        withdrawal = IVGCashWithdrawal(
+            user_id=current_user.id if current_user else None,
+            withdrawal_date=withdrawal_date,
+            recipient=(request.form.get("recipient") or "").strip() or "Caja",
+            description=description,
+            amount=amount,
+            status="pendiente",
+            notes=(request.form.get("notes") or "").strip() or None,
+        )
+        db.session.add(withdrawal)
+        db.session.commit()
+        flash("Retiro parcial registrado.", "success")
+        return redirect(url_for("igh.retiros"))
+
+    return render_template("igh/cash_withdrawal_form.html", **context)
+
+
+@igh_bp.route("/retiros/<int:withdrawal_id>/delete", methods=["POST"])
+@igh_login_required
+@igh_admin_required
+def retiros_delete(withdrawal_id: int):
+    withdrawal = _get_ivg_cash_withdrawal_or_404(withdrawal_id)
+    if withdrawal.status != "pendiente" or withdrawal.closure_id:
+        flash("No se puede eliminar un retiro que ya fue registrado en un cierre.", "warning")
+        return redirect(url_for("igh.retiros"))
+    db.session.delete(withdrawal)
+    db.session.commit()
+    flash("Retiro parcial eliminado.", "success")
+    return redirect(url_for("igh.retiros"))
+
+
 @igh_bp.route("/contado")
 @igh_login_required
 def contado():
@@ -1351,8 +1486,11 @@ def contado_new():
     context["default_opening_amount"] = previous_summary.actual_close_amount if previous_summary else Decimal("0.00")
     context["previous_summary"] = previous_summary
     pending_expenses = _pending_cash_expenses_for_date(datetime.utcnow())
+    pending_withdrawals = _pending_cash_withdrawals_for_date(datetime.utcnow())
     context["cash_expenses"] = pending_expenses
     context["cash_expense_total"] = _cash_expense_total(pending_expenses)
+    context["cash_withdrawals"] = pending_withdrawals
+    context["cash_withdrawal_total"] = _cash_withdrawal_total(pending_withdrawals)
 
     if request.method == "POST":
         notes = (request.form.get("notes") or "").strip() or None
@@ -1360,7 +1498,6 @@ def contado_new():
             summary_date = _parse_datetime(request.form.get("summary_date"), "La fecha del cierre", required=True)
             opening_amount = _parse_decimal(request.form.get("opening_amount"), "La apertura")
             cash_amount = _parse_decimal(request.form.get("cash_amount"), "La venta del día")
-            withdrawal_amount = _parse_decimal(request.form.get("withdrawal_amount"), "Los retiros o entregas parciales")
             transfer_amount = _parse_decimal(request.form.get("transfer_amount"), "Las transferencias")
             actual_close_amount = _parse_decimal(request.form.get("actual_close_amount"), "El cierre real")
         except ValueError as exc:
@@ -1368,7 +1505,9 @@ def contado_new():
             return redirect(url_for("igh.contado_new"))
 
         pending_expenses = _pending_cash_expenses_for_date(summary_date)
+        pending_withdrawals = _pending_cash_withdrawals_for_date(summary_date)
         expense_amount = _cash_expense_total(pending_expenses)
+        withdrawal_amount = _cash_withdrawal_total(pending_withdrawals)
         close_values = _calculate_day_close(opening_amount, cash_amount, withdrawal_amount, transfer_amount, expense_amount)
         total_amount = close_values["sales_total"]
         if total_amount <= 0:
@@ -1395,6 +1534,9 @@ def contado_new():
         for expense in pending_expenses:
             expense.closure_id = summary.id
             expense.status = "registrado"
+        for withdrawal in pending_withdrawals:
+            withdrawal.closure_id = summary.id
+            withdrawal.status = "registrado"
         db.session.commit()
         flash("Cierre del día registrado.", "success")
         return redirect(url_for("igh.contado"))
@@ -1410,6 +1552,8 @@ def contado_edit(summary_id: int):
     context = _base_context()
     context["cash_expenses"] = summary.expenses if _table_exists(IVGCashExpense) else []
     context["cash_expense_total"] = _cash_expense_total(context["cash_expenses"]) if context["cash_expenses"] else _to_decimal(summary.expense_amount)
+    context["cash_withdrawals"] = summary.withdrawals if _table_exists(IVGCashWithdrawal) else []
+    context["cash_withdrawal_total"] = _cash_withdrawal_total(context["cash_withdrawals"]) if context["cash_withdrawals"] else _to_decimal(summary.withdrawal_amount)
 
     if request.method == "POST":
         notes = (request.form.get("notes") or "").strip() or None
@@ -1417,7 +1561,6 @@ def contado_edit(summary_id: int):
             summary_date = _parse_datetime(request.form.get("summary_date"), "La fecha del cierre", required=True)
             opening_amount = _parse_decimal(request.form.get("opening_amount"), "La apertura")
             cash_amount = _parse_decimal(request.form.get("cash_amount"), "La venta del día")
-            withdrawal_amount = _parse_decimal(request.form.get("withdrawal_amount"), "Los retiros o entregas parciales")
             transfer_amount = _parse_decimal(request.form.get("transfer_amount"), "Las transferencias")
             actual_close_amount = _parse_decimal(request.form.get("actual_close_amount"), "El cierre real")
         except ValueError as exc:
@@ -1426,6 +1569,8 @@ def contado_edit(summary_id: int):
 
         linked_expenses = summary.expenses if _table_exists(IVGCashExpense) else []
         expense_amount = _cash_expense_total(linked_expenses) if linked_expenses else _to_decimal(summary.expense_amount)
+        linked_withdrawals = summary.withdrawals if _table_exists(IVGCashWithdrawal) else []
+        withdrawal_amount = _cash_withdrawal_total(linked_withdrawals) if linked_withdrawals else _to_decimal(summary.withdrawal_amount)
         close_values = _calculate_day_close(opening_amount, cash_amount, withdrawal_amount, transfer_amount, expense_amount)
         total_amount = close_values["sales_total"]
         if total_amount <= 0:
@@ -1462,6 +1607,10 @@ def contado_delete(summary_id: int):
         for expense in summary.expenses:
             expense.closure_id = None
             expense.status = "pendiente"
+    if _table_exists(IVGCashWithdrawal):
+        for withdrawal in summary.withdrawals:
+            withdrawal.closure_id = None
+            withdrawal.status = "pendiente"
     db.session.delete(summary)
     db.session.commit()
     flash("Cierre del día eliminado.", "success")
@@ -1830,8 +1979,8 @@ def reportes():
         ],
     }
     context["download_reports"] = [
-        ("cierres", "Resumen de cierres", "Apertura, ventas, retiros, transferencias y diferencias."),
-        ("ventas-contado", "Ventas de contado", "Venta diaria separada por efectivo y transferencia."),
+        ("cierres", "Resumen de cierres", "Apertura, venta del día, transferencias, gastos, retiros y diferencias."),
+        ("ventas-contado", "Ventas de contado", "Venta diaria, transferencias descontadas y cierre real."),
         ("ventas-credito", "Ventas de crédito", "Facturas a crédito con cliente, categoría, total y saldo."),
         ("cobros", "Cobros registrados", "Pagos y abonos aplicados a facturas de crédito."),
         ("cartera", "Cartera por cobrar", "Facturas pendientes, parciales y vencimientos."),
@@ -1863,7 +2012,7 @@ def _ivg_report_payload(report_type: str):
         return (
             "ivg-resumen-cierres",
             "Resumen de cierres",
-            ["Fecha", "Apertura", "Venta efectivo", "Venta efectivo + apertura", "Gastos", "Retiros / entregas", "Transferencias", "Cierre esperado", "Cierre real", "Diferencia", "Notas"],
+            ["Fecha", "Apertura", "Venta del día", "Venta + apertura", "Gastos", "Retiros / entregas", "Transferencias", "Cierre esperado", "Cierre real", "Diferencia", "Notas"],
             rows,
         )
 
@@ -1874,7 +2023,7 @@ def _ivg_report_payload(report_type: str):
                 _format_report_date(summary.summary_date),
                 _money_value(summary.cash_amount),
                 _money_value(summary.transfer_amount),
-                _money_value(summary.total_amount),
+                _money_value(_to_decimal(summary.cash_amount) - _to_decimal(summary.transfer_amount)),
                 _money_value(summary.expense_amount),
                 _money_value(summary.withdrawal_amount),
                 _money_value(summary.actual_close_amount),
@@ -1885,7 +2034,7 @@ def _ivg_report_payload(report_type: str):
         return (
             "ivg-ventas-contado",
             "Ventas de contado",
-            ["Fecha", "Efectivo", "Transferencias", "Venta total", "Gastos", "Retiros / entregas", "Cierre real", "Notas"],
+            ["Fecha", "Venta del día", "Transferencias", "Efectivo esperado", "Gastos", "Retiros / entregas", "Cierre real", "Notas"],
             rows,
         )
 

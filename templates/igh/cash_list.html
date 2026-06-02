@@ -3,9 +3,17 @@
 {% block heading %}Cierre del día IVG{% endblock %}
 
 {% block actions %}
+  <a href="{{ url_for('igh.gastos') }}"
+     class="rounded-lg bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100">
+    Gastos de caja
+  </a>
   <a href="{{ url_for('igh.contado_new') }}"
      class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
-    + Registrar cierre del día
+    Nuevo cierre de caja
+  </a>
+  <a href="{{ url_for('igh.retiros') }}"
+     class="rounded-lg bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100">
+    Retiros parciales
   </a>
 {% endblock %}
 
@@ -15,7 +23,7 @@
     <div class="flex items-start justify-between gap-4">
       <div>
         <h2 class="text-lg font-semibold text-slate-900">Cierres del día</h2>
-        <p class="text-sm text-slate-500 mt-1">Apertura, venta del día, gastos, retiros, transferencias y cierre diario de caja.</p>
+        <p class="text-sm text-slate-500 mt-1">Apertura + venta del día - transferencias - gastos - retiros = cierre esperado.</p>
       </div>
       <div class="text-sm text-slate-500 whitespace-nowrap">{{ summaries|length }} resumen(es)</div>
     </div>
@@ -79,4 +87,56 @@
   </table>
   </div>
 </div>
+
+<section class="mt-6 grid gap-6 lg:grid-cols-2">
+  <div class="saas-list-card">
+    <div class="saas-list-card__header">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h3 class="text-lg font-semibold text-slate-900">Gastos pendientes antes del cierre</h3>
+          <p class="text-sm text-slate-500 mt-1">Se suman automáticamente al próximo cierre de su fecha.</p>
+        </div>
+        <a href="{{ url_for('igh.gastos_new') }}" class="text-sm font-semibold text-indigo-600 hover:underline whitespace-nowrap">Agregar →</a>
+      </div>
+    </div>
+    <div class="divide-y px-4 pb-4 text-sm">
+      {% for expense in pending_cash_expenses %}
+        <div class="flex items-center justify-between gap-3 py-3">
+          <div class="min-w-0">
+            <p class="font-semibold text-slate-900 truncate">{{ expense.description }}</p>
+            <p class="text-xs text-slate-500">{{ expense.expense_date.strftime('%d/%m/%Y') if expense.expense_date else '—' }} · {{ expense.category }}</p>
+          </div>
+          <p class="font-bold text-rose-700 whitespace-nowrap">HNL {{ "{:,.2f}".format(expense.amount or 0) }}</p>
+        </div>
+      {% else %}
+        <p class="py-4 text-slate-500">No hay gastos pendientes.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="saas-list-card">
+    <div class="saas-list-card__header">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h3 class="text-lg font-semibold text-slate-900">Retiros parciales antes del cierre</h3>
+          <p class="text-sm text-slate-500 mt-1">Se descuentan automáticamente al próximo cierre de su fecha.</p>
+        </div>
+        <a href="{{ url_for('igh.retiros_new') }}" class="text-sm font-semibold text-indigo-600 hover:underline whitespace-nowrap">Agregar →</a>
+      </div>
+    </div>
+    <div class="divide-y px-4 pb-4 text-sm">
+      {% for withdrawal in pending_cash_withdrawals %}
+        <div class="flex items-center justify-between gap-3 py-3">
+          <div class="min-w-0">
+            <p class="font-semibold text-slate-900 truncate">{{ withdrawal.description }}</p>
+            <p class="text-xs text-slate-500">{{ withdrawal.withdrawal_date.strftime('%d/%m/%Y') if withdrawal.withdrawal_date else '—' }} · {{ withdrawal.recipient }}</p>
+          </div>
+          <p class="font-bold text-amber-700 whitespace-nowrap">HNL {{ "{:,.2f}".format(withdrawal.amount or 0) }}</p>
+        </div>
+      {% else %}
+        <p class="py-4 text-slate-500">No hay retiros parciales pendientes.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
 {% endblock %}
