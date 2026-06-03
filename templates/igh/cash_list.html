@@ -48,7 +48,21 @@
     </thead>
     <tbody>
       {% for summary in summaries %}
-      <tr class="hover:bg-slate-50">
+      <tr class="hover:bg-slate-50 cursor-pointer"
+          data-summary-row
+          data-summary="{{ {
+            'date': summary.summary_date.strftime('%d/%m/%Y %H:%M') if summary.summary_date else 'Sin fecha',
+            'opening': summary.opening_amount|float,
+            'cash': summary.cash_amount|float,
+            'openingPlusSales': ((summary.opening_amount or 0) + (summary.cash_amount or 0))|float,
+            'expenses': summary.expense_amount|float,
+            'withdrawals': summary.withdrawal_amount|float,
+            'transfers': summary.transfer_amount|float,
+            'expected': summary.expected_close_amount|float,
+            'actual': summary.actual_close_amount|float,
+            'variance': summary.variance_amount|float,
+            'notes': summary.notes or 'Sin notas'
+          }|tojson|forceescape }}">
         <td class="text-sm text-slate-600 align-middle">{{ summary.summary_date.strftime('%d/%m/%Y %H:%M') if summary.summary_date else '—' }}</td>
         <td class="text-right font-medium align-middle">HNL {{ "{:,.2f}".format(summary.opening_amount or 0) }}</td>
         <td class="text-right font-medium text-emerald-700 align-middle">HNL {{ "{:,.2f}".format(summary.cash_amount or 0) }}</td>
@@ -63,6 +77,11 @@
         </td>
         <td class="text-sm text-slate-500 align-middle">{{ summary.notes or '—' }}</td>
         <td class="text-right whitespace-nowrap align-middle">
+          <button type="button"
+                  data-summary-open
+                  class="text-slate-600 hover:underline text-sm mr-3">
+            Ver resumen
+          </button>
           <a href="{{ url_for('igh.contado_edit', summary_id=summary.id) }}"
              class="text-indigo-600 hover:underline text-sm mr-3">Editar</a>
           {% if igh_can_delete_records %}
@@ -85,6 +104,90 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
+</div>
+
+<div id="cash-summary-modal"
+     class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/60 px-4 py-6"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="cash-summary-modal-title">
+  <div class="w-full max-w-4xl overflow-hidden rounded-xl bg-white shadow-2xl">
+    <div class="flex items-start justify-between gap-4 border-b px-5 py-4">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Resumen del cierre</p>
+        <h3 id="cash-summary-modal-title" class="mt-1 text-xl font-bold text-slate-950" data-summary-date>—</h3>
+      </div>
+      <button type="button"
+              class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              data-summary-close
+              aria-label="Cerrar resumen">
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="max-h-[82vh] overflow-y-auto px-5 py-5">
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="rounded-lg border bg-slate-50 p-4">
+          <p class="text-xs font-semibold text-slate-500">Venta del día</p>
+          <p class="mt-2 text-xl font-bold text-emerald-700" data-summary-money="cash">HNL 0.00</p>
+        </div>
+        <div class="rounded-lg border bg-slate-50 p-4">
+          <p class="text-xs font-semibold text-slate-500">Cierre esperado</p>
+          <p class="mt-2 text-xl font-bold text-slate-950" data-summary-money="expected">HNL 0.00</p>
+        </div>
+        <div class="rounded-lg border bg-slate-50 p-4">
+          <p class="text-xs font-semibold text-slate-500">Cierre real</p>
+          <p class="mt-2 text-xl font-bold text-slate-950" data-summary-money="actual">HNL 0.00</p>
+        </div>
+        <div class="rounded-lg border bg-slate-50 p-4">
+          <p class="text-xs font-semibold text-slate-500">Sobrante / faltante</p>
+          <p class="mt-2 text-xl font-bold" data-summary-money="variance">HNL 0.00</p>
+        </div>
+      </div>
+
+      <div class="mt-5 grid gap-5 lg:grid-cols-[1.25fr_.85fr]">
+        <div class="rounded-lg border p-4">
+          <div class="mb-4 flex items-center justify-between gap-3">
+            <h4 class="font-semibold text-slate-900">Composición gráfica</h4>
+            <span class="text-xs font-medium text-slate-500">Escala relativa al monto mayor</span>
+          </div>
+          <div class="space-y-3" data-summary-bars></div>
+        </div>
+
+        <div class="rounded-lg border p-4">
+          <h4 class="font-semibold text-slate-900">Detalle del cálculo</h4>
+          <dl class="mt-4 space-y-3 text-sm">
+            <div class="flex justify-between gap-3">
+              <dt class="text-slate-500">Apertura</dt>
+              <dd class="font-semibold text-slate-900" data-summary-money="opening">HNL 0.00</dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt class="text-slate-500">Venta + apertura</dt>
+              <dd class="font-semibold text-slate-900" data-summary-money="openingPlusSales">HNL 0.00</dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt class="text-slate-500">Transferencias</dt>
+              <dd class="font-semibold text-indigo-700" data-summary-money="transfers">HNL 0.00</dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt class="text-slate-500">Gastos</dt>
+              <dd class="font-semibold text-rose-700" data-summary-money="expenses">HNL 0.00</dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt class="text-slate-500">Retiros / entregas</dt>
+              <dd class="font-semibold text-rose-700" data-summary-money="withdrawals">HNL 0.00</dd>
+            </div>
+          </dl>
+          <div class="mt-5 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+            <p class="font-semibold text-slate-800">Notas</p>
+            <p class="mt-1" data-summary-notes>—</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -139,4 +242,115 @@
     </div>
   </div>
 </section>
+<script>
+(() => {
+  const modal = document.getElementById('cash-summary-modal');
+  const dateTarget = modal?.querySelector('[data-summary-date]');
+  const notesTarget = modal?.querySelector('[data-summary-notes]');
+  const barsTarget = modal?.querySelector('[data-summary-bars]');
+  const moneyTargets = modal
+    ? Array.from(modal.querySelectorAll('[data-summary-money]')).reduce((items, item) => {
+        items[item.dataset.summaryMoney] = item;
+        return items;
+      }, {})
+    : {};
+
+  if (!modal || !dateTarget || !notesTarget || !barsTarget) return;
+
+  const currency = new Intl.NumberFormat('es-HN', {
+    style: 'currency',
+    currency: 'HNL',
+    minimumFractionDigits: 2,
+  });
+
+  const barConfig = [
+    ['opening', 'Apertura', 'bg-slate-500'],
+    ['cash', 'Venta del día', 'bg-emerald-600'],
+    ['transfers', 'Transferencias', 'bg-indigo-600'],
+    ['expenses', 'Gastos', 'bg-rose-600'],
+    ['withdrawals', 'Retiros / entregas', 'bg-amber-600'],
+    ['expected', 'Cierre esperado', 'bg-slate-800'],
+    ['actual', 'Cierre real', 'bg-green-700'],
+  ];
+
+  function money(value) {
+    return currency.format(Number(value || 0));
+  }
+
+  function setVarianceStyle(value) {
+    const target = moneyTargets.variance;
+    if (!target) return;
+    target.classList.remove('text-emerald-700', 'text-rose-700', 'text-slate-700');
+    if (value > 0) {
+      target.classList.add('text-emerald-700');
+    } else if (value < 0) {
+      target.classList.add('text-rose-700');
+    } else {
+      target.classList.add('text-slate-700');
+    }
+  }
+
+  function renderBars(summary) {
+    const maxValue = Math.max(...barConfig.map(([key]) => Math.abs(Number(summary[key] || 0))), 1);
+    barsTarget.innerHTML = barConfig.map(([key, label, color]) => {
+      const value = Number(summary[key] || 0);
+      const width = Math.max(4, Math.round((Math.abs(value) / maxValue) * 100));
+      return `
+        <div class="grid gap-1">
+          <div class="flex items-center justify-between gap-3 text-sm">
+            <span class="font-medium text-slate-700">${label}</span>
+            <span class="font-semibold text-slate-900">${money(value)}</span>
+          </div>
+          <div class="h-3 overflow-hidden rounded-full bg-slate-100">
+            <div class="h-full rounded-full ${color}" style="width: ${width}%"></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function openSummary(source) {
+    const row = source.closest('[data-summary-row]');
+    if (!row?.dataset.summary) return;
+    const summary = JSON.parse(row.dataset.summary);
+    dateTarget.textContent = summary.date || 'Sin fecha';
+    notesTarget.textContent = summary.notes || 'Sin notas';
+    Object.entries(moneyTargets).forEach(([key, target]) => {
+      target.textContent = money(summary[key]);
+    });
+    setVarianceStyle(Number(summary.variance || 0));
+    renderBars(summary);
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    document.body.classList.add('overflow-hidden');
+  }
+
+  function closeSummary() {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    document.body.classList.remove('overflow-hidden');
+  }
+
+  document.querySelectorAll('[data-summary-row]').forEach((row) => {
+    row.addEventListener('click', (event) => {
+      if (event.target.closest('a, button, form, input, select, textarea')) return;
+      openSummary(row);
+    });
+  });
+
+  document.querySelectorAll('[data-summary-open]').forEach((button) => {
+    button.addEventListener('click', () => openSummary(button));
+  });
+
+  modal.querySelectorAll('[data-summary-close]').forEach((button) => {
+    button.addEventListener('click', closeSummary);
+  });
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) closeSummary();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !modal.classList.contains('hidden')) closeSummary();
+  });
+})();
+</script>
 {% endblock %}
