@@ -207,6 +207,29 @@ def _format_date_local(value):
     return value.strftime("%Y-%m-%d")
 
 
+def _date_filter_args():
+    return {
+        "date_from": (request.args.get("date_from") or "").strip(),
+        "date_to": (request.args.get("date_to") or "").strip(),
+    }
+
+
+def _apply_date_filter(query, column, date_from: str, date_to: str):
+    if date_from:
+        try:
+            start = datetime.strptime(date_from, "%Y-%m-%d")
+            query = query.filter(column >= start)
+        except ValueError:
+            flash("La fecha inicial del filtro no tiene un formato válido.", "warning")
+    if date_to:
+        try:
+            end = datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1)
+            query = query.filter(column < end)
+        except ValueError:
+            flash("La fecha final del filtro no tiene un formato válido.", "warning")
+    return query
+
+
 def _day_bounds(value):
     day = (value or datetime.utcnow()).date()
     start = datetime.combine(day, datetime.min.time())
@@ -1075,9 +1098,11 @@ def clientes_delete(client_id: int):
 @igh_login_required
 def ventas():
     search_query = (request.args.get("q") or "").strip()
+    date_filters = _date_filter_args()
     sales = []
     if _table_exists(IVGSale):
         query = IVGSale.query.outerjoin(IVGClient, IVGSale.client_id == IVGClient.id).filter(IVGSale.balance_due > 0)
+        query = _apply_date_filter(query, IVGSale.sale_date, date_filters["date_from"], date_filters["date_to"])
         if search_query:
             term = f"%{search_query}%"
             query = query.filter(or_(
@@ -1093,6 +1118,7 @@ def ventas():
     context = _base_context()
     context["sales"] = sales
     context["search_query"] = search_query
+    context.update(date_filters)
     context["sales_page_title"] = "Facturas crédito"
     context["sales_page_description"] = "Facturas a crédito con saldo pendiente por cobrar."
     context["sales_empty_message"] = "No hay facturas crédito pendientes."
@@ -1104,9 +1130,11 @@ def ventas():
 @igh_login_required
 def ventas_canceladas():
     search_query = (request.args.get("q") or "").strip()
+    date_filters = _date_filter_args()
     sales = []
     if _table_exists(IVGSale):
         query = IVGSale.query.outerjoin(IVGClient, IVGSale.client_id == IVGClient.id).filter(IVGSale.balance_due <= 0)
+        query = _apply_date_filter(query, IVGSale.sale_date, date_filters["date_from"], date_filters["date_to"])
         if search_query:
             term = f"%{search_query}%"
             query = query.filter(or_(
@@ -1122,6 +1150,7 @@ def ventas_canceladas():
     context = _base_context()
     context["sales"] = sales
     context["search_query"] = search_query
+    context.update(date_filters)
     context["sales_page_title"] = "Facturas canceladas"
     context["sales_page_description"] = "Facturas de crédito pagadas y sin saldo pendiente."
     context["sales_empty_message"] = "No hay facturas canceladas todavía."
@@ -1621,6 +1650,7 @@ def contado_delete(summary_id: int):
 @igh_login_required
 def pagos():
     search_query = (request.args.get("q") or "").strip()
+    date_filters = _date_filter_args()
     payments = []
     if _table_exists(IVGPayment):
         query = (
@@ -1628,6 +1658,7 @@ def pagos():
             .outerjoin(IVGSale, IVGPayment.sale_id == IVGSale.id)
             .outerjoin(IVGClient, IVGSale.client_id == IVGClient.id)
         )
+        query = _apply_date_filter(query, IVGPayment.payment_date, date_filters["date_from"], date_filters["date_to"])
         if search_query:
             term = f"%{search_query}%"
             query = query.filter(or_(
@@ -1645,6 +1676,7 @@ def pagos():
     context = _base_context()
     context["payments"] = payments
     context["search_query"] = search_query
+    context.update(date_filters)
     return render_template("igh/payments_list.html", **context)
 
 
