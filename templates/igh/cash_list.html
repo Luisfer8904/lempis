@@ -63,7 +63,14 @@
             'variance': summary.variance_amount|float,
             'notes': summary.notes or 'Sin notas'
           }|tojson|forceescape }}">
-        <td class="text-sm text-slate-600 align-middle">{{ summary.summary_date.strftime('%d/%m/%Y %H:%M') if summary.summary_date else '—' }}</td>
+        <td class="text-sm text-slate-600 align-middle">
+          <div>{{ summary.summary_date.strftime('%d/%m/%Y %H:%M') if summary.summary_date else '—' }}</div>
+          <button type="button"
+                  data-summary-open
+                  class="mt-1 inline-flex rounded-md bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100">
+            Ver resumen
+          </button>
+        </td>
         <td class="text-right font-medium align-middle">HNL {{ "{:,.2f}".format(summary.opening_amount or 0) }}</td>
         <td class="text-right font-medium text-emerald-700 align-middle">HNL {{ "{:,.2f}".format(summary.cash_amount or 0) }}</td>
         <td class="text-right font-semibold align-middle">HNL {{ "{:,.2f}".format((summary.opening_amount or 0) + (summary.cash_amount or 0)) }}</td>
@@ -77,11 +84,6 @@
         </td>
         <td class="text-sm text-slate-500 align-middle">{{ summary.notes or '—' }}</td>
         <td class="text-right whitespace-nowrap align-middle">
-          <button type="button"
-                  data-summary-open
-                  class="text-slate-600 hover:underline text-sm mr-3">
-            Ver resumen
-          </button>
           <a href="{{ url_for('igh.contado_edit', summary_id=summary.id) }}"
              class="text-indigo-600 hover:underline text-sm mr-3">Editar</a>
           {% if igh_can_delete_records %}
