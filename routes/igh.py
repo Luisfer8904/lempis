@@ -1577,7 +1577,6 @@ def contado_instrucciones_pdf():
 def contado_new():
     context = _base_context()
     previous_summary = _latest_cash_summary()
-    context["default_opening_amount"] = previous_summary.actual_close_amount if previous_summary else Decimal("0.00")
     context["previous_summary"] = previous_summary
     pending_expenses = _pending_cash_expenses_for_date(datetime.utcnow())
     pending_withdrawals = _pending_cash_withdrawals_for_date(datetime.utcnow())
