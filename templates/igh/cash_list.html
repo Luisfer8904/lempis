@@ -3,6 +3,10 @@
 {% block heading %}Cierre del día IVG{% endblock %}
 
 {% block actions %}
+  <a href="{{ url_for('igh.contado_instrucciones_pdf') }}"
+     class="rounded-lg border bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+    Descargar instrucciones
+  </a>
   <a href="{{ url_for('igh.contado_new') }}"
      class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
     Nuevo cierre de caja

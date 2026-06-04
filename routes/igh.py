@@ -352,6 +352,65 @@ def _pdf_report_widths(count: int):
     return [first] + [(usable - first) / (count - 1)] * (count - 1)
 
 
+def _cash_close_instructions_pdf():
+    stream = BytesIO()
+    doc = SimpleDocTemplate(
+        stream,
+        pagesize=letter,
+        rightMargin=18 * mm,
+        leftMargin=18 * mm,
+        topMargin=16 * mm,
+        bottomMargin=16 * mm,
+    )
+    styles = getSampleStyleSheet()
+    body_style = styles["BodyText"]
+    body_style.leading = 14
+    steps = [
+        ("1. Registrar todas las facturas del día",
+         "Entrar a Facturas crédito y registrar las facturas que se vendieron a crédito durante el día."),
+        ("2. Registrar los cobros o abonos recibidos",
+         "Entrar a Pagos / abonos y registrar los pagos que hicieron los clientes sobre facturas pendientes."),
+        ("3. Registrar gastos de caja, si hubo",
+         "Entrar a Cierre del día y usar el botón Gastos de caja. Registrar cada gasto pagado con efectivo de caja, por ejemplo compras menores, combustible, mandados o cualquier salida de efectivo por gasto."),
+        ("4. Registrar retiros parciales, si hubo",
+         "Entrar a Cierre del día y usar el botón Retiros parciales. Registrar dinero que salió de caja pero no es gasto directo, como entrega parcial al dueño, retiro para depósito o efectivo entregado durante el día."),
+        ("5. Crear el cierre de caja",
+         "Entrar a Cierre del día y presionar Nuevo cierre de caja. Llenar apertura de caja, venta del día, transferencias y efectivo contado al final. Los gastos y retiros del día se cargan automáticamente si ya fueron registrados."),
+        ("6. Revisar el cálculo",
+         "El sistema calcula: apertura + venta del día - transferencias - gastos - retiros = cierre esperado. Luego compara cierre real contra cierre esperado."),
+        ("7. Interpretar la diferencia",
+         "Si la diferencia es HNL 0.00, el cierre está cuadrado. Si es positiva, hay sobrante. Si es negativa, hay faltante."),
+        ("8. Guardar el cierre",
+         "Cuando todo esté correcto, guardar el cierre. Los gastos y retiros pendientes de ese día quedan registrados dentro del cierre y ya no aparecen como pendientes."),
+    ]
+    story = [
+        Paragraph("Instrucciones para el cierre diario IGH", styles["Title"]),
+        Paragraph(f"Generado: {datetime.utcnow().strftime('%d/%m/%Y')}", styles["Normal"]),
+        Spacer(1, 10),
+        Paragraph("Fórmula principal", styles["Heading2"]),
+        Paragraph("Apertura de caja + venta del día - transferencias - gastos - retiros parciales = cierre esperado.", body_style),
+        Spacer(1, 8),
+        Paragraph("Paso a paso", styles["Heading2"]),
+    ]
+    for title, description in steps:
+        story.append(Paragraph(f"<b>{title}</b>", body_style))
+        story.append(Paragraph(description, body_style))
+        story.append(Spacer(1, 6))
+    story.extend([
+        Spacer(1, 6),
+        Paragraph("Recomendación operativa", styles["Heading2"]),
+        Paragraph("Antes de guardar el cierre, revisar que todas las facturas, cobros, gastos y retiros del día estén registrados. Después de guardar, usar Ver resumen para confirmar visualmente el cierre esperado, cierre real y diferencia.", body_style),
+    ])
+    doc.build(story)
+    stream.seek(0)
+    return send_file(
+        stream,
+        as_attachment=True,
+        download_name=f"instrucciones-cierre-diario-igh-{datetime.utcnow().strftime('%Y%m%d')}.pdf",
+        mimetype="application/pdf",
+    )
+
+
 def _recalculate_sale_balance(sale: IVGSale) -> None:
     total_paid = sum((payment.amount or Decimal("0.00")) for payment in sale.payments)
     gross_amount = _to_decimal(sale.gross_amount)
@@ -1505,6 +1564,12 @@ def contado():
     context = _base_context()
     context["summaries"] = summaries
     return render_template("igh/cash_list.html", **context)
+
+
+@igh_bp.route("/contado/instrucciones.pdf")
+@igh_login_required
+def contado_instrucciones_pdf():
+    return _cash_close_instructions_pdf()
 
 
 @igh_bp.route("/contado/new", methods=["GET", "POST"])
