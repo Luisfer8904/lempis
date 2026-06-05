@@ -1268,7 +1268,13 @@ def ventas_new():
         )
         _recalculate_sale_balance(sale)
         db.session.add(sale)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            flash(f"La referencia {reference_number} ya existe en otra factura.", "danger")
+            context["sale"] = None
+            return render_template("igh/sales_form.html", **context)
         flash("Factura crédito IVG registrada.", "success")
         return redirect(url_for("igh.ventas"))
 
@@ -1326,7 +1332,13 @@ def ventas_edit(sale_id: int):
         sale.reference_number = reference_number
         sale.notes = notes
         _recalculate_sale_balance(sale)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            flash(f"La referencia {reference_number} ya existe en otra factura.", "danger")
+            context["sale"] = sale
+            return render_template("igh/sales_form.html", **context)
         flash("Factura crédito IVG actualizada.", "success")
         return redirect(url_for("igh.ventas"))
 
