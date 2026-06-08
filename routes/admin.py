@@ -297,6 +297,32 @@ def usuario_delete(user_id):
     return redirect(url_for("admin.usuarios"))
 
 
+@admin_bp.route("/usuarios/<int:user_id>/reset-password", methods=["POST"])
+@login_required
+@superadmin_required
+def usuario_reset_password(user_id):
+    """Restablece la clave de un usuario cross-tenant desde el panel SuperAdmin."""
+    user = db.session.get(User, user_id)
+    if user is None:
+        abort(404)
+
+    password = request.form.get("password") or ""
+    password_confirm = request.form.get("password_confirm") or ""
+    if len(password) < 8:
+        flash("La nueva contraseña debe tener al menos 8 caracteres.", "danger")
+        return redirect(url_for("admin.usuarios"))
+    if password != password_confirm:
+        flash("La confirmación de contraseña no coincide.", "danger")
+        return redirect(url_for("admin.usuarios"))
+
+    user.set_password(password)
+    user.reset_token = None
+    user.reset_token_expires = None
+    db.session.commit()
+    flash(f"Contraseña restablecida para {user.email}.", "success")
+    return redirect(url_for("admin.usuarios"))
+
+
 @admin_bp.route("/usuarios/<int:user_id>/move", methods=["POST"])
 @login_required
 @superadmin_required
