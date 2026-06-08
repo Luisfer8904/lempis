@@ -71,10 +71,9 @@
               <button class="text-xs text-rose-400 hover:underline" title="Toggle SuperAdmin">⚡</button>
             </form>
 
-            <button type="button"
-                    onclick="openResetModal({{ u.id }}, {{ u.email|tojson }})"
-                    class="text-xs text-amber-300 hover:underline ml-2"
-                    title="Restablecer contraseña">🔑</button>
+            <a href="{{ url_for('admin.usuario_reset_password', user_id=u.id) }}"
+               class="text-xs text-amber-300 hover:underline ml-2"
+               title="Restablecer contraseña">🔑</a>
 
             {% if not u.is_owner %}
               <button onclick="openMoveModal({{ u.id }}, '{{ u.email }}', '{{ u.tenant.name if u.tenant else '' }}')"
@@ -130,51 +129,12 @@
   </div>
 </div>
 
-{# ====== MODAL RESTABLECER CONTRASEÑA ====== #}
-<div id="reset-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-  <div class="bg-slate-800 border border-amber-700 rounded-xl max-w-md w-full p-6">
-    <h3 class="text-xl font-bold text-amber-300 mb-2">🔑 Restablecer contraseña</h3>
-    <p class="text-slate-300 text-sm mb-4">Usuario: <strong id="reset-email"></strong></p>
-    <form method="POST" id="reset-form" class="space-y-3">
-      <div>
-        <label class="block text-xs text-slate-400 mb-1">Nueva contraseña temporal</label>
-        <input type="password" name="password" required minlength="8"
-               class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-amber-500" />
-      </div>
-      <div>
-        <label class="block text-xs text-slate-400 mb-1">Confirmar contraseña</label>
-        <input type="password" name="password_confirm" required minlength="8"
-               class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-amber-500" />
-      </div>
-      <p class="text-xs text-slate-400">
-        Entrega esta contraseña temporal al usuario por un canal seguro.
-      </p>
-      <div class="flex gap-3 justify-end">
-        <button type="button"
-                onclick="document.getElementById('reset-modal').classList.add('hidden')"
-                class="border border-slate-600 text-slate-300 px-4 py-2 rounded-lg hover:bg-slate-700">
-          Cancelar
-        </button>
-        <button class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-medium">
-          Restablecer
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-
 <script>
 function openMoveModal(userId, email, currentTenant) {
   document.getElementById('move-email').textContent = email;
   document.getElementById('move-current').textContent = currentTenant || '—';
   document.getElementById('move-form').action = `/admin/usuarios/${userId}/move`;
   document.getElementById('move-modal').classList.remove('hidden');
-}
-
-function openResetModal(userId, email) {
-  document.getElementById('reset-email').textContent = email;
-  document.getElementById('reset-form').action = `/admin/usuarios/${userId}/reset-password`;
-  document.getElementById('reset-modal').classList.remove('hidden');
 }
 </script>
 {% endblock %}

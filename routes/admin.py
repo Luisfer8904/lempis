@@ -297,7 +297,7 @@ def usuario_delete(user_id):
     return redirect(url_for("admin.usuarios"))
 
 
-@admin_bp.route("/usuarios/<int:user_id>/reset-password", methods=["POST"])
+@admin_bp.route("/usuarios/<int:user_id>/reset-password", methods=["GET", "POST"])
 @login_required
 @superadmin_required
 def usuario_reset_password(user_id):
@@ -305,15 +305,17 @@ def usuario_reset_password(user_id):
     user = db.session.get(User, user_id)
     if user is None:
         abort(404)
+    if request.method == "GET":
+        return render_template("admin/reset_password.html", user=user)
 
     password = request.form.get("password") or ""
     password_confirm = request.form.get("password_confirm") or ""
     if len(password) < 8:
         flash("La nueva contraseña debe tener al menos 8 caracteres.", "danger")
-        return redirect(url_for("admin.usuarios"))
+        return render_template("admin/reset_password.html", user=user)
     if password != password_confirm:
         flash("La confirmación de contraseña no coincide.", "danger")
-        return redirect(url_for("admin.usuarios"))
+        return render_template("admin/reset_password.html", user=user)
 
     user.set_password(password)
     user.reset_token = None
