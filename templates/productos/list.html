@@ -111,7 +111,7 @@
             {% endif %}
 
             <div class="mt-2 flex items-center justify-between">
-              <span class="text-lg font-bold text-slate-900">$ {{ '%.2f'|format(p.price) }}</span>
+              <span class="text-lg font-bold text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(p.price) }}</span>
               {% if p.track_stock %}
                 {% set shown_stock = p.visible_stock if p.visible_stock is defined else p.stock %}
                 {% if shown_stock <= 0 %}
@@ -198,7 +198,7 @@
               <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Producto</span>
             {% endif %}
           </td>
-          <td class="text-right font-medium">{{ '%.2f'|format(p.price) }}</td>
+          <td class="text-right font-medium">{{ tenant.currency }} {{ '%.2f'|format(p.price) }}</td>
           <td class="text-right">
             {% if p.track_stock %}{{ p.visible_stock if p.visible_stock is defined else p.stock }}{% else %}—{% endif %}
           </td>

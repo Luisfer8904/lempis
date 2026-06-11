@@ -125,7 +125,7 @@
             </div>
             <div class="p-2.5">
               <p class="font-medium text-sm leading-tight line-clamp-2">{{ p.name }}</p>
-              <p class="text-base font-bold mt-1 product-price-label">$ {{ '%.2f'|format(p.price) }}</p>
+              <p class="text-base font-bold mt-1 product-price-label">{{ tenant.currency }} {{ '%.2f'|format(p.price) }}</p>
               {% if p.track_stock %}
                 {% if p.warehouse_stock <= 0 %}
                   <p class="text-xs text-rose-600 mt-0.5">Agotado</p>
@@ -410,7 +410,7 @@ function applyPriceTierToCart() {
   document.querySelectorAll('.product-card').forEach(card => {
     const priceLabel = card.querySelector('.product-price-label');
     if (priceLabel) {
-      priceLabel.textContent = '$ ' + getPriceForTier(card, tier).toFixed(2);
+      priceLabel.textContent = fmt(getPriceForTier(card, tier));
     }
     let tag = card.querySelector('.tier-tag');
     if (tierLabel) {

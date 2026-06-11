@@ -67,12 +67,11 @@
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div class="bg-white p-4 rounded-xl shadow-sm border">
         <p class="text-xs text-slate-500 uppercase">Precio venta</p>
-        <p class="text-2xl font-bold text-indigo-600">{{ '%.2f'|format(producto.price) }}</p>
-        <p class="text-xs text-slate-400">{{ tenant.currency }}</p>
+        <p class="text-2xl font-bold text-indigo-600">{{ tenant.currency }} {{ '%.2f'|format(producto.price) }}</p>
       </div>
       <div class="bg-white p-4 rounded-xl shadow-sm border">
         <p class="text-xs text-slate-500 uppercase">Costo</p>
-        <p class="text-2xl font-bold text-slate-700">{{ '%.2f'|format(producto.cost or 0) }}</p>
+        <p class="text-2xl font-bold text-slate-700">{{ tenant.currency }} {{ '%.2f'|format(producto.cost or 0) }}</p>
         {% if producto.cost and producto.cost > 0 %}
           {% set margen = ((producto.price - producto.cost) / producto.price * 100) %}
           <p class="text-xs {% if margen >= 30 %}text-green-600{% elif margen >= 15 %}text-amber-600{% else %}text-rose-600{% endif %}">
