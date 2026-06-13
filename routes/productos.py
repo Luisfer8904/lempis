@@ -64,8 +64,7 @@ def list():
     visible_warehouses = visible_warehouses_for_user(tenant.id, current_user)
     visible_stock = stock_map_for_warehouses(tenant.id, [w.id for w in visible_warehouses])
     for product in productos:
-        warehouse_stock = int(visible_stock.get(product.id, 0))
-        product.visible_stock = max(warehouse_stock, int(product.stock or 0)) if product.track_batches else warehouse_stock
+        product.visible_stock = int(visible_stock.get(product.id, 0))
     categorias = Category.query.filter_by(tenant_id=tenant.id).order_by(Category.name).all()
     return render_template(
         "productos/list.html",
@@ -186,7 +185,7 @@ def detail(product_id):
     sync_default_warehouse_stock(tenant)
     visible_warehouses = visible_warehouses_for_user(tenant.id, current_user)
     visible_stock = stock_map_for_warehouses(tenant.id, [w.id for w in visible_warehouses]).get(prod.id, 0)
-    shown_stock = max(int(visible_stock or 0), int(prod.stock or 0)) if prod.track_batches else int(visible_stock or 0)
+    shown_stock = int(visible_stock or 0)
 
     return render_template(
         "productos/detail.html",
