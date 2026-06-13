@@ -17,6 +17,7 @@ from flask_login import login_required
 
 from models import db
 from models.catalog import Product, ProductBatch
+from services.inventory import sync_missing_batch_warehouse_stock
 from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
 
@@ -93,6 +94,8 @@ def new(product_id):
         producto.stock = (producto.stock or 0) + int(b.initial_quantity or 0)
 
         db.session.add(b)
+        db.session.flush()
+        sync_missing_batch_warehouse_stock(producto)
         db.session.commit()
         flash(f"Lote '{b.batch_number}' agregado.", "success")
         return redirect(url_for("lotes.list", product_id=producto.id))
@@ -123,6 +126,7 @@ def edit(product_id, batch_id):
 
         # Recalcular stock total del producto
         producto.stock = producto.total_stock_from_batches()
+        sync_missing_batch_warehouse_stock(producto)
 
         db.session.commit()
         flash(f"Lote '{lote.batch_number}' actualizado.", "success")

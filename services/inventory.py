@@ -3,10 +3,13 @@ Servicios de inventario y vencimientos por tenant.
 """
 from __future__ import annotations
 
+from decimal import Decimal
 from datetime import date, timedelta
 
 from models import db
 from models.catalog import ProductBatch, Product
+from models.locations import WarehouseStock
+from sqlalchemy import func
 
 
 def batches_by_status(tenant_id: int, days_ahead: int = 30) -> dict:
@@ -94,6 +97,37 @@ def recompute_all_stocks(tenant_id: int) -> int:
     count = 0
     for p in products:
         recompute_product_stock(p)
+        sync_missing_batch_warehouse_stock(p)
         count += 1
     db.session.commit()
     return count
+
+
+def sync_missing_batch_warehouse_stock(product: Product) -> int:
+    """Crea existencia en bodega principal si un lote tiene remanente sin ubicación."""
+    from services.locations import add_stock, ensure_default_locations
+
+    tenant = product.tenant
+    warehouse = ensure_default_locations(tenant)
+    synced = 0
+    batches = ProductBatch.query.filter(
+        ProductBatch.tenant_id == product.tenant_id,
+        ProductBatch.product_id == product.id,
+        ProductBatch.remaining_quantity > 0,
+    ).all()
+
+    for batch in batches:
+        warehouse_total = (
+            db.session.query(func.coalesce(func.sum(WarehouseStock.quantity), 0))
+            .filter(
+                WarehouseStock.tenant_id == product.tenant_id,
+                WarehouseStock.product_id == product.id,
+                WarehouseStock.batch_id == batch.id,
+            )
+            .scalar()
+        )
+        missing = Decimal(batch.remaining_quantity or 0) - Decimal(warehouse_total or 0)
+        if missing > 0:
+            add_stock(product.tenant_id, warehouse.id, product.id, missing, batch.id, "recalculo")
+            synced += 1
+    return synced
