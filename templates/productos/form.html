@@ -97,30 +97,91 @@
       </select>
     </div>
 
-    <div>
-      <label class="block text-sm font-medium mb-1">Precio general ({{ tenant.currency }}) *</label>
-      <input type="number" step="0.01" min="0" name="price" required
-             value="{{ '%.2f'|format(producto.price) if producto else '0.00' }}"
-             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right" />
-    </div>
-    <div>
-      <label class="block text-sm font-medium mb-1">Precio mayorista ({{ tenant.currency }})</label>
-      <input type="number" step="0.01" min="0" name="price_wholesale"
-             value="{{ '%.2f'|format(producto.price_wholesale) if producto and producto.price_wholesale is not none else ('%.2f'|format(producto.price) if producto else '0.00') }}"
-             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right" />
-    </div>
+    <div class="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <div class="mb-4 grid md:grid-cols-[1fr_220px] gap-3 md:items-end">
+        <div>
+          <h2 class="text-base font-semibold text-slate-900">Precios por tarifa</h2>
+          <p class="text-sm text-slate-500">Calcula el precio desde la utilidad o escribe el precio para ver el margen sobre costo.</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Costo base ({{ tenant.currency }})</label>
+          <input type="number" step="0.01" min="0" name="cost" id="cost-input"
+                 value="{{ '%.2f'|format(producto.cost) if producto else '0.00' }}"
+                 class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right bg-white" />
+        </div>
+      </div>
 
-    <div>
-      <label class="block text-sm font-medium mb-1">Precio especial ({{ tenant.currency }})</label>
-      <input type="number" step="0.01" min="0" name="price_special"
-             value="{{ '%.2f'|format(producto.price_special) if producto and producto.price_special is not none else ('%.2f'|format(producto.price) if producto else '0.00') }}"
-             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right" />
-    </div>
-    <div>
-      <label class="block text-sm font-medium mb-1">Costo ({{ tenant.currency }}, opcional)</label>
-      <input type="number" step="0.01" min="0" name="cost"
-             value="{{ '%.2f'|format(producto.cost) if producto else '0.00' }}"
-             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right" />
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[680px] text-sm">
+          <thead>
+            <tr class="text-left text-xs uppercase tracking-wide text-slate-500">
+              <th class="py-2 pr-3 font-semibold">Tarifa</th>
+              <th class="py-2 px-3 text-right font-semibold">Utilidad %</th>
+              <th class="py-2 px-3 text-right font-semibold">Precio ({{ tenant.currency }})</th>
+              <th class="py-2 pl-3 text-right font-semibold">Ganancia</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200">
+            <tr>
+              <td class="py-3 pr-3">
+                <p class="font-semibold text-slate-900">General</p>
+                <p class="text-xs text-slate-500">Precio estándar</p>
+              </td>
+              <td class="py-3 px-3">
+                <input type="number" step="0.01" data-margin-input="price"
+                       class="w-full px-3 py-2 border rounded-lg text-right bg-white focus:ring-2 focus:ring-indigo-500" />
+              </td>
+              <td class="py-3 px-3">
+                <input type="number" step="0.01" min="0" name="price" required data-price-input="price"
+                       value="{{ '%.2f'|format(producto.price) if producto else '0.00' }}"
+                       class="w-full px-3 py-2 border rounded-lg text-right bg-white focus:ring-2 focus:ring-indigo-500" />
+              </td>
+              <td class="py-3 pl-3 text-right">
+                <p class="font-semibold text-slate-900" data-profit-label="price">{{ tenant.currency }} 0.00</p>
+                <p class="text-xs text-slate-500" data-margin-label="price">0.00%</p>
+              </td>
+            </tr>
+            <tr>
+              <td class="py-3 pr-3">
+                <p class="font-semibold text-slate-900">Mayorista</p>
+                <p class="text-xs text-slate-500">Clientes con volumen</p>
+              </td>
+              <td class="py-3 px-3">
+                <input type="number" step="0.01" data-margin-input="price_wholesale"
+                       class="w-full px-3 py-2 border rounded-lg text-right bg-white focus:ring-2 focus:ring-indigo-500" />
+              </td>
+              <td class="py-3 px-3">
+                <input type="number" step="0.01" min="0" name="price_wholesale" data-price-input="price_wholesale"
+                       value="{{ '%.2f'|format(producto.price_wholesale) if producto and producto.price_wholesale is not none else ('%.2f'|format(producto.price) if producto else '0.00') }}"
+                       class="w-full px-3 py-2 border rounded-lg text-right bg-white focus:ring-2 focus:ring-indigo-500" />
+              </td>
+              <td class="py-3 pl-3 text-right">
+                <p class="font-semibold text-slate-900" data-profit-label="price_wholesale">{{ tenant.currency }} 0.00</p>
+                <p class="text-xs text-slate-500" data-margin-label="price_wholesale">0.00%</p>
+              </td>
+            </tr>
+            <tr>
+              <td class="py-3 pr-3">
+                <p class="font-semibold text-slate-900">Especial</p>
+                <p class="text-xs text-slate-500">Precio negociado</p>
+              </td>
+              <td class="py-3 px-3">
+                <input type="number" step="0.01" data-margin-input="price_special"
+                       class="w-full px-3 py-2 border rounded-lg text-right bg-white focus:ring-2 focus:ring-indigo-500" />
+              </td>
+              <td class="py-3 px-3">
+                <input type="number" step="0.01" min="0" name="price_special" data-price-input="price_special"
+                       value="{{ '%.2f'|format(producto.price_special) if producto and producto.price_special is not none else ('%.2f'|format(producto.price) if producto else '0.00') }}"
+                       class="w-full px-3 py-2 border rounded-lg text-right bg-white focus:ring-2 focus:ring-indigo-500" />
+              </td>
+              <td class="py-3 pl-3 text-right">
+                <p class="font-semibold text-slate-900" data-profit-label="price_special">{{ tenant.currency }} 0.00</p>
+                <p class="text-xs text-slate-500" data-margin-label="price_special">0.00%</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <div>
@@ -158,6 +219,57 @@
 </form>
 
 <script>
+const PRODUCT_CURRENCY = "{{ tenant.currency }}";
+
+function productNumber(value) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function productMoney(value) {
+  return `${PRODUCT_CURRENCY} ${Number(value || 0).toFixed(2)}`;
+}
+
+function updatePriceProfit(tier) {
+  const cost = productNumber(document.getElementById('cost-input')?.value);
+  const priceInput = document.querySelector(`[data-price-input="${tier}"]`);
+  const marginInput = document.querySelector(`[data-margin-input="${tier}"]`);
+  const profitLabel = document.querySelector(`[data-profit-label="${tier}"]`);
+  const marginLabel = document.querySelector(`[data-margin-label="${tier}"]`);
+  const price = productNumber(priceInput?.value);
+  const profit = price - cost;
+  const margin = cost > 0 ? (profit / cost) * 100 : 0;
+  if (marginInput && document.activeElement !== marginInput) marginInput.value = margin.toFixed(2);
+  if (profitLabel) profitLabel.textContent = productMoney(profit);
+  if (marginLabel) {
+    marginLabel.textContent = cost > 0 ? `${margin.toFixed(2)}% sobre costo` : 'Define costo';
+    marginLabel.classList.toggle('text-rose-600', profit < 0);
+    marginLabel.classList.toggle('text-emerald-600', profit > 0);
+    marginLabel.classList.toggle('text-slate-500', profit === 0);
+  }
+}
+
+function applyMarginToPrice(tier) {
+  const cost = productNumber(document.getElementById('cost-input')?.value);
+  const margin = productNumber(document.querySelector(`[data-margin-input="${tier}"]`)?.value);
+  const priceInput = document.querySelector(`[data-price-input="${tier}"]`);
+  if (priceInput && cost > 0) priceInput.value = (cost * (1 + margin / 100)).toFixed(2);
+  updatePriceProfit(tier);
+}
+
+function updateAllPriceProfits() {
+  ['price', 'price_wholesale', 'price_special'].forEach(updatePriceProfit);
+}
+
+document.getElementById('cost-input')?.addEventListener('input', updateAllPriceProfits);
+document.querySelectorAll('[data-price-input]').forEach((input) => {
+  input.addEventListener('input', () => updatePriceProfit(input.dataset.priceInput));
+});
+document.querySelectorAll('[data-margin-input]').forEach((input) => {
+  input.addEventListener('input', () => applyMarginToPrice(input.dataset.marginInput));
+});
+updateAllPriceProfits();
+
 // Preview de imagen al seleccionarla
 document.getElementById('image-input').addEventListener('change', (e) => {
   const file = e.target.files[0];
