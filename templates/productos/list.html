@@ -31,8 +31,9 @@
 {# ===== Búsqueda + toggle de vista ===== #}
 <div class="flex flex-col md:flex-row gap-3 mb-4">
   <form method="GET" class="flex gap-2 flex-1">
-    <input type="search" name="q" value="{{ q }}"
+    <input type="search" name="q" value="{{ q }}" id="product-list-search"
            placeholder="Buscar producto, SKU o descripción..."
+           autocomplete="off"
            class="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white" />
     {% if selected_category %}
       <input type="hidden" name="category_id" value="{{ selected_category }}" />
@@ -87,7 +88,8 @@
   {% if productos %}
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
       {% for p in productos %}
-        <div class="bg-white rounded-xl border shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+        <div class="bg-white rounded-xl border shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col product-list-card"
+             data-search="{{ (p.name ~ ' ' ~ p.sku ~ ' ' ~ (p.description or '') ~ ' ' ~ (p.category.name if p.category else '')) | lower }}">
           {# Imagen — click va al detalle #}
           <a href="{{ url_for('productos.detail', product_id=p.id) }}"
              class="aspect-square bg-slate-50 flex items-center justify-center overflow-hidden">
@@ -173,7 +175,8 @@
       </thead>
       <tbody>
         {% for p in productos %}
-        <tr class="hover:bg-slate-50">
+        <tr class="hover:bg-slate-50 product-list-row"
+            data-search="{{ (p.name ~ ' ' ~ p.sku ~ ' ' ~ (p.description or '') ~ ' ' ~ (p.category.name if p.category else '')) | lower }}">
           <td>
             {% if p.image_url %}
               <img src="{{ p.image_url }}" class="h-10 w-10 rounded object-cover border" />
@@ -235,6 +238,25 @@
 {% endif %}
 
 {% if productos %}
-  <p class="text-sm text-slate-500 mt-3">{{ productos|length }} producto(s)</p>
+  <p class="text-sm text-slate-500 mt-3"><span id="product-visible-count">{{ productos|length }}</span> producto(s)</p>
 {% endif %}
+<script>
+(() => {
+  const input = document.getElementById('product-list-search');
+  const count = document.getElementById('product-visible-count');
+  const items = Array.from(document.querySelectorAll('.product-list-card, .product-list-row'));
+  function filterProducts() {
+    const term = (input?.value || '').trim().toLowerCase();
+    let visible = 0;
+    items.forEach((item) => {
+      const match = !term || (item.dataset.search || '').includes(term);
+      item.classList.toggle('hidden', !match);
+      if (match) visible += 1;
+    });
+    if (count) count.textContent = visible;
+  }
+  input?.addEventListener('input', filterProducts);
+  filterProducts();
+})();
+</script>
 {% endblock %}

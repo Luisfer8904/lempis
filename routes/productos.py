@@ -15,6 +15,7 @@ from services.plan_limits import check_can_create_product, PlanLimitError
 from services.locations import (
     product_stock_rows,
     stock_map_for_warehouses,
+    sync_default_warehouse_stock,
     visible_warehouses_for_user,
 )
 from services.uploads import save_product_image, delete_product_image
@@ -46,6 +47,7 @@ def list():
     q = (request.args.get("q") or "").strip()
     category_id = request.args.get("category_id", type=int)
     view = request.args.get("view", "grid")  # grid | table
+    sync_default_warehouse_stock(tenant)
 
     query = Product.query.filter_by(tenant_id=tenant.id)
     if q:
@@ -62,7 +64,8 @@ def list():
     visible_warehouses = visible_warehouses_for_user(tenant.id, current_user)
     visible_stock = stock_map_for_warehouses(tenant.id, [w.id for w in visible_warehouses])
     for product in productos:
-        product.visible_stock = int(visible_stock.get(product.id, 0))
+        warehouse_stock = int(visible_stock.get(product.id, 0))
+        product.visible_stock = max(warehouse_stock, int(product.stock or 0)) if product.track_batches else warehouse_stock
     categorias = Category.query.filter_by(tenant_id=tenant.id).order_by(Category.name).all()
     return render_template(
         "productos/list.html",
