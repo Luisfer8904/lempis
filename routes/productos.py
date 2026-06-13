@@ -183,15 +183,17 @@ def detail(product_id):
             Purchase.status == "received",
         ).scalar() or 0
     )
+    sync_default_warehouse_stock(tenant)
     visible_warehouses = visible_warehouses_for_user(tenant.id, current_user)
     visible_stock = stock_map_for_warehouses(tenant.id, [w.id for w in visible_warehouses]).get(prod.id, 0)
+    shown_stock = max(int(visible_stock or 0), int(prod.stock or 0)) if prod.track_batches else int(visible_stock or 0)
 
     return render_template(
         "productos/detail.html",
         producto=prod,
         lotes=lotes,
         stock_rows=product_stock_rows(tenant.id, prod.id),
-        visible_stock=int(visible_stock or 0),
+        visible_stock=shown_stock,
         stock_scope=current_user.branch.name if getattr(current_user, "branch", None) else "Toda la empresa",
         ultimas_compras=ultimas_compras,
         ultimas_ventas=ultimas_ventas,

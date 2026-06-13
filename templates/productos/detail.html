@@ -83,8 +83,8 @@
         <p class="text-xs text-slate-500 uppercase">Stock</p>
         {% if producto.track_stock %}
           <p class="text-2xl font-bold
-                    {% if producto.stock <= 0 %}text-rose-600
-                    {% elif producto.stock <= 5 %}text-amber-600
+                    {% if visible_stock <= 0 %}text-rose-600
+                    {% elif visible_stock <= 5 %}text-amber-600
                     {% else %}text-green-600{% endif %}">
             {{ visible_stock }}
           </p>
