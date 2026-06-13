@@ -69,8 +69,16 @@ def visible_warehouses_for_user(tenant_id: int, user=None, include_all: bool = F
 
 
 def sale_warehouses_for_user(tenant_id: int, user=None) -> list[Warehouse]:
-    """Bodegas permitidas para facturar. Un usuario asignado a sede solo factura desde esa sede."""
-    return visible_warehouses_for_user(tenant_id, user=user, include_all=False)
+    """Bodegas permitidas para facturar.
+
+    Si el usuario tiene sede asignada, se usa esa sede cuando tiene bodegas activas.
+    Cuando no hay bodegas visibles para esa sede, se cae a las bodegas activas del tenant
+    para mantener consistente la bodega que se muestra en venta con la validacion al cobrar.
+    """
+    warehouses = visible_warehouses_for_user(tenant_id, user=user, include_all=False)
+    if warehouses:
+        return warehouses
+    return active_warehouses(tenant_id)
 
 
 def can_user_sell_from_warehouse(tenant_id: int, user, warehouse_id) -> bool:
