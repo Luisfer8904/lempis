@@ -358,7 +358,9 @@ function addToCart(btn) {
   const existing = cart.get(id);
   if (existing) {
     existing.qty += 1;
-    existing.price = getPriceForTier(existing.basePrices, tier);
+    if (!existing.customPrice) {
+      existing.price = getPriceForTier(existing.basePrices, tier);
+    }
   } else {
     cart.set(id, {
       id,
@@ -373,6 +375,7 @@ function addToCart(btn) {
       tax: Number.parseFloat(btn.dataset.tax || '0'),
       image: btn.dataset.image,
       qty: 1,
+      customPrice: false,
     });
   }
   renderCart();
@@ -401,11 +404,29 @@ function clearCart() {
   renderCart();
 }
 
+function editCartPrice(id) {
+  const item = cart.get(id);
+  if (!item) return;
+  const value = prompt('Nuevo precio unitario', Number(item.price).toFixed(2));
+  if (value === null) return;
+  const normalized = value.replace(',', '.').trim();
+  const price = Number.parseFloat(normalized);
+  if (!Number.isFinite(price) || price < 0) {
+    alert('Ingresa un precio válido.');
+    return;
+  }
+  item.price = Number(price.toFixed(2));
+  item.customPrice = true;
+  renderCart();
+}
+
 function applyPriceTierToCart() {
   const tier = getSelectedTier();
   const tierLabel = {general: '', mayorista: 'Mayorista', especial: 'Especial'}[tier] || '';
   cart.forEach(item => {
-    item.price = getPriceForTier(item.basePrices, tier);
+    if (!item.customPrice) {
+      item.price = getPriceForTier(item.basePrices, tier);
+    }
   });
   document.querySelectorAll('.product-card').forEach(card => {
     const priceLabel = card.querySelector('.product-price-label');
@@ -497,7 +518,12 @@ function renderCart() {
       </div>
       <div class="flex-1 min-w-0">
         <p class="text-sm font-medium truncate">${item.name}</p>
-        <p class="text-xs text-slate-500">${fmt(item.price)} c/u</p>
+        <button type="button" onclick="editCartPrice('${item.id}')"
+                class="text-left text-xs text-indigo-600 hover:text-indigo-800 hover:underline"
+                title="Cambiar precio de venta">
+          ${fmt(item.price)} c/u
+        </button>
+        ${item.customPrice ? '<span class="ml-1 text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">Manual</span>' : ''}
       </div>
       <div class="flex items-center gap-1">
         <button type="button" onclick="changeQty('${item.id}', -1)"
