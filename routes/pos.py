@@ -125,7 +125,12 @@ def cobrar():
             ).first()
 
         payment_method = request.form.get("payment_method", "efectivo")
+        default_warehouse = sync_default_warehouse_stock(tenant)
+        warehouses = sale_warehouses_for_user(tenant.id, current_user) or [default_warehouse]
+        allowed_warehouse_ids = {w.id for w in warehouses}
         warehouse_id = request.form.get("warehouse_id", type=int)
+        if warehouse_id not in allowed_warehouse_ids:
+            warehouse_id = warehouses[0].id if warehouses else None
         if not can_user_sell_from_warehouse(tenant.id, current_user, warehouse_id):
             flash("No puedes facturar desde una bodega de otra sede.", "warning")
             return redirect(url_for("pos.quick_sale"))
