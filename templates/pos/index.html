@@ -96,7 +96,7 @@
 
     {# Grid de productos #}
     {% if productos %}
-      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3" id="products-grid">
+      <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3" id="products-grid">
         {% for p in productos %}
           <button type="button"
                   data-id="{{ p.id }}"
