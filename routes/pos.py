@@ -65,8 +65,6 @@ def quick_sale():
             Product.name.ilike(like),
             Product.sku.ilike(like),
         ))
-    if category_id:
-        productos_q = productos_q.filter_by(category_id=category_id)
     productos = productos_q.order_by(Product.name.asc()).all()
     stock_map = stock_map_for_warehouse(tenant.id, selected_warehouse_id)
     for product in productos:

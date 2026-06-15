@@ -53,9 +53,6 @@
              placeholder="🔍 Buscar producto por nombre, SKU o categoría — filtra mientras escribes"
              autocomplete="off"
              class="w-full px-4 py-3 pr-12 border rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white text-sm" />
-      {% if selected_category %}
-        <input type="hidden" name="category_id" value="{{ selected_category }}" />
-      {% endif %}
       <input type="hidden" name="warehouse_id" value="{{ selected_warehouse_id }}" />
       <button type="button" id="clear-search"
               onclick="document.getElementById('product-search').value=''; filterProducts(); this.classList.add('hidden');"
@@ -69,18 +66,20 @@
     {# Tabs de categorías estilo Treinta #}
     {% if categorias %}
     <div class="flex flex-wrap gap-2 overflow-x-auto pb-1">
-      <a href="{{ url_for('pos.quick_sale', q=q, warehouse_id=selected_warehouse_id) }}"
-         class="px-4 py-1.5 rounded-full text-sm whitespace-nowrap
+      <button type="button"
+         data-category-id=""
+         class="category-chip px-4 py-1.5 rounded-full text-sm whitespace-nowrap
                 {% if not selected_category %}
                   bg-amber-400 text-slate-900 font-medium
                 {% else %}
                   bg-white border text-slate-600 hover:bg-slate-50
                 {% endif %}">
         Todos
-      </a>
+      </button>
       {% for c in categorias %}
-        <a href="{{ url_for('pos.quick_sale', q=q, category_id=c.id, warehouse_id=selected_warehouse_id) }}"
-           class="px-4 py-1.5 rounded-full text-sm whitespace-nowrap flex items-center gap-2
+        <button type="button"
+           data-category-id="{{ c.id }}"
+           class="category-chip px-4 py-1.5 rounded-full text-sm whitespace-nowrap flex items-center gap-2
                   {% if selected_category == c.id %}
                     bg-amber-400 text-slate-900 font-medium
                   {% else %}
@@ -90,7 +89,7 @@
             <span class="inline-block w-2 h-2 rounded-full" style="background: {{ c.color }}"></span>
           {% endif %}
           {{ c.name }}
-        </a>
+        </button>
       {% endfor %}
     </div>
     {% endif %}
@@ -109,6 +108,7 @@
                   data-tax="{{ (p.tax_config.rate if p.tax_config else 0) }}"
                   data-image="{{ p.image_url or '' }}"
                   data-stock="{{ p.warehouse_stock if p.track_stock else '' }}"
+                  data-category-id="{{ p.category_id or '' }}"
                   data-search="{{ (p.name ~ ' ' ~ p.sku ~ ' ' ~ (p.category.name if p.category else '')) | lower }}"
                   onclick="addToCart(this)"
                   class="bg-white rounded-xl border hover:border-indigo-400 hover:shadow-md transition
@@ -313,6 +313,7 @@ const TENANT_CURRENCY = "{{ tenant.currency }}";
 const cart = new Map();
 let checkoutConfirmed = false;
 let pendingSubmitter = null;
+let selectedCategory = "{{ selected_category or '' }}";
 
 function fmt(n) { return TENANT_CURRENCY + " " + Number(n).toFixed(2); }
 function getCartTotals() {
@@ -467,7 +468,9 @@ function filterProducts() {
   let visible = 0;
   document.querySelectorAll('.product-card').forEach(card => {
     const haystack = card.dataset.search || '';
-    const match = !term || haystack.includes(term);
+    const categoryMatch = !selectedCategory || card.dataset.categoryId === selectedCategory;
+    const searchMatch = !term || haystack.includes(term);
+    const match = categoryMatch && searchMatch;
     card.classList.toggle('hidden', !match);
     if (match) visible += 1;
   });
@@ -476,7 +479,22 @@ function filterProducts() {
   if (clearBtn) clearBtn.classList.toggle('hidden', !term);
   // mensaje "sin resultados"
   const emptyMsg = document.getElementById('search-empty');
-  if (emptyMsg) emptyMsg.classList.toggle('hidden', visible !== 0 || !term);
+  if (emptyMsg) emptyMsg.classList.toggle('hidden', visible !== 0 || (!term && !selectedCategory));
+}
+
+function setCategoryFilter(categoryId) {
+  selectedCategory = String(categoryId || '');
+  document.querySelectorAll('.category-chip').forEach(chip => {
+    const active = (chip.dataset.categoryId || '') === selectedCategory;
+    chip.classList.toggle('bg-amber-400', active);
+    chip.classList.toggle('text-slate-900', active);
+    chip.classList.toggle('font-medium', active);
+    chip.classList.toggle('bg-white', !active);
+    chip.classList.toggle('border', !active);
+    chip.classList.toggle('text-slate-600', !active);
+    chip.classList.toggle('hover:bg-slate-50', !active);
+  });
+  filterProducts();
 }
 
 function renderCart() {
@@ -640,6 +658,9 @@ document.getElementById('checkout-form').addEventListener('submit', e => {
 
 document.getElementById('customer-select')?.addEventListener('change', syncTierFromCustomer);
 document.getElementById('product-search')?.addEventListener('input', filterProducts);
+document.querySelectorAll('.category-chip').forEach(chip => {
+  chip.addEventListener('click', () => setCategoryFilter(chip.dataset.categoryId || ''));
+});
 
 // Chips de tarifa
 document.querySelectorAll('.tier-chip').forEach(chip => {
@@ -651,7 +672,7 @@ document.querySelectorAll('.tier-chip').forEach(chip => {
 
 setSelectedTier('general');
 syncTierFromCustomer();
-filterProducts();
+setCategoryFilter(selectedCategory);
 renderCart();
 updatePaymentFields();
 </script>
