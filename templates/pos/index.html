@@ -647,7 +647,7 @@ document.getElementById('checkout-form').addEventListener('submit', e => {
   }
 
   const method = document.getElementById('payment-method').value;
-  if (!checkoutConfirmed && method !== 'credito') {
+  if (!checkoutConfirmed) {
     e.preventDefault();
     pendingSubmitter = e.submitter;
     openCheckoutModal();
