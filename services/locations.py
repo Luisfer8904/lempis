@@ -214,19 +214,45 @@ def adjust_stock_exit(tenant_id: int, warehouse_id: int, product_id: int, qty, b
     if product is None or warehouse is None:
         raise ValueError("Selecciona producto y bodega válidos.")
 
-    stock = get_or_create_stock(tenant_id, warehouse_id, product_id, batch_id)
-    if Decimal(stock.quantity or 0) < quantity:
-        raise ValueError("La bodega no tiene suficiente inventario para esta salida.")
-
     if batch_id:
+        stock = get_or_create_stock(tenant_id, warehouse_id, product_id, batch_id)
+        if Decimal(stock.quantity or 0) < quantity:
+            raise ValueError("La bodega no tiene suficiente inventario para esta salida.")
         batch = ProductBatch.query.filter_by(id=batch_id, tenant_id=tenant_id, product_id=product_id).first()
         if batch is None:
             raise ValueError("Selecciona un lote válido para este producto.")
         if Decimal(batch.remaining_quantity or 0) < quantity:
             raise ValueError("El lote no tiene suficiente inventario para esta salida.")
         batch.remaining_quantity = Decimal(batch.remaining_quantity or 0) - quantity
+        stock.subtract(quantity)
+    else:
+        stocks = (
+            WarehouseStock.query
+            .filter_by(tenant_id=tenant_id, warehouse_id=warehouse_id, product_id=product_id)
+            .filter(WarehouseStock.quantity > 0)
+            .order_by(WarehouseStock.batch_id.is_(None), WarehouseStock.batch_id.asc(), WarehouseStock.id.asc())
+            .all()
+        )
+        available = sum(Decimal(row.quantity or 0) for row in stocks)
+        if available < quantity:
+            raise ValueError("La bodega no tiene suficiente inventario para esta salida.")
 
-    stock.subtract(quantity)
+        remaining = quantity
+        for stock in stocks:
+            if remaining <= 0:
+                break
+            consume = min(Decimal(stock.quantity or 0), remaining)
+            stock.subtract(consume)
+            if stock.batch_id:
+                batch = ProductBatch.query.filter_by(
+                    id=stock.batch_id,
+                    tenant_id=tenant_id,
+                    product_id=product_id,
+                ).first()
+                if batch:
+                    batch.remaining_quantity = max(Decimal(0), Decimal(batch.remaining_quantity or 0) - consume)
+            remaining -= consume
+
     if product.track_stock:
         product.stock = max(0, int(Decimal(product.stock or 0) - quantity))
     _movement(tenant_id, product_id, batch_id, warehouse_id, None, quantity, "faltante_ajuste", "inventario_fisico", notes)
@@ -251,13 +277,35 @@ def transfer_stock(
     if source is None or target_warehouse is None:
         raise ValueError("Selecciona bodegas válidas y activas.")
 
-    available = get_or_create_stock(tenant_id, source_warehouse_id, product_id, batch_id)
-    if Decimal(available.quantity or 0) < quantity:
-        raise ValueError("La bodega origen no tiene suficiente inventario.")
+    if batch_id:
+        available = get_or_create_stock(tenant_id, source_warehouse_id, product_id, batch_id)
+        if Decimal(available.quantity or 0) < quantity:
+            raise ValueError("La bodega origen no tiene suficiente inventario.")
+        available.subtract(quantity)
+        target = get_or_create_stock(tenant_id, target_warehouse_id, product_id, batch_id)
+        target.add(quantity)
+    else:
+        stocks = (
+            WarehouseStock.query
+            .filter_by(tenant_id=tenant_id, warehouse_id=source_warehouse_id, product_id=product_id)
+            .filter(WarehouseStock.quantity > 0)
+            .order_by(WarehouseStock.batch_id.is_(None), WarehouseStock.batch_id.asc(), WarehouseStock.id.asc())
+            .all()
+        )
+        available = sum(Decimal(row.quantity or 0) for row in stocks)
+        if available < quantity:
+            raise ValueError("La bodega origen no tiene suficiente inventario.")
 
-    available.subtract(quantity)
-    target = get_or_create_stock(tenant_id, target_warehouse_id, product_id, batch_id)
-    target.add(quantity)
+        remaining = quantity
+        for source_stock in stocks:
+            if remaining <= 0:
+                break
+            moved = min(Decimal(source_stock.quantity or 0), remaining)
+            source_stock.subtract(moved)
+            target = get_or_create_stock(tenant_id, target_warehouse_id, product_id, source_stock.batch_id)
+            target.add(moved)
+            remaining -= moved
+
     _movement(
         tenant_id,
         product_id,
