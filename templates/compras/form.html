@@ -88,7 +88,7 @@
       </button>
     </div>
 
-    <div class="overflow-x-auto">
+    <div class="overflow-x-auto overflow-y-visible">
       <table class="w-full text-sm" id="items-table">
         <thead class="bg-slate-50 border-b text-xs">
           <tr>
@@ -231,17 +231,17 @@ function enhanceProductCombobox(select) {
   input.type = "search";
   input.autocomplete = "off";
   input.placeholder = "Buscar producto...";
-  input.className = "w-full px-2 py-1 pr-8 border rounded text-sm bg-white focus:ring-2 focus:ring-indigo-500";
+  input.className = "w-full px-3 py-2 pr-9 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500";
   const selected = select.options[select.selectedIndex];
   input.value = selected && selected.value ? selected.textContent.trim() : "";
 
   const toggle = document.createElement("button");
   toggle.type = "button";
-  toggle.className = "absolute right-2 top-1/2 -translate-y-1/2 text-slate-400";
+  toggle.className = "absolute right-3 top-1/2 -translate-y-1/2 text-slate-400";
   toggle.textContent = "⌄";
 
   const menu = document.createElement("div");
-  menu.className = "hidden absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-white shadow-lg";
+  menu.className = "hidden absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border bg-white shadow-lg";
 
   function renderOptions() {
     const term = input.value.trim().toLowerCase();
@@ -277,6 +277,7 @@ function enhanceProductCombobox(select) {
     menu.classList.remove("hidden");
   });
   input.addEventListener("focus", () => {
+    input.select();
     renderOptions();
     menu.classList.remove("hidden");
   });
