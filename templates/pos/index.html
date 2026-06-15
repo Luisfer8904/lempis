@@ -128,11 +128,11 @@
               <p class="text-base font-bold mt-1 product-price-label">{{ tenant.currency }} {{ '%.2f'|format(p.price) }}</p>
               {% if p.track_stock %}
                 {% if p.warehouse_stock <= 0 %}
-                  <p class="text-xs text-rose-600 mt-0.5">Agotado</p>
+                  <p class="text-sm font-medium text-rose-600 mt-1">Agotado</p>
                 {% elif p.warehouse_stock <= 5 %}
-                  <p class="text-xs text-amber-600 mt-0.5">{{ p.warehouse_stock }} disponibles</p>
+                  <p class="text-sm font-medium text-amber-600 mt-1">{{ p.warehouse_stock }} disponibles</p>
                 {% else %}
-                  <p class="text-xs text-slate-500 mt-0.5">{{ p.warehouse_stock }} disp.</p>
+                  <p class="text-sm font-medium text-slate-600 mt-1">{{ p.warehouse_stock }} disp.</p>
                 {% endif %}
               {% endif %}
             </div>
