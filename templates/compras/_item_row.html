@@ -15,7 +15,7 @@
         </option>
       {% endfor %}
     </select>
-    <input type="text" name="item_description[]" class="item-desc w-full px-2 py-1 border rounded text-sm mt-1"
+    <input type="hidden" name="item_description[]" class="item-desc"
            value="{{ item.description }}" />
     <input type="hidden" name="item_product_id[]" class="item-product-id" value="{{ item.product_id or '' }}" />
   </td>

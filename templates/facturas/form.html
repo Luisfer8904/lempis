@@ -373,8 +373,12 @@ function enhanceProductCombobox(select) {
     renderOptions();
     menu.classList.remove("hidden");
   });
+  input.addEventListener("pointerdown", () => {
+    positionMenu();
+    renderOptions();
+    menu.classList.remove("hidden");
+  });
   input.addEventListener("focus", () => {
-    input.select();
     positionMenu();
     renderOptions();
     menu.classList.remove("hidden");

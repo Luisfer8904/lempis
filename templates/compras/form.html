@@ -174,7 +174,7 @@
           </option>
         {% endfor %}
       </select>
-      <input type="text" name="item_description[]" class="item-desc w-full px-2 py-1 border rounded text-sm mt-1"
+      <input type="hidden" name="item_description[]" class="item-desc"
              placeholder="Descripción" />
       <input type="hidden" name="item_product_id[]" class="item-product-id" />
     </td>
@@ -284,8 +284,12 @@ function enhanceProductCombobox(select) {
     renderOptions();
     menu.classList.remove("hidden");
   });
+  input.addEventListener("pointerdown", () => {
+    positionMenu();
+    renderOptions();
+    menu.classList.remove("hidden");
+  });
   input.addEventListener("focus", () => {
-    input.select();
     positionMenu();
     renderOptions();
     menu.classList.remove("hidden");
