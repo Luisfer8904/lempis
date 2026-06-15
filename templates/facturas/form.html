@@ -330,7 +330,14 @@ function enhanceProductCombobox(select) {
   toggle.textContent = "⌄";
 
   const menu = document.createElement("div");
-  menu.className = "hidden absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border bg-white shadow-lg";
+  menu.className = "hidden fixed z-[9999] max-h-64 overflow-y-auto rounded-lg border bg-white shadow-lg";
+
+  function positionMenu() {
+    const rect = input.getBoundingClientRect();
+    menu.style.left = rect.left + "px";
+    menu.style.top = (rect.bottom + 4) + "px";
+    menu.style.width = rect.width + "px";
+  }
 
   function renderOptions() {
     const term = input.value.trim().toLowerCase();
@@ -362,17 +369,20 @@ function enhanceProductCombobox(select) {
   }
 
   input.addEventListener("input", () => {
+    positionMenu();
     renderOptions();
     menu.classList.remove("hidden");
   });
   input.addEventListener("focus", () => {
     input.select();
+    positionMenu();
     renderOptions();
     menu.classList.remove("hidden");
   });
   input.addEventListener("blur", () => setTimeout(() => menu.classList.add("hidden"), 120));
   toggle.addEventListener("click", () => {
     input.focus();
+    positionMenu();
     renderOptions();
     menu.classList.toggle("hidden");
   });
@@ -380,7 +390,7 @@ function enhanceProductCombobox(select) {
   select.parentNode.insertBefore(wrapper, select);
   wrapper.appendChild(input);
   wrapper.appendChild(toggle);
-  wrapper.appendChild(menu);
+  document.body.appendChild(menu);
 }
 
 function onProductChange(select) {
