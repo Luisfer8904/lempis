@@ -1,6 +1,8 @@
 {# Fila de detalle pre-rellenada al editar #}
 <tr class="border-b item-row">
   <td class="px-2 py-2">
+    <input type="search" class="product-select-filter w-full px-2 py-1 border rounded text-xs mb-1"
+           placeholder="Filtrar producto..." oninput="filterProductSelect(this)" />
     <select class="item-product w-full px-2 py-1 border rounded text-sm" onchange="onProductChange(this)">
       <option value="">— Manual —</option>
       {% for p in productos %}

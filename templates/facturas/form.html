@@ -232,6 +232,8 @@
 <template id="line-template">
   <tr class="border-b item-row">
     <td class="px-2 py-2">
+      <input type="search" class="product-select-filter w-full px-2 py-1 border rounded text-xs mb-1"
+             placeholder="Filtrar producto..." oninput="filterProductSelect(this)" />
       <select class="item-product w-full px-2 py-1 border rounded text-sm" onchange="onProductChange(this)">
         <option value="">— Manual —</option>
         {% for p in productos %}
@@ -306,6 +308,19 @@ function addLine() {
 function removeLine(btn) {
   btn.closest("tr").remove();
   recalc();
+}
+
+function filterProductSelect(input) {
+  const term = (input.value || "").trim().toLowerCase();
+  const select = input.parentElement.querySelector(".item-product");
+  if (!select) return;
+  Array.from(select.options).forEach(option => {
+    if (!option.value) {
+      option.hidden = false;
+      return;
+    }
+    option.hidden = term && !option.textContent.toLowerCase().includes(term);
+  });
 }
 
 function onProductChange(select) {

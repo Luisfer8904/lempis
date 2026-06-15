@@ -140,6 +140,10 @@
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Producto *</label>
+        <input type="search" data-filter-select="adjustment-product-select"
+               class="w-full px-3 py-2 border rounded-lg text-sm mb-2"
+               placeholder="Buscar por producto o SKU..."
+               oninput="filterSelectOptions(this)" />
         <select name="adjustment_product_id" required class="w-full px-3 py-2 border rounded-lg bg-white">
           <option value="">Seleccionar producto</option>
           {% for product in products %}
@@ -182,6 +186,10 @@
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Producto *</label>
+        <input type="search" data-filter-select="transfer-product-select"
+               class="w-full px-3 py-2 border rounded-lg text-sm mb-2"
+               placeholder="Buscar producto en inventario..."
+               oninput="filterSelectOptions(this)" />
         <select name="product_id" required class="w-full px-3 py-2 border rounded-lg bg-white">
           <option value="">Seleccionar producto</option>
           {% for row in stock_rows %}
@@ -307,6 +315,19 @@
 </section>
 
 <script>
+function filterSelectOptions(input) {
+  const select = input.parentElement.querySelector("select");
+  const term = (input.value || "").trim().toLowerCase();
+  if (!select) return;
+  Array.from(select.options).forEach(option => {
+    if (!option.value) {
+      option.hidden = false;
+      return;
+    }
+    option.hidden = term && !option.textContent.toLowerCase().includes(term);
+  });
+}
+
 const productSelect = document.querySelector('select[name="product_id"]');
 productSelect?.addEventListener('change', () => {
   const option = productSelect.options[productSelect.selectedIndex];
