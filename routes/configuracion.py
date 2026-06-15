@@ -12,6 +12,7 @@ from models.printing import TenantPrintSettings
 from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
 from services.data_excel import build_export_workbook, build_template_workbook, import_workbook
+from services.uploads import is_allowed_image, save_tenant_logo
 
 configuracion_bp = Blueprint("configuracion", __name__, url_prefix="/app/configuracion")
 
@@ -48,6 +49,14 @@ def empresa():
         tenant.phone = (request.form.get("phone") or "").strip() or None
         tenant.address = (request.form.get("address") or "").strip() or None
         tenant.logo_url = (request.form.get("logo_url") or "").strip() or None
+        logo_file = request.files.get("logo_file")
+        if logo_file and logo_file.filename:
+            if not is_allowed_image(logo_file.filename):
+                flash("El logo debe ser una imagen PNG, JPG, JPEG, GIF, WEBP o BMP.", "danger")
+                return redirect(url_for("configuracion.empresa"))
+            saved_logo_url = save_tenant_logo(logo_file, tenant.id)
+            if saved_logo_url:
+                tenant.logo_url = saved_logo_url
         tenant.country_code = (request.form.get("country_code") or tenant.country_code).strip()
         tenant.currency = (request.form.get("currency") or tenant.currency).strip()
         db.session.commit()

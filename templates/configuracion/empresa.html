@@ -5,11 +5,35 @@
 {% block content %}
 {% include "configuracion/_tabs.html" %}
 
-<form method="POST" class="bg-white p-6 rounded-xl shadow-sm border max-w-3xl">
+<form method="POST" enctype="multipart/form-data" class="bg-white p-6 rounded-xl shadow-sm border max-w-3xl">
   <h2 class="text-lg font-semibold mb-1">Datos de la empresa</h2>
   <p class="text-sm text-slate-500 mb-6">Estos datos aparecerán en tus facturas y comunicaciones.</p>
 
   <div class="grid md:grid-cols-2 gap-4">
+    <div class="md:col-span-2 flex flex-col sm:flex-row gap-4 rounded-xl border bg-slate-50 p-4">
+      <div class="h-24 w-24 rounded-lg border bg-white flex items-center justify-center overflow-hidden shrink-0">
+        <img
+          src="{{ tenant.logo_url or url_for('static', filename='img/lempis-logo.png') }}"
+          alt="Logo de la empresa"
+          class="max-h-full max-w-full object-contain"
+        />
+      </div>
+      <div class="flex-1 space-y-3">
+        <div>
+          <label class="block text-sm font-medium mb-1">Logo de la empresa</label>
+          <input type="file" name="logo_file" accept="image/*"
+                 class="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-4 file:py-2 file:font-semibold file:text-indigo-700 hover:file:bg-indigo-100" />
+          <p class="text-xs text-slate-500 mt-1">Si no subes un logo, se usará el logo de Lempis por defecto.</p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1 text-slate-600">URL del logo</label>
+          <input name="logo_url" value="{{ tenant.logo_url or '' }}"
+                 placeholder="/static/uploads/logos/... o https://..."
+                 class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm" />
+        </div>
+      </div>
+    </div>
+
     <div class="md:col-span-2">
       <label class="block text-sm font-medium mb-1">Nombre comercial *</label>
       <input name="name" required value="{{ tenant.name }}"
@@ -40,12 +64,6 @@
       <label class="block text-sm font-medium mb-1">Teléfono</label>
       <input name="phone" value="{{ tenant.phone or '' }}"
              placeholder="+504 9999-9999"
-             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
-    </div>
-    <div>
-      <label class="block text-sm font-medium mb-1">URL del logo</label>
-      <input name="logo_url" value="{{ tenant.logo_url or '' }}"
-             placeholder="https://..."
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
     </div>
 

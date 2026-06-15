@@ -202,9 +202,7 @@
 
   <main class="ticket">
     <section class="center">
-      {% if tenant.logo_url %}
-        <img class="logo" src="{{ tenant.logo_url }}" alt="" />
-      {% endif %}
+      <img class="logo" src="{{ tenant.logo_url or url_for('static', filename='img/lempis-logo.png') }}" alt="" />
       <p class="company-name uppercase">{{ factura.emisor_name or tenant.legal_name or tenant.name }}</p>
       {% if factura.emisor_tax_id or tenant.tax_id %}
         <p class="small">RTN: {{ factura.emisor_tax_id or tenant.tax_id }}{% if tenant.phone %} TEL: {{ tenant.phone }}{% endif %}</p>

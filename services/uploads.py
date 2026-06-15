@@ -2,7 +2,9 @@
 Manejo de subida de archivos (imágenes de productos, logos, etc.).
 Usa Pillow para redimensionar y convertir a JPEG con calidad razonable.
 
-Storage: static/uploads/products/<tenant_id>/<product_id>.jpg
+Storage:
+- static/uploads/products/<tenant_id>/<product_id>.jpg
+- static/uploads/logos/<tenant_id>/logo.jpg
 
 En producción esto se sirve por Nginx desde la misma carpeta static.
 Para escala mayor, migrar a S3/R2 cambiando solo este módulo.
@@ -71,6 +73,39 @@ def save_product_image(file_storage, tenant_id: int, product_id: int) -> Optiona
 
     # URL pública (servida por Flask en dev, Nginx en prod)
     return f"/static/uploads/products/{tenant_id}/{filename}"
+
+
+def save_tenant_logo(file_storage, tenant_id: int) -> Optional[str]:
+    """
+    Guarda y redimensiona el logo de una empresa.
+    Retorna la URL relativa pública o None si no hubo archivo válido.
+    """
+    if not file_storage or not file_storage.filename:
+        return None
+    if not is_allowed_image(file_storage.filename):
+        return None
+
+    folder = _uploads_dir("logos", str(tenant_id))
+    filename = "logo.jpg"
+    filepath = folder / filename
+
+    img = Image.open(file_storage.stream)
+    if img.mode in ("RGBA", "LA", "P"):
+        background = Image.new("RGB", img.size, (255, 255, 255))
+        if img.mode == "P":
+            img = img.convert("RGBA")
+        if img.mode == "RGBA":
+            background.paste(img, mask=img.split()[-1])
+        else:
+            background.paste(img)
+        img = background
+    elif img.mode != "RGB":
+        img = img.convert("RGB")
+
+    img.thumbnail((800, 800), Image.LANCZOS)
+    img.save(filepath, "JPEG", quality=JPEG_QUALITY, optimize=True)
+
+    return f"/static/uploads/logos/{tenant_id}/{filename}"
 
 
 def delete_product_image(image_url: Optional[str]) -> None:
