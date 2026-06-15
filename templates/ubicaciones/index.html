@@ -140,11 +140,7 @@
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Producto *</label>
-        <input type="search" data-filter-select="adjustment-product-select"
-               class="w-full px-3 py-2 border rounded-lg text-sm mb-2"
-               placeholder="Buscar por producto o SKU..."
-               oninput="filterSelectOptions(this)" />
-        <select name="adjustment_product_id" required class="w-full px-3 py-2 border rounded-lg bg-white">
+        <select name="adjustment_product_id" class="searchable-product-select w-full px-3 py-2 border rounded-lg bg-white">
           <option value="">Seleccionar producto</option>
           {% for product in products %}
             <option value="{{ product.id }}">{{ product.name }} · {{ product.sku }}</option>
@@ -186,11 +182,7 @@
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Producto *</label>
-        <input type="search" data-filter-select="transfer-product-select"
-               class="w-full px-3 py-2 border rounded-lg text-sm mb-2"
-               placeholder="Buscar producto en inventario..."
-               oninput="filterSelectOptions(this)" />
-        <select name="product_id" required class="w-full px-3 py-2 border rounded-lg bg-white">
+        <select name="product_id" class="searchable-product-select w-full px-3 py-2 border rounded-lg bg-white">
           <option value="">Seleccionar producto</option>
           {% for row in stock_rows %}
             <option value="{{ row.WarehouseStock.product_id }}"
@@ -315,18 +307,78 @@
 </section>
 
 <script>
-function filterSelectOptions(input) {
-  const select = input.parentElement.querySelector("select");
-  const term = (input.value || "").trim().toLowerCase();
-  if (!select) return;
-  Array.from(select.options).forEach(option => {
-    if (!option.value) {
-      option.hidden = false;
-      return;
+function enhanceSearchableProductSelect(select) {
+  if (!select || select.dataset.enhanced === "1") return;
+  select.dataset.enhanced = "1";
+  select.classList.add("hidden");
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "relative";
+  const input = document.createElement("input");
+  input.type = "search";
+  input.autocomplete = "off";
+  input.placeholder = "Buscar producto...";
+  input.className = "w-full px-3 py-2 pr-9 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500";
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "absolute right-3 top-1/2 -translate-y-1/2 text-slate-400";
+  toggle.textContent = "⌄";
+
+  const menu = document.createElement("div");
+  menu.className = "hidden absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border bg-white shadow-lg";
+
+  function renderOptions() {
+    const term = input.value.trim().toLowerCase();
+    menu.innerHTML = "";
+    Array.from(select.options).forEach(option => {
+      if (!option.value) return;
+      const label = option.textContent.trim();
+      if (term && !label.toLowerCase().includes(term)) return;
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "block w-full px-3 py-2 text-left text-sm hover:bg-indigo-50";
+      if (option.value === select.value) item.classList.add("bg-indigo-600", "text-white");
+      item.textContent = label;
+      item.addEventListener("mousedown", event => {
+        event.preventDefault();
+        select.value = option.value;
+        input.value = label;
+        menu.classList.add("hidden");
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      menu.appendChild(item);
+    });
+    if (!menu.children.length) {
+      const empty = document.createElement("div");
+      empty.className = "px-3 py-2 text-sm text-slate-400";
+      empty.textContent = "Sin resultados";
+      menu.appendChild(empty);
     }
-    option.hidden = term && !option.textContent.toLowerCase().includes(term);
+  }
+
+  input.addEventListener("input", () => {
+    renderOptions();
+    menu.classList.remove("hidden");
   });
+  input.addEventListener("focus", () => {
+    renderOptions();
+    menu.classList.remove("hidden");
+  });
+  input.addEventListener("blur", () => setTimeout(() => menu.classList.add("hidden"), 120));
+  toggle.addEventListener("click", () => {
+    input.focus();
+    renderOptions();
+    menu.classList.toggle("hidden");
+  });
+
+  select.parentNode.insertBefore(wrapper, select);
+  wrapper.appendChild(input);
+  wrapper.appendChild(toggle);
+  wrapper.appendChild(menu);
 }
+
+document.querySelectorAll(".searchable-product-select").forEach(enhanceSearchableProductSelect);
 
 const productSelect = document.querySelector('select[name="product_id"]');
 productSelect?.addEventListener('change', () => {
