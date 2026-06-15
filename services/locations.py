@@ -182,6 +182,56 @@ def subtract_stock(tenant_id: int, warehouse_id: int, product_id: int, qty, batc
     _movement(tenant_id, product_id, batch_id, warehouse_id, None, quantity, "salida", reference)
 
 
+def adjust_stock_entry(tenant_id: int, warehouse_id: int, product_id: int, qty, batch_id=None, notes: str | None = None) -> None:
+    quantity = Decimal(str(qty or 0))
+    if quantity <= 0:
+        raise ValueError("La cantidad debe ser mayor a cero.")
+    product = Product.query.filter_by(id=product_id, tenant_id=tenant_id, is_active=True).first()
+    warehouse = Warehouse.query.filter_by(id=warehouse_id, tenant_id=tenant_id, is_active=True).first()
+    if product is None or warehouse is None:
+        raise ValueError("Selecciona producto y bodega válidos.")
+
+    if batch_id:
+        batch = ProductBatch.query.filter_by(id=batch_id, tenant_id=tenant_id, product_id=product_id).first()
+        if batch is None:
+            raise ValueError("Selecciona un lote válido para este producto.")
+        batch.remaining_quantity = Decimal(batch.remaining_quantity or 0) + quantity
+        batch.initial_quantity = Decimal(batch.initial_quantity or 0) + quantity
+
+    stock = get_or_create_stock(tenant_id, warehouse_id, product_id, batch_id)
+    stock.add(quantity)
+    if product.track_stock:
+        product.stock = int(Decimal(product.stock or 0) + quantity)
+    _movement(tenant_id, product_id, batch_id, None, warehouse_id, quantity, "entrada_ajuste", "ajuste", notes)
+
+
+def adjust_stock_exit(tenant_id: int, warehouse_id: int, product_id: int, qty, batch_id=None, notes: str | None = None) -> None:
+    quantity = Decimal(str(qty or 0))
+    if quantity <= 0:
+        raise ValueError("La cantidad debe ser mayor a cero.")
+    product = Product.query.filter_by(id=product_id, tenant_id=tenant_id, is_active=True).first()
+    warehouse = Warehouse.query.filter_by(id=warehouse_id, tenant_id=tenant_id, is_active=True).first()
+    if product is None or warehouse is None:
+        raise ValueError("Selecciona producto y bodega válidos.")
+
+    stock = get_or_create_stock(tenant_id, warehouse_id, product_id, batch_id)
+    if Decimal(stock.quantity or 0) < quantity:
+        raise ValueError("La bodega no tiene suficiente inventario para esta salida.")
+
+    if batch_id:
+        batch = ProductBatch.query.filter_by(id=batch_id, tenant_id=tenant_id, product_id=product_id).first()
+        if batch is None:
+            raise ValueError("Selecciona un lote válido para este producto.")
+        if Decimal(batch.remaining_quantity or 0) < quantity:
+            raise ValueError("El lote no tiene suficiente inventario para esta salida.")
+        batch.remaining_quantity = Decimal(batch.remaining_quantity or 0) - quantity
+
+    stock.subtract(quantity)
+    if product.track_stock:
+        product.stock = max(0, int(Decimal(product.stock or 0) - quantity))
+    _movement(tenant_id, product_id, batch_id, warehouse_id, None, quantity, "salida_ajuste", "ajuste", notes)
+
+
 def transfer_stock(
     tenant_id: int,
     source_warehouse_id: int,

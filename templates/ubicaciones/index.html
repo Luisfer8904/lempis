@@ -119,6 +119,62 @@
 
   <aside class="space-y-6">
     <form method="POST" class="bg-white rounded-xl border shadow-sm p-5 space-y-4">
+      <input type="hidden" name="action" value="adjustment" />
+      <div>
+        <h2 class="font-semibold text-slate-900">Entrada / salida de inventario</h2>
+        <p class="text-sm text-slate-500">Ajusta existencias sin pasar por ventas ni compras.</p>
+      </div>
+      <div class="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
+        <label class="cursor-pointer">
+          <input type="radio" name="adjustment_type" value="entrada" checked class="peer sr-only" />
+          <span class="block rounded-md px-3 py-2 text-center text-sm font-semibold text-slate-600 peer-checked:bg-emerald-600 peer-checked:text-white">
+            Entrada
+          </span>
+        </label>
+        <label class="cursor-pointer">
+          <input type="radio" name="adjustment_type" value="salida" class="peer sr-only" />
+          <span class="block rounded-md px-3 py-2 text-center text-sm font-semibold text-slate-600 peer-checked:bg-rose-600 peer-checked:text-white">
+            Salida
+          </span>
+        </label>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Producto *</label>
+        <select name="adjustment_product_id" required class="w-full px-3 py-2 border rounded-lg bg-white">
+          <option value="">Seleccionar producto</option>
+          {% for product in products %}
+            <option value="{{ product.id }}">{{ product.name }} · {{ product.sku }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Bodega *</label>
+        <select name="adjustment_warehouse_id" required class="w-full px-3 py-2 border rounded-lg bg-white">
+          {% for w in warehouses if w.is_active %}
+            <option value="{{ w.id }}">{{ w.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium mb-1">Cantidad *</label>
+          <input name="adjustment_quantity" type="number" min="0.01" step="0.01" required class="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">ID lote</label>
+          <input name="adjustment_batch_id" type="number" min="1" class="w-full px-3 py-2 border rounded-lg" placeholder="Opcional" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Motivo / nota</label>
+        <textarea name="adjustment_notes" rows="2" class="w-full px-3 py-2 border rounded-lg" placeholder="Ej. ajuste físico, merma, traslado externo..."></textarea>
+      </div>
+      <button class="w-full bg-slate-900 text-white py-2 rounded-lg font-medium hover:bg-slate-800">
+        Registrar ajuste
+      </button>
+    </form>
+
+    <form method="POST" class="bg-white rounded-xl border shadow-sm p-5 space-y-4">
       <input type="hidden" name="action" value="transfer" />
       <div>
         <h2 class="font-semibold text-slate-900">Transferir inventario</h2>
@@ -197,6 +253,57 @@
       <button class="w-full bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700">Crear bodega</button>
     </form>
   </aside>
+</section>
+
+<section class="mt-6 bg-white rounded-xl border shadow-sm overflow-hidden">
+  <div class="px-6 py-5 border-b">
+    <h2 class="text-lg font-semibold text-slate-900">Movimientos recientes</h2>
+    <p class="text-sm text-slate-500">Registro de entradas, salidas y transferencias que afectan inventario.</p>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="saas-table w-full min-w-[900px]">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Tipo</th>
+          <th>Producto</th>
+          <th class="text-right">Cantidad</th>
+          <th>Origen</th>
+          <th>Destino</th>
+          <th>Nota</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for movement in movements %}
+          <tr>
+            <td class="text-sm text-slate-500">{{ (movement.moved_at or movement.created_at).strftime('%d/%m/%Y %H:%M') if (movement.moved_at or movement.created_at) else '—' }}</td>
+            <td>
+              <span class="text-xs font-semibold px-2 py-1 rounded
+                {% if movement.movement_type in ['entrada', 'entrada_ajuste'] %}bg-emerald-50 text-emerald-700
+                {% elif movement.movement_type in ['salida', 'salida_ajuste'] %}bg-rose-50 text-rose-700
+                {% else %}bg-indigo-50 text-indigo-700{% endif %}">
+                {{ movement.movement_type|replace('_', ' ')|title }}
+              </span>
+            </td>
+            <td>
+              <p class="font-medium text-slate-900">{{ movement.product.name if movement.product else 'Producto eliminado' }}</p>
+              {% if movement.batch_id %}
+                <p class="text-xs text-slate-500">Lote ID {{ movement.batch_id }}</p>
+              {% endif %}
+            </td>
+            <td class="text-right font-mono">{{ '%.2f'|format(movement.quantity)|replace('.00', '') }}</td>
+            <td>{{ movement.source_warehouse.label if movement.source_warehouse else '—' }}</td>
+            <td>{{ movement.target_warehouse.label if movement.target_warehouse else '—' }}</td>
+            <td class="text-sm text-slate-500">{{ movement.notes or movement.reference or '—' }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="7" class="text-center py-8 text-slate-400">Sin movimientos registrados todavía.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </section>
 
 <script>

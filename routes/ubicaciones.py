@@ -10,7 +10,7 @@ from sqlalchemy import func
 from models import db
 from models.catalog import Product
 from models.locations import Branch, Warehouse, WarehouseStock, StockMovement
-from services.locations import sync_default_warehouse_stock, transfer_stock
+from services.locations import adjust_stock_entry, adjust_stock_exit, sync_default_warehouse_stock, transfer_stock
 from services.permissions import permission_required, tenant_required
 from services.plan_limits import (
     PlanLimitError,
@@ -42,13 +42,16 @@ def index():
             return _toggle_warehouse(tenant)
         if action == "transfer":
             return _transfer(tenant)
+        if action == "adjustment":
+            return _adjustment(tenant)
 
     branches = Branch.query.filter_by(tenant_id=tenant.id).order_by(Branch.is_default.desc(), Branch.name.asc()).all()
     warehouses = Warehouse.query.filter_by(tenant_id=tenant.id).order_by(Warehouse.is_default.desc(), Warehouse.name.asc()).all()
+    products = Product.query.filter_by(tenant_id=tenant.id, is_active=True, kind="product").order_by(Product.name.asc()).all()
     stock_rows = _stock_rows(tenant.id)
     movements = (
         StockMovement.query
-        .filter_by(tenant_id=tenant.id)
+        .filter(StockMovement.tenant_id == tenant.id)
         .order_by(StockMovement.created_at.desc(), StockMovement.id.desc())
         .limit(12)
         .all()
@@ -58,6 +61,7 @@ def index():
         tenant=tenant,
         branches=branches,
         warehouses=warehouses,
+        products=products,
         stock_rows=stock_rows,
         movements=movements,
     )
@@ -150,6 +154,29 @@ def _transfer(tenant):
         )
         db.session.commit()
         flash("Transferencia registrada correctamente.", "success")
+    except Exception as exc:
+        db.session.rollback()
+        flash(str(exc), "danger")
+    return redirect(url_for("ubicaciones.index"))
+
+
+def _adjustment(tenant):
+    try:
+        adjustment_type = request.form.get("adjustment_type")
+        product_id = request.form.get("adjustment_product_id", type=int)
+        warehouse_id = request.form.get("adjustment_warehouse_id", type=int)
+        batch_id = request.form.get("adjustment_batch_id", type=int) or None
+        quantity = Decimal(str(request.form.get("adjustment_quantity") or "0"))
+        notes = (request.form.get("adjustment_notes") or "").strip() or None
+        if adjustment_type == "entrada":
+            adjust_stock_entry(tenant.id, warehouse_id, product_id, quantity, batch_id=batch_id, notes=notes)
+            flash("Entrada de inventario registrada correctamente.", "success")
+        elif adjustment_type == "salida":
+            adjust_stock_exit(tenant.id, warehouse_id, product_id, quantity, batch_id=batch_id, notes=notes)
+            flash("Salida de inventario registrada correctamente.", "success")
+        else:
+            raise ValueError("Selecciona si el ajuste es entrada o salida.")
+        db.session.commit()
     except Exception as exc:
         db.session.rollback()
         flash(str(exc), "danger")

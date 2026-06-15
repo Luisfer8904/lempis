@@ -105,3 +105,8 @@ class StockMovement(db.Model, TimestampMixin):
     reference = Column(String(80))
     notes = Column(Text)
     moved_at = Column(DateTime)
+
+    product = relationship("Product")
+    batch = relationship("ProductBatch")
+    source_warehouse = relationship("Warehouse", foreign_keys=[source_warehouse_id])
+    target_warehouse = relationship("Warehouse", foreign_keys=[target_warehouse_id])
