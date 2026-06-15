@@ -7,8 +7,8 @@
   <style>
     :root {
       --paper-width: {{ receipt_width }};
-      --font-size: {% if receipt_width == '58mm' %}10px{% else %}11px{% endif %};
-      --line-height: 1.25;
+      --font-size: {% if receipt_width == '58mm' %}9.5px{% else %}10.5px{% endif %};
+      --line-height: 1.18;
     }
 
     * { box-sizing: border-box; }
@@ -18,7 +18,7 @@
       margin: 0;
       padding: 0;
       background: #f1f5f9;
-      color: #111827;
+      color: #111;
       font-family: Arial, Helvetica, sans-serif;
       font-size: var(--font-size);
       line-height: var(--line-height);
@@ -60,39 +60,55 @@
 
     .center { text-align: center; }
     .right { text-align: right; }
-    .muted { color: #374151; }
     .bold { font-weight: 700; }
     .uppercase { text-transform: uppercase; }
-    .small { font-size: 0.86em; }
+    .small { font-size: 0.88em; }
+    .tiny { font-size: 0.78em; }
     .mono { font-family: "Courier New", Courier, monospace; }
-    .mt { margin-top: 6px; }
-    .mb { margin-bottom: 6px; }
     .divider {
-      border-top: 1px dashed #111827;
-      margin: 6px 0;
+      border-top: 1px dashed #111;
+      margin: 5px 0;
     }
 
-    h1,
-    p {
-      margin: 0;
+    p { margin: 0; }
+
+    .logo {
+      display: block;
+      width: {% if receipt_width == '58mm' %}15mm{% else %}18mm{% endif %};
+      max-height: 18mm;
+      object-fit: contain;
+      margin: 0 auto 3px;
+      filter: grayscale(1);
     }
 
-    h1 {
+    .company-name {
       font-size: 1.18em;
-      line-height: 1.15;
-      margin-bottom: 2px;
+      line-height: 1.05;
+      font-weight: 800;
     }
 
-    .meta-row,
-    .total-row {
+    .two-col,
+    .amount-row {
       display: flex;
       justify-content: space-between;
-      gap: 8px;
+      gap: 6px;
     }
 
-    .meta-row span:first-child,
-    .total-row span:first-child {
+    .two-col > span:first-child,
+    .amount-row > span:first-child {
       flex: 1;
+    }
+
+    .amount-row > span:last-child {
+      min-width: {% if receipt_width == '58mm' %}17mm{% else %}22mm{% endif %};
+      text-align: right;
+      font-family: "Courier New", Courier, monospace;
+    }
+
+    .field-label {
+      display: inline-block;
+      min-width: {% if receipt_width == '58mm' %}17mm{% else %}21mm{% endif %};
+      font-weight: 700;
     }
 
     table {
@@ -108,41 +124,35 @@
     }
 
     th {
-      border-bottom: 1px solid #111827;
-      font-size: 0.86em;
-      font-weight: 700;
+      border-bottom: 1px solid #111;
+      font-size: 0.83em;
+      font-weight: 800;
       text-align: left;
     }
 
-    td.qty,
-    th.qty {
-      width: {% if receipt_width == '58mm' %}13mm{% else %}15mm{% endif %};
+    td.desc,
+    th.desc {
+      width: auto;
+      padding-right: 3px;
+    }
+
+    td.total,
+    th.total {
+      width: {% if receipt_width == '58mm' %}17mm{% else %}20mm{% endif %};
       text-align: right;
     }
 
-    td.amount,
-    th.amount {
-      width: {% if receipt_width == '58mm' %}17mm{% else %}22mm{% endif %};
-      text-align: right;
-    }
-
-    .item-name {
-      display: block;
-      padding-right: 4px;
-    }
-
-    .item-meta {
-      display: block;
-      color: #4b5563;
-      font-size: 0.86em;
+    .line-meta {
+      color: #333;
+      font-size: 0.9em;
     }
 
     .grand-total {
-      border-top: 1px solid #111827;
-      font-size: 1.14em;
+      border-top: 1px solid #111;
+      margin-top: 3px;
+      padding-top: 3px;
+      font-size: 1.12em;
       font-weight: 800;
-      padding-top: 4px;
-      margin-top: 4px;
     }
 
     @page {
@@ -174,44 +184,65 @@
     <button type="button" class="primary" onclick="openDrawerAndPrint()">Abrir caja e imprimir</button>
   </div>
 
+  {% set methods = {'efectivo': 'EFECTIVO', 'transferencia': 'TRANSFERENCIA', 'tarjeta': 'TARJETA', 'credito': 'CREDITO'} %}
+  {% set status_labels = {'draft': 'BORRADOR', 'issued': 'EMITIDA', 'paid': 'PAGADA', 'partially_paid': 'PARCIAL', 'void': 'ANULADA', 'overdue': 'VENCIDA'} %}
+  {% set terms_label = 'CREDITO' if factura.payment_method == 'credito' else 'CONTADO' %}
+  {% set ns = namespace(exento=0, gravado15=0, gravado18=0, isv15=0, isv18=0) %}
+  {% for it in factura.items %}
+    {% if (it.tax_rate or 0)|float == 15 %}
+      {% set ns.gravado15 = ns.gravado15 + (it.subtotal or 0) %}
+      {% set ns.isv15 = ns.isv15 + (it.tax_amount or 0) %}
+    {% elif (it.tax_rate or 0)|float == 18 %}
+      {% set ns.gravado18 = ns.gravado18 + (it.subtotal or 0) %}
+      {% set ns.isv18 = ns.isv18 + (it.tax_amount or 0) %}
+    {% else %}
+      {% set ns.exento = ns.exento + (it.subtotal or 0) %}
+    {% endif %}
+  {% endfor %}
+
   <main class="ticket">
-    <section class="center mb">
-      <h1 class="uppercase">{{ factura.emisor_name or tenant.legal_name or tenant.name }}</h1>
+    <section class="center">
+      {% if tenant.logo_url %}
+        <img class="logo" src="{{ tenant.logo_url }}" alt="" />
+      {% endif %}
+      <p class="company-name uppercase">{{ factura.emisor_name or tenant.legal_name or tenant.name }}</p>
       {% if factura.emisor_tax_id or tenant.tax_id %}
-        <p class="small">RTN: {{ factura.emisor_tax_id or tenant.tax_id }}</p>
+        <p class="small">RTN: {{ factura.emisor_tax_id or tenant.tax_id }}{% if tenant.phone %} TEL: {{ tenant.phone }}{% endif %}</p>
+      {% elif tenant.phone %}
+        <p class="small">TEL: {{ tenant.phone }}</p>
       {% endif %}
       {% if factura.emisor_address or tenant.address %}
-        <p class="small">{{ factura.emisor_address or tenant.address }}</p>
+        <p class="small uppercase">{{ factura.emisor_address or tenant.address }}</p>
       {% endif %}
-      {% if tenant.phone or tenant.email %}
-        <p class="small">{{ tenant.phone or '' }}{% if tenant.phone and tenant.email %} / {% endif %}{{ tenant.email or '' }}</p>
+      {% if tenant.email %}
+        <p class="small uppercase">{{ tenant.email }}</p>
       {% endif %}
     </section>
 
     <div class="divider"></div>
 
     <section>
-      <p class="center bold uppercase">Factura</p>
-      <p class="center mono bold">{{ factura.number }}</p>
-      <div class="meta-row mt">
-        <span>Fecha</span>
-        <span class="right">{{ factura.issue_date|local_datetime('%d/%m/%Y %H:%M') }}</span>
+      <div class="two-col bold uppercase">
+        <span>FACTURA</span>
+        <span>FECHA</span>
       </div>
-      {% set methods = {'efectivo': 'Efectivo', 'transferencia': 'Transferencia', 'tarjeta': 'Tarjeta', 'credito': 'Credito'} %}
-      <div class="meta-row">
-        <span>Pago</span>
-        <span class="right">{{ methods.get(factura.payment_method, factura.payment_method) }}</span>
+      <div class="two-col">
+        <span class="mono">{{ factura.number }}</span>
+        <span class="mono right">{{ factura.issue_date|local_datetime('%d/%m/%Y %I:%M %p') }}</span>
       </div>
     </section>
 
     <div class="divider"></div>
 
-    <section>
-      <p class="small muted uppercase">Cliente</p>
-      <p class="bold">{{ factura.receptor_name or (factura.customer.name if factura.customer else 'Consumidor final') }}</p>
+    <section class="uppercase">
+      <p><span class="field-label">CLIENTE:</span>{{ factura.receptor_name or (factura.customer.name if factura.customer else 'CONSUMIDOR FINAL') }}</p>
       {% if factura.receptor_tax_id %}
-        <p class="small">RTN: {{ factura.receptor_tax_id }}</p>
+        <p><span class="field-label">RTN:</span>{{ factura.receptor_tax_id }}</p>
       {% endif %}
+      <p><span class="field-label">CAJERO:</span>{{ (issued_user.full_name or issued_user.email) if issued_user else 'CAJA' }}</p>
+      <p><span class="field-label">VENDEDOR:</span>GENERAL</p>
+      <p><span class="field-label">TERMINOS:</span>{{ terms_label }}{% if factura.payment_method == 'credito' and factura.payment_terms_days %} / {{ factura.payment_terms_days }} DIAS{% endif %}</p>
+      <p><span class="field-label">ESTADO:</span>{{ status_labels.get(factura.status, factura.status)|upper }}</p>
     </section>
 
     <div class="divider"></div>
@@ -219,20 +250,21 @@
     <table>
       <thead>
         <tr>
-          <th>Producto</th>
-          <th class="qty">Cant.</th>
-          <th class="amount">Total</th>
+          <th class="desc">CANTIDAD / PRECIO / DESCRIPCION</th>
+          <th class="total">TOTAL</th>
         </tr>
       </thead>
       <tbody>
         {% for it in factura.items %}
           <tr>
-            <td>
-              <span class="item-name">{{ it.description }}</span>
-              <span class="item-meta">{{ '%.2f'|format(it.unit_price) }} c/u{% if it.tax_rate %} · ISV {{ '%.0f'|format(it.tax_rate) }}%{% endif %}</span>
+            <td class="desc">
+              <span class="mono">{{ '%.2f'|format(it.quantity) }} X {{ '%.2f'|format(it.unit_price) }}</span>
+              <span class="uppercase">{{ it.description }}</span>
+              {% if it.tax_rate %}
+                <span class="line-meta">ISV {{ '%.0f'|format(it.tax_rate) }}%</span>
+              {% endif %}
             </td>
-            <td class="qty mono">{{ '%.2f'|format(it.quantity) }}</td>
-            <td class="amount mono">{{ '%.2f'|format(it.subtotal) }}</td>
+            <td class="total mono">{{ '%.2f'|format(it.subtotal) }}</td>
           </tr>
         {% endfor %}
       </tbody>
@@ -240,47 +272,58 @@
 
     <div class="divider"></div>
 
-    <section>
-      <div class="total-row">
-        <span>Subtotal</span>
-        <span class="mono">{{ '%.2f'|format(factura.subtotal) }}</span>
-      </div>
-      {% if factura.discount_total %}
-        <div class="total-row">
-          <span>Descuento</span>
-          <span class="mono">{{ '%.2f'|format(factura.discount_total) }}</span>
-        </div>
-      {% endif %}
-      <div class="total-row">
-        <span>ISV</span>
-        <span class="mono">{{ '%.2f'|format(factura.tax_total) }}</span>
-      </div>
-      <div class="total-row grand-total">
-        <span>Total</span>
-        <span class="mono">{{ factura.currency }} {{ '%.2f'|format(factura.total) }}</span>
-      </div>
+    <section class="uppercase">
+      <div class="amount-row"><span>DESCUENTOS Y REBAJAS</span><span>{{ '%.2f'|format(factura.discount_total or 0) }}</span></div>
+      <div class="amount-row"><span>SUBTOTAL</span><span>{{ '%.2f'|format(factura.subtotal or 0) }}</span></div>
+      <div class="amount-row"><span>IMPORTE EXENTO</span><span>{{ '%.2f'|format(ns.exento) }}</span></div>
+      <div class="amount-row"><span>IMPORTE EXONERADO</span><span>0.00</span></div>
+      <div class="amount-row"><span>IMPORTE GRAVADO 15%</span><span>{{ '%.2f'|format(ns.gravado15) }}</span></div>
+      <div class="amount-row"><span>IMPORTE GRAVADO 18%</span><span>{{ '%.2f'|format(ns.gravado18) }}</span></div>
+      <div class="amount-row"><span>ISV 15.00%</span><span>{{ '%.2f'|format(ns.isv15) }}</span></div>
+      <div class="amount-row"><span>ISV 18.00%</span><span>{{ '%.2f'|format(ns.isv18) }}</span></div>
+      <div class="amount-row grand-total"><span>TOTAL A PAGAR</span><span>{{ factura.currency }} {{ '%.2f'|format(factura.total or 0) }}</span></div>
     </section>
 
-    {% if factura.notes %}
-      <div class="divider"></div>
-      <section>
-        <p class="small muted uppercase">Notas</p>
-        <p class="small">{{ factura.notes }}</p>
-      </section>
+    {% if total_letras %}
+      <p class="center uppercase small">{{ total_letras }}</p>
     {% endif %}
+
+    <div class="divider"></div>
+
+    <section class="uppercase">
+      <div class="amount-row"><span>{{ methods.get(factura.payment_method, factura.payment_method)|upper }}</span><span>{{ '%.2f'|format(factura.total or 0) }}</span></div>
+      {% if cash_received %}
+        <div class="amount-row"><span>EFECTIVO RECIBIDO</span><span>{{ cash_received }}</span></div>
+      {% endif %}
+      {% if cash_change %}
+        <div class="amount-row"><span>CAMBIO</span><span>{{ cash_change }}</span></div>
+      {% endif %}
+    </section>
 
     {% if factura.cai_code %}
       <div class="divider"></div>
-      <section class="small">
-        <p><span class="muted">CAI:</span> <span class="mono">{{ factura.cai_code }}</span></p>
-        <p><span class="muted">Rango:</span> <span class="mono">{{ factura.cai_range_start }} - {{ factura.cai_range_end }}</span></p>
+      <section class="center tiny uppercase">
+        <p>N° ORDEN DE COMPRA EXENTA:</p>
+        <p>N° CONST. REGISTRO EXONERADO:</p>
+        <p>N° REGISTRO SAG:</p>
+        <p>CAI: <span class="mono">{{ factura.cai_code }}</span></p>
+        <p>RANGO: <span class="mono">{{ factura.cai_range_start }} - {{ factura.cai_range_end }}</span></p>
         {% if factura.cai_valid_until %}
-          <p><span class="muted">Fecha limite:</span> {{ factura.cai_valid_until.strftime('%d/%m/%Y') }}</p>
+          <p>FECHA LIMITE: {{ factura.cai_valid_until.strftime('%d/%m/%Y') }}</p>
         {% endif %}
       </section>
     {% endif %}
 
+    {% if display_notes %}
+      <div class="divider"></div>
+      <section class="small">
+        <p class="bold uppercase">Notas</p>
+        <p>{{ display_notes }}</p>
+      </section>
+    {% endif %}
+
     <div class="divider"></div>
+    <p class="center small uppercase">ORIGINAL: CLIENTE / COPIA: EMISOR</p>
     <p class="center small">Gracias por su preferencia</p>
   </main>
 

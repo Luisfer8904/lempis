@@ -20,12 +20,14 @@ from models.invoice import Invoice
 from models.catalog import Customer, Product
 from models.country import TaxConfig
 from models.printing import TenantPrintSettings
+from models.user import User
 from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
 from services.invoice_service import (
     issue_invoice, update_invoice, next_invoice_number,
     validate_can_emit, CAIError, _resolve_batch,
 )
+from services.pdf_generator import _number_to_letters
 from services.inventory import consume_from_batch, recompute_product_stock
 from services.locations import (
     can_user_sell_from_warehouse,
@@ -219,16 +221,41 @@ def ticket(invoice_id):
     tenant = current_tenant()
     settings = _get_print_settings(tenant)
     width = settings.receipt_paper_width if settings.receipt_paper_width in ("58mm", "80mm") else "80mm"
+    issued_user = None
+    if inv.issued_by_user_id:
+        issued_user = User.query.filter_by(id=inv.issued_by_user_id, tenant_id=tenant.id).first()
+    cash_received, cash_change, display_notes = _split_ticket_notes(inv.notes or "")
     return render_template(
         "facturas/ticket.html",
         factura=inv,
         tenant=tenant,
         settings=settings,
+        issued_user=issued_user,
+        total_letras=_number_to_letters(inv.total, inv.currency),
+        cash_received=cash_received,
+        cash_change=cash_change,
+        display_notes=display_notes,
         receipt_width=width,
         auto_print=request.args.get("print") == "1",
         open_drawer=request.args.get("drawer", "1") == "1",
         next_url=request.args.get("next") or "",
     )
+
+
+def _split_ticket_notes(notes: str):
+    cash_received = None
+    cash_change = None
+    remaining = []
+    for line in (notes or "").splitlines():
+        clean = line.strip()
+        lower = clean.lower()
+        if lower.startswith("efectivo recibido:"):
+            cash_received = clean.split(":", 1)[1].strip()
+        elif lower.startswith("cambio entregado:"):
+            cash_change = clean.split(":", 1)[1].strip()
+        elif clean:
+            remaining.append(clean)
+    return cash_received, cash_change, "\n".join(remaining)
 
 
 # ---------------- CAMBIAR ESTADO ----------------
