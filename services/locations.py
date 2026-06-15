@@ -202,7 +202,7 @@ def adjust_stock_entry(tenant_id: int, warehouse_id: int, product_id: int, qty, 
     stock.add(quantity)
     if product.track_stock:
         product.stock = int(Decimal(product.stock or 0) + quantity)
-    _movement(tenant_id, product_id, batch_id, None, warehouse_id, quantity, "entrada_ajuste", "ajuste", notes)
+    _movement(tenant_id, product_id, batch_id, None, warehouse_id, quantity, "sobrante_ajuste", "inventario_fisico", notes)
 
 
 def adjust_stock_exit(tenant_id: int, warehouse_id: int, product_id: int, qty, batch_id=None, notes: str | None = None) -> None:
@@ -229,7 +229,7 @@ def adjust_stock_exit(tenant_id: int, warehouse_id: int, product_id: int, qty, b
     stock.subtract(quantity)
     if product.track_stock:
         product.stock = max(0, int(Decimal(product.stock or 0) - quantity))
-    _movement(tenant_id, product_id, batch_id, warehouse_id, None, quantity, "salida_ajuste", "ajuste", notes)
+    _movement(tenant_id, product_id, batch_id, warehouse_id, None, quantity, "faltante_ajuste", "inventario_fisico", notes)
 
 
 def transfer_stock(

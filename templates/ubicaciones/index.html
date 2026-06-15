@@ -121,20 +121,20 @@
     <form method="POST" class="bg-white rounded-xl border shadow-sm p-5 space-y-4">
       <input type="hidden" name="action" value="adjustment" />
       <div>
-        <h2 class="font-semibold text-slate-900">Entrada / salida de inventario</h2>
-        <p class="text-sm text-slate-500">Ajusta existencias sin pasar por ventas ni compras.</p>
+        <h2 class="font-semibold text-slate-900">Ajuste por inventario físico</h2>
+        <p class="text-sm text-slate-500">Registra sobrantes o faltantes encontrados al contar inventario.</p>
       </div>
       <div class="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
         <label class="cursor-pointer">
           <input type="radio" name="adjustment_type" value="entrada" checked class="peer sr-only" />
           <span class="block rounded-md px-3 py-2 text-center text-sm font-semibold text-slate-600 peer-checked:bg-emerald-600 peer-checked:text-white">
-            Entrada
+            Sobrante
           </span>
         </label>
         <label class="cursor-pointer">
           <input type="radio" name="adjustment_type" value="salida" class="peer sr-only" />
           <span class="block rounded-md px-3 py-2 text-center text-sm font-semibold text-slate-600 peer-checked:bg-rose-600 peer-checked:text-white">
-            Salida
+            Faltante
           </span>
         </label>
       </div>
@@ -157,7 +157,7 @@
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="block text-sm font-medium mb-1">Cantidad *</label>
+          <label class="block text-sm font-medium mb-1">Diferencia *</label>
           <input name="adjustment_quantity" type="number" min="0.01" step="0.01" required class="w-full px-3 py-2 border rounded-lg" />
         </div>
         <div>
@@ -167,10 +167,10 @@
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Motivo / nota</label>
-        <textarea name="adjustment_notes" rows="2" class="w-full px-3 py-2 border rounded-lg" placeholder="Ej. ajuste físico, merma, traslado externo..."></textarea>
+        <textarea name="adjustment_notes" rows="2" class="w-full px-3 py-2 border rounded-lg" placeholder="Ej. conteo físico, merma, producto encontrado..."></textarea>
       </div>
       <button class="w-full bg-slate-900 text-white py-2 rounded-lg font-medium hover:bg-slate-800">
-        Registrar ajuste
+        Registrar ajuste físico
       </button>
     </form>
 
@@ -258,7 +258,7 @@
 <section class="mt-6 bg-white rounded-xl border shadow-sm overflow-hidden">
   <div class="px-6 py-5 border-b">
     <h2 class="text-lg font-semibold text-slate-900">Movimientos recientes</h2>
-    <p class="text-sm text-slate-500">Registro de entradas, salidas y transferencias que afectan inventario.</p>
+    <p class="text-sm text-slate-500">Registro de sobrantes, faltantes y transferencias que afectan inventario.</p>
   </div>
   <div class="overflow-x-auto">
     <table class="saas-table w-full min-w-[900px]">
@@ -279,8 +279,8 @@
             <td class="text-sm text-slate-500">{{ (movement.moved_at or movement.created_at).strftime('%d/%m/%Y %H:%M') if (movement.moved_at or movement.created_at) else '—' }}</td>
             <td>
               <span class="text-xs font-semibold px-2 py-1 rounded
-                {% if movement.movement_type in ['entrada', 'entrada_ajuste'] %}bg-emerald-50 text-emerald-700
-                {% elif movement.movement_type in ['salida', 'salida_ajuste'] %}bg-rose-50 text-rose-700
+                {% if movement.movement_type in ['entrada', 'entrada_ajuste', 'sobrante_ajuste'] %}bg-emerald-50 text-emerald-700
+                {% elif movement.movement_type in ['salida', 'salida_ajuste', 'faltante_ajuste'] %}bg-rose-50 text-rose-700
                 {% else %}bg-indigo-50 text-indigo-700{% endif %}">
                 {{ movement.movement_type|replace('_', ' ')|title }}
               </span>

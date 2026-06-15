@@ -170,12 +170,12 @@ def _adjustment(tenant):
         notes = (request.form.get("adjustment_notes") or "").strip() or None
         if adjustment_type == "entrada":
             adjust_stock_entry(tenant.id, warehouse_id, product_id, quantity, batch_id=batch_id, notes=notes)
-            flash("Entrada de inventario registrada correctamente.", "success")
+            flash("Sobrante de inventario registrado correctamente.", "success")
         elif adjustment_type == "salida":
             adjust_stock_exit(tenant.id, warehouse_id, product_id, quantity, batch_id=batch_id, notes=notes)
-            flash("Salida de inventario registrada correctamente.", "success")
+            flash("Faltante de inventario registrado correctamente.", "success")
         else:
-            raise ValueError("Selecciona si el ajuste es entrada o salida.")
+            raise ValueError("Selecciona si en el conteo sobró o faltó producto.")
         db.session.commit()
     except Exception as exc:
         db.session.rollback()
