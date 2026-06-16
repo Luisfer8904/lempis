@@ -7,7 +7,7 @@
   <style>
     :root {
       --paper-width: {{ receipt_width }};
-      --font-size: {% if receipt_width == '58mm' %}9.5px{% else %}10.5px{% endif %};
+      --font-size: {% if receipt_width == '58mm' %}9.8px{% else %}11px{% endif %};
       --line-height: 1.30;
     }
 
@@ -64,7 +64,11 @@
     .uppercase { text-transform: uppercase; }
     .small { font-size: 0.88em; }
     .tiny { font-size: 0.78em; }
-    .mono { font-family: "Courier New", Courier, monospace; }
+    .mono {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 1.06em;
+      font-weight: 700;
+    }
     .divider {
       border-top: 1px dashed #111;
       margin: 5px 0;
@@ -103,6 +107,8 @@
       min-width: {% if receipt_width == '58mm' %}17mm{% else %}22mm{% endif %};
       text-align: right;
       font-family: "Courier New", Courier, monospace;
+      font-size: 1.06em;
+      font-weight: 700;
     }
 
     .field-label {
@@ -140,6 +146,7 @@
     th.total {
       width: {% if receipt_width == '58mm' %}17mm{% else %}20mm{% endif %};
       text-align: right;
+      font-weight: 700;
     }
 
     .line-meta {
@@ -189,7 +196,7 @@
 <body>
   <div class="toolbar">
     <a href="{{ url_for('facturas.detail', invoice_id=factura.id) }}">Volver</a>
-    <button type="button" onclick="window.print()">Imprimir</button>
+    <button type="button" onclick="prepareTicketPrint(); window.print()">Imprimir</button>
     <button type="button" class="primary" onclick="openDrawerAndPrint()">Abrir caja e imprimir</button>
   </div>
 
@@ -380,7 +387,22 @@
       } catch (error) {
         console.warn('No se pudo enviar el pulso de caja desde el navegador.', error);
       }
+      prepareTicketPrint();
       window.print();
+    }
+
+    function prepareTicketPrint() {
+      const ticket = document.querySelector('.ticket');
+      if (!ticket) return;
+      const width = getComputedStyle(document.documentElement).getPropertyValue('--paper-width').trim() || '80mm';
+      const heightMm = Math.ceil((ticket.getBoundingClientRect().height * 25.4 / 96) + 6);
+      let style = document.getElementById('dynamic-print-page');
+      if (!style) {
+        style = document.createElement('style');
+        style.id = 'dynamic-print-page';
+        document.head.appendChild(style);
+      }
+      style.textContent = `@page { size: ${width} ${heightMm}mm; margin: 0; }`;
     }
 
     window.addEventListener('load', async () => {
@@ -393,6 +415,7 @@
         }
       }
       setTimeout(() => {
+        prepareTicketPrint();
         window.print();
         setTimeout(goNextAfterPrint, 1500);
       }, 250);
