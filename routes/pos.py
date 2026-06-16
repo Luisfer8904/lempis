@@ -121,6 +121,8 @@ def cobrar():
             customer = Customer.query.filter_by(
                 id=customer_id, tenant_id=tenant.id,
             ).first()
+        manual_receptor_name = (request.form.get("receptor_name") or "").strip() if not customer else ""
+        manual_receptor_tax_id = (request.form.get("receptor_tax_id") or "").strip() if not customer else ""
 
         payment_method = request.form.get("payment_method", "efectivo")
         default_warehouse = sync_default_warehouse_stock(tenant)
@@ -145,6 +147,8 @@ def cobrar():
             issued_by_user_id=current_user.id,
             status=status,
             warehouse_id=warehouse_id,
+            receptor_name=manual_receptor_name,
+            receptor_tax_id=manual_receptor_tax_id,
         )
         if status == "draft":
             flash("Factura guardada como borrador. Puedes recuperarla en Facturas > Borradores.", "success")

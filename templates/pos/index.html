@@ -191,6 +191,23 @@
             {% endfor %}
           </select>
         </div>
+        <div id="manual-customer-fields" class="grid grid-cols-2 gap-2 rounded-lg border bg-white p-2">
+          <div class="col-span-2">
+            <p class="text-[11px] font-medium text-slate-500">Datos opcionales para facturar a consumidor final</p>
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-slate-600 mb-1">Nombre</label>
+            <input name="receptor_name" id="manual-receptor-name"
+                   placeholder="Nombre para factura"
+                   class="w-full px-2 py-1.5 text-sm border rounded-lg" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-slate-600 mb-1">RTN</label>
+            <input name="receptor_tax_id" id="manual-receptor-tax-id"
+                   placeholder="RTN opcional"
+                   class="w-full px-2 py-1.5 text-sm border rounded-lg font-mono" />
+          </div>
+        </div>
         <div>
           <label class="block text-xs font-medium text-slate-600 mb-1">Tarifa de venta</label>
           <div class="grid grid-cols-3 gap-1.5 bg-white p-1 rounded-lg border" id="tier-chips">
@@ -460,6 +477,19 @@ function syncTierFromCustomer() {
   const tier = opt?.dataset?.priceTier || 'general';
   setSelectedTier(tier);
   applyPriceTierToCart();
+  toggleManualCustomerFields();
+}
+
+function toggleManualCustomerFields() {
+  const customerSelect = document.getElementById('customer-select');
+  const manualFields = document.getElementById('manual-customer-fields');
+  if (!customerSelect || !manualFields) return;
+  const useManual = !customerSelect.value;
+  manualFields.classList.toggle('hidden', !useManual);
+  if (!useManual) {
+    document.getElementById('manual-receptor-name').value = '';
+    document.getElementById('manual-receptor-tax-id').value = '';
+  }
 }
 
 function filterProducts() {
@@ -672,6 +702,7 @@ document.querySelectorAll('.tier-chip').forEach(chip => {
 
 setSelectedTier('general');
 syncTierFromCustomer();
+toggleManualCustomerFields();
 setCategoryFilter(selectedCategory);
 renderCart();
 updatePaymentFields();

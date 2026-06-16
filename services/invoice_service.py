@@ -61,6 +61,8 @@ def issue_invoice(
     issued_by_user_id: Optional[int] = None,
     status: str = "issued",
     warehouse_id: Optional[int] = None,
+    receptor_name: Optional[str] = None,
+    receptor_tax_id: Optional[str] = None,
 ) -> Invoice:
     """
     Crea una factura, asigna número correlativo, congela datos SAR
@@ -78,6 +80,9 @@ def issue_invoice(
         correlativo, formatted = next_invoice_number(tenant)
     warehouse = warehouse_for_tenant(tenant.id, warehouse_id)
 
+    manual_receptor_name = (receptor_name or "").strip() or None
+    manual_receptor_tax_id = (receptor_tax_id or "").strip() or None
+
     inv = Invoice(
         tenant_id=tenant.id,
         number=formatted,
@@ -91,8 +96,8 @@ def issue_invoice(
         payment_terms_days=int(payment_terms_days or 0),
         notes=notes or None,
         # Congelar receptor (común a todos los modos)
-        receptor_name=customer.name if customer else None,
-        receptor_tax_id=customer.tax_id if customer else None,
+        receptor_name=customer.name if customer else manual_receptor_name,
+        receptor_tax_id=customer.tax_id if customer else manual_receptor_tax_id,
     )
 
     # Congelar datos específicos del modo (CAI, RTN, etc.)

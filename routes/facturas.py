@@ -394,6 +394,8 @@ def _parse_items() -> list[dict]:
 def _create_from_form(tenant) -> Invoice:
     customer_id = request.form.get("customer_id")
     customer = Customer.query.filter_by(id=customer_id, tenant_id=tenant.id).first() if customer_id else None
+    manual_receptor_name = (request.form.get("receptor_name") or "").strip() if not customer else ""
+    manual_receptor_tax_id = (request.form.get("receptor_tax_id") or "").strip() if not customer else ""
     items = _parse_items()
     if not items:
         raise CAIError("Debes agregar al menos una línea a la factura.")
@@ -416,6 +418,8 @@ def _create_from_form(tenant) -> Invoice:
         issued_by_user_id=current_user.id,
         status=status,
         warehouse_id=warehouse_id,
+        receptor_name=manual_receptor_name,
+        receptor_tax_id=manual_receptor_tax_id,
     )
 
 

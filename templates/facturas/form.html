@@ -65,6 +65,25 @@
           + Crear cliente nuevo
         </a>
       </div>
+      <div id="manual-customer-fields" class="md:col-span-2 grid md:grid-cols-2 gap-3 rounded-xl border bg-slate-50 p-3">
+        <div class="md:col-span-2">
+          <p class="text-xs font-medium text-slate-500">Datos opcionales para facturar a consumidor final</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Nombre para factura</label>
+          <input name="receptor_name" id="manual-receptor-name"
+                 value="{{ factura.receptor_name if factura and not factura.customer_id else '' }}"
+                 placeholder="Ej. Juan Pérez"
+                 class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">RTN</label>
+          <input name="receptor_tax_id" id="manual-receptor-tax-id"
+                 value="{{ factura.receptor_tax_id if factura and not factura.customer_id else '' }}"
+                 placeholder="08011990123456"
+                 class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono" />
+        </div>
+      </div>
       <div>
         <label class="block text-sm font-medium mb-1">Método de pago</label>
         <select name="payment_method" id="payment-method"
@@ -445,6 +464,19 @@ function syncTierFromCustomer(keepExistingPrices = false) {
   if (!keepExistingPrices) {
     applyTierToExistingLines();
   }
+  toggleManualCustomerFields();
+}
+
+function toggleManualCustomerFields() {
+  const customerSelect = document.getElementById("customer-select");
+  const manualFields = document.getElementById("manual-customer-fields");
+  if (!customerSelect || !manualFields) return;
+  const useManual = !customerSelect.value;
+  manualFields.classList.toggle("hidden", !useManual);
+  if (!useManual) {
+    document.getElementById("manual-receptor-name").value = "";
+    document.getElementById("manual-receptor-tax-id").value = "";
+  }
 }
 
 function loadBatches(productId, batchSelect) {
@@ -601,6 +633,7 @@ if (isEditMode) {
 } else {
   syncTierFromCustomer(false);
 }
+toggleManualCustomerFields();
 updatePaymentFields();
 </script>
 {% endblock %}
