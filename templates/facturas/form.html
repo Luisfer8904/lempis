@@ -537,31 +537,37 @@ function enhanceCustomerCombobox(select) {
     }
   }
 
+  function currentLabel() {
+    const current = select.options[select.selectedIndex];
+    return current ? current.textContent.trim() : "— Consumidor final —";
+  }
+
+  function openMenuForSearch(resetSelectedText = false) {
+    if (resetSelectedText && input.value.trim() === currentLabel()) {
+      input.value = "";
+    }
+    positionMenu();
+    renderOptions();
+    menu.classList.remove("hidden");
+  }
+
   input.addEventListener("input", () => {
     positionMenu();
     renderOptions();
     menu.classList.remove("hidden");
   });
-  input.addEventListener("pointerdown", () => {
-    positionMenu();
-    renderOptions();
-    menu.classList.remove("hidden");
-  });
-  input.addEventListener("focus", () => {
-    positionMenu();
-    renderOptions();
-    menu.classList.remove("hidden");
-  });
-  input.addEventListener("blur", () => setTimeout(() => menu.classList.add("hidden"), 120));
+  input.addEventListener("pointerdown", () => openMenuForSearch(true));
+  input.addEventListener("focus", () => openMenuForSearch(true));
+  input.addEventListener("blur", () => setTimeout(() => {
+    menu.classList.add("hidden");
+    if (!input.value.trim()) input.value = currentLabel();
+  }, 120));
   toggle.addEventListener("click", () => {
     input.focus();
-    positionMenu();
-    renderOptions();
-    menu.classList.toggle("hidden");
+    openMenuForSearch(true);
   });
   select.addEventListener("change", () => {
-    const current = select.options[select.selectedIndex];
-    input.value = current ? current.textContent.trim() : "— Consumidor final —";
+    input.value = currentLabel();
   });
 
   select.parentNode.insertBefore(wrapper, select);
