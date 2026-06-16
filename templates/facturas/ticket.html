@@ -8,7 +8,7 @@
     :root {
       --paper-width: {{ receipt_width }};
       --font-size: {% if receipt_width == '58mm' %}9.5px{% else %}10.5px{% endif %};
-      --line-height: 1.18;
+      --line-height: 1.30;
     }
 
     * { box-sizing: border-box; }
@@ -153,6 +153,15 @@
       padding-top: 3px;
       font-size: 1.12em;
       font-weight: 800;
+    }
+
+    .signature-space {
+      margin-top: 8mm;
+      padding-top: 5mm;
+      border-top: 1px solid #111;
+      text-align: center;
+      font-size: 0.9em;
+      text-transform: uppercase;
     }
 
     @page {
@@ -317,6 +326,13 @@
       <section class="small">
         <p class="bold uppercase">Notas</p>
         <p>{{ display_notes }}</p>
+      </section>
+    {% endif %}
+
+    {% if factura.payment_method == 'credito' %}
+      <section class="signature-space">
+        <p>Firma del cliente</p>
+        <p class="tiny">Nombre / RTN</p>
       </section>
     {% endif %}
 
