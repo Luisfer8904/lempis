@@ -17,7 +17,7 @@ from models import db
 from models.invoice import Invoice, InvoicePayment
 from models.catalog import Customer
 from services.tenant_context import current_tenant
-from services.permissions import permission_required, tenant_required
+from services.permissions import admin_required, permission_required, tenant_required
 from services.receivables import (
     record_invoice_payment, revert_payment,
     customer_balances, aging_summary, update_overdue_invoices,
@@ -199,14 +199,14 @@ def export_aging():
 @cobros_bp.route("/pago/<int:payment_id>/revertir", methods=["POST"])
 @login_required
 @tenant_required
-@permission_required("receivables.manage")
+@admin_required
 def revertir(payment_id):
     tenant = current_tenant()
     p = InvoicePayment.query.filter_by(id=payment_id, tenant_id=tenant.id).first_or_404()
     invoice_id = p.invoice_id
     customer_id = p.invoice.customer_id
     revert_payment(p)
-    flash("Pago revertido. Saldo recalculado.", "warning")
+    flash("Cobro eliminado. Saldo recalculado.", "warning")
     back = request.form.get("back")
     if back == "factura":
         return redirect(url_for("facturas.detail", invoice_id=invoice_id))

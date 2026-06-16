@@ -255,6 +255,9 @@
           <th class="min-w-[120px]">Método</th>
           <th class="min-w-[160px]">Referencia</th>
           <th class="text-right min-w-[140px]">Monto</th>
+          {% if current_user.is_admin() %}
+            <th class="text-right min-w-[90px]">Acción</th>
+          {% endif %}
         </tr>
       </thead>
       <tbody>
@@ -271,9 +274,18 @@
           <td class="text-sm align-middle">{{ methods.get(payment.payment_method, payment.payment_method) }}</td>
           <td class="text-sm text-slate-500 align-middle">{{ payment.reference or '—' }}</td>
           <td class="text-right font-semibold text-emerald-700 align-middle">{{ tenant.currency }} {{ "{:,.2f}".format(payment.amount or 0) }}</td>
+          {% if current_user.is_admin() %}
+            <td class="text-right align-middle">
+              <form method="POST" action="{{ url_for('cobros.revertir', payment_id=payment.id) }}"
+                    onsubmit="return confirm('¿Eliminar este cobro? Se recalculará el saldo de la factura.');">
+                <input type="hidden" name="back" value="cliente" />
+                <button class="text-sm text-rose-600 hover:text-rose-700">Eliminar</button>
+              </form>
+            </td>
+          {% endif %}
         </tr>
         {% else %}
-        <tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Sin cobros registrados.</td></tr>
+        <tr><td colspan="{{ 6 if current_user.is_admin() else 5 }}" class="px-6 py-8 text-center text-slate-500">Sin cobros registrados.</td></tr>
         {% endfor %}
       </tbody>
     </table>

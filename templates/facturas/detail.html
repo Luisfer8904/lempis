@@ -71,6 +71,13 @@
           Eliminar borrador
         </button>
       </form>
+    {% elif current_user.is_admin() %}
+      <form method="POST" action="{{ url_for('facturas.delete', invoice_id=factura.id) }}"
+            onsubmit="return confirm('¿Eliminar definitivamente la venta {{ factura.number }}? Esto borrará la factura y sus cobros; si no está anulada, se restituirá el inventario.');">
+        <button class="border border-rose-500 text-rose-600 px-4 py-2 rounded-lg hover:bg-rose-50 text-sm">
+          Eliminar venta
+        </button>
+      </form>
     {% endif %}
   </div>
 </div>
@@ -215,11 +222,13 @@
                   <div class="flex flex-col gap-1 items-end">
                     <a href="{{ url_for('cobros.recibo_pdf', payment_id=p.id) }}"
                        class="text-indigo-600 hover:underline text-[10px]">📄 PDF</a>
-                    <form method="POST" action="{{ url_for('cobros.revertir', payment_id=p.id) }}"
-                          onsubmit="return confirm('¿Revertir este pago?');">
-                      <input type="hidden" name="back" value="factura" />
-                      <button class="text-rose-500 hover:text-rose-700">✕</button>
-                    </form>
+                    {% if current_user.is_admin() %}
+                      <form method="POST" action="{{ url_for('cobros.revertir', payment_id=p.id) }}"
+                            onsubmit="return confirm('¿Eliminar este cobro? Se recalculará el saldo de la factura.');">
+                        <input type="hidden" name="back" value="factura" />
+                        <button class="text-rose-500 hover:text-rose-700">Eliminar</button>
+                      </form>
+                    {% endif %}
                   </div>
                 </div>
               {% endfor %}

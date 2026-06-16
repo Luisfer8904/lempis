@@ -22,7 +22,7 @@ from models.country import TaxConfig
 from models.printing import TenantPrintSettings
 from models.user import User
 from services.tenant_context import current_tenant
-from services.permissions import permission_required, tenant_required
+from services.permissions import admin_required, permission_required, tenant_required
 from services.invoice_service import (
     issue_invoice, update_invoice, next_invoice_number,
     validate_can_emit, CAIError, _resolve_batch,
@@ -288,15 +288,17 @@ def void(invoice_id):
 @facturas_bp.route("/<int:invoice_id>/delete", methods=["POST"])
 @login_required
 @tenant_required
-@permission_required("sales.manage")
+@admin_required
 def delete(invoice_id):
+    from services.invoice_service import void_invoice_and_restore_stock
     inv = _get_or_404(invoice_id)
-    if inv.status != "draft":
-        flash("Solo puedes eliminar borradores. Las emitidas se anulan.", "warning")
-        return redirect(url_for("facturas.detail", invoice_id=inv.id))
+    number = inv.number
+    if inv.status not in ("draft", "void"):
+        void_invoice_and_restore_stock(inv)
+        inv = _get_or_404(invoice_id)
     db.session.delete(inv)
     db.session.commit()
-    flash("Borrador eliminado.", "info")
+    flash(f"Venta {number} eliminada.", "info")
     return redirect(url_for("facturas.list"))
 
 
