@@ -653,7 +653,7 @@ function openCheckoutModal() {
   document.getElementById("checkout-modal-method").textContent = methods[method] || "Método de pago";
   document.getElementById("checkout-modal-total").textContent = tenantCurrency + " " + currentInvoiceTotal().toFixed(2);
   document.getElementById("checkout-cash-fields").classList.toggle("hidden", method !== "efectivo");
-  document.getElementById("print-invoice-modal").checked = method !== "credito";
+  document.getElementById("print-invoice-modal").checked = true;
   document.getElementById("checkout-modal").classList.remove("hidden");
   document.getElementById("checkout-modal").classList.add("flex");
   if (method === "efectivo") {
