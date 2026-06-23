@@ -24,5 +24,6 @@ class TenantPrintSettings(db.Model, TimestampMixin):
     document_page_format = Column(String(20), nullable=False, default="letter")
     thermal_printer_enabled = Column(Boolean, nullable=False, default=True)
     open_cash_drawer_on_print = Column(Boolean, nullable=False, default=True)
+    enable_load_order_print = Column(Boolean, nullable=False, default=False)
 
     tenant = relationship("Tenant")

@@ -242,6 +242,25 @@ def ticket(invoice_id):
     )
 
 
+@facturas_bp.route("/<int:invoice_id>/orden-carga")
+@login_required
+@tenant_required
+@permission_required("sales.view")
+def orden_carga(invoice_id):
+    inv = _get_or_404(invoice_id)
+    tenant = current_tenant()
+    settings = _get_print_settings(tenant)
+    if not settings.enable_load_order_print:
+        flash("La impresión de orden de carga no está habilitada.", "warning")
+        return redirect(url_for("facturas.detail", invoice_id=inv.id))
+    return render_template(
+        "facturas/orden_carga.html",
+        factura=inv,
+        tenant=tenant,
+        auto_print=request.args.get("print") == "1",
+    )
+
+
 def _split_ticket_notes(notes: str):
     cash_received = None
     cash_change = None

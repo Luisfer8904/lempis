@@ -8,7 +8,7 @@
     :root {
       --paper-width: {{ receipt_width }};
       --font-size: {% if receipt_width == '58mm' %}9.8px{% else %}11px{% endif %};
-      --line-height: 1.30;
+      --line-height: 1.15;
     }
 
     * { box-sizing: border-box; }
@@ -395,7 +395,7 @@
       const ticket = document.querySelector('.ticket');
       if (!ticket) return;
       const width = getComputedStyle(document.documentElement).getPropertyValue('--paper-width').trim() || '80mm';
-      const heightMm = Math.ceil((ticket.getBoundingClientRect().height * 25.4 / 96) + 6);
+      const heightMm = Math.ceil(ticket.getBoundingClientRect().height * 25.4 / 96);
       let style = document.getElementById('dynamic-print-page');
       if (!style) {
         style = document.createElement('style');

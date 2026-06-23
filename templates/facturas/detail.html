@@ -15,6 +15,12 @@
      class="bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-800 text-sm">
     📄 Descargar PDF
   </a>
+  {% if print_settings and print_settings.enable_load_order_print %}
+    <a href="{{ url_for('facturas.orden_carga', invoice_id=factura.id) }}"
+       class="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 text-sm">
+      Orden de carga
+    </a>
+  {% endif %}
 {% endif %}
 {% if factura.status == 'draft' %}
   <a href="{{ url_for('facturas.edit', invoice_id=factura.id) }}"

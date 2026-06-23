@@ -36,6 +36,18 @@
         </div>
       </label>
 
+      <label class="md:col-span-2 flex items-start gap-3 p-4 rounded-lg border bg-slate-50">
+        <input type="checkbox" name="enable_load_order_print" value="1"
+               {% if settings.enable_load_order_print %}checked{% endif %}
+               class="mt-1 accent-indigo-600" />
+        <div>
+          <p class="font-medium text-slate-900">Habilitar impresión de orden de carga</p>
+          <p class="text-sm text-slate-500">
+            Muestra una orden imprimible para bodega con el cliente, factura y productos a preparar.
+          </p>
+        </div>
+      </label>
+
       <div>
         <label class="block text-sm font-medium mb-1">Formato de venta rápida</label>
         <select name="quick_sale_format"
@@ -107,6 +119,7 @@
       <li>Venta rápida: normalmente usa recibo térmico.</li>
       <li>Venta detallada: normalmente usa carta.</li>
       <li>Recibos de cobro: pueden salir en térmica o carta según tu flujo.</li>
+      <li>Orden de carga: si se habilita, aparece como documento imprimible dentro de cada factura.</li>
       <li>El cajón solo se intenta abrir si está activa la opción de arriba y el navegador tiene permiso para usar la impresora o puerto serial.</li>
     </ul>
   </div>

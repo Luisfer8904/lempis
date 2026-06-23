@@ -25,6 +25,12 @@ def main():
                 "ADD COLUMN open_cash_drawer_on_print TINYINT(1) NOT NULL DEFAULT 1"
             ))
             db.session.commit()
+        if "enable_load_order_print" not in columns:
+            db.session.execute(text(
+                "ALTER TABLE lempis_config_impresion "
+                "ADD COLUMN enable_load_order_print TINYINT(1) NOT NULL DEFAULT 0"
+            ))
+            db.session.commit()
     print("migracion impresion ok")
 
 

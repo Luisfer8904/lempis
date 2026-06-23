@@ -163,6 +163,7 @@ def impresion():
         settings.document_page_format = (request.form.get("document_page_format") or "letter").strip()
         settings.thermal_printer_enabled = bool(request.form.get("thermal_printer_enabled"))
         settings.open_cash_drawer_on_print = bool(request.form.get("open_cash_drawer_on_print"))
+        settings.enable_load_order_print = bool(request.form.get("enable_load_order_print"))
         db.session.commit()
         flash("Configuración de impresión actualizada.", "success")
         return redirect(url_for("configuracion.impresion"))

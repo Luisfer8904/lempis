@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Orden de carga {{ factura.number }}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #f1f5f9;
+      color: #111827;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 13px;
+      line-height: 1.25;
+    }
+    .toolbar {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px;
+    }
+    .toolbar a,
+    .toolbar button {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #fff;
+      color: #0f172a;
+      cursor: pointer;
+      font: 600 13px Arial, Helvetica, sans-serif;
+      padding: 9px 12px;
+      text-decoration: none;
+    }
+    .sheet {
+      width: 216mm;
+      min-height: 279mm;
+      margin: 0 auto 24px;
+      padding: 14mm;
+      background: #fff;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 2px solid #111827;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+    .title {
+      font-size: 22px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+    .muted { color: #64748b; }
+    .mono { font-family: "Courier New", Courier, monospace; font-weight: 700; }
+    .box {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 12px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+    th,
+    td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 8px 6px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #f8fafc;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+    .qty {
+      width: 28mm;
+      text-align: right;
+      font-family: "Courier New", Courier, monospace;
+      font-weight: 800;
+    }
+    .signature {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18mm;
+      margin-top: 22mm;
+    }
+    .line {
+      border-top: 1px solid #111827;
+      padding-top: 5px;
+      text-align: center;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+    @page { size: letter; margin: 0; }
+    @media print {
+      body { background: #fff; }
+      .toolbar { display: none !important; }
+      .sheet {
+        width: 216mm;
+        min-height: auto;
+        margin: 0;
+        padding: 12mm;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <a href="{{ url_for('facturas.detail', invoice_id=factura.id) }}">Volver</a>
+    <button type="button" onclick="window.print()">Imprimir orden</button>
+  </div>
+
+  <main class="sheet">
+    <section class="header">
+      <div>
+        <div class="title">Orden de carga</div>
+        <p class="muted">Documento interno para bodega</p>
+      </div>
+      <div>
+        <p><strong>Factura:</strong> <span class="mono">{{ factura.number }}</span></p>
+        <p><strong>Fecha:</strong> {{ factura.issue_date|local_datetime('%d/%m/%Y %H:%M') }}</p>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="box">
+        <p class="muted">Cliente</p>
+        <p><strong>{{ factura.receptor_name or (factura.customer.name if factura.customer else 'Consumidor final') }}</strong></p>
+        {% if factura.receptor_tax_id %}
+          <p>RTN: <span class="mono">{{ factura.receptor_tax_id }}</span></p>
+        {% endif %}
+      </div>
+      <div class="box">
+        <p class="muted">Empresa</p>
+        <p><strong>{{ factura.emisor_name or tenant.legal_name or tenant.name }}</strong></p>
+        {% if factura.emisor_tax_id or tenant.tax_id %}
+          <p>RTN: <span class="mono">{{ factura.emisor_tax_id or tenant.tax_id }}</span></p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="box">
+      <p><strong>Productos a preparar</strong></p>
+      <table>
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th class="qty">Cantidad</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in factura.items %}
+            <tr>
+              <td>{{ item.description }}</td>
+              <td class="qty">{{ '%.2f'|format(item.quantity) }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="box">
+      <p><strong>Observaciones de bodega</strong></p>
+      <div style="height: 28mm;"></div>
+    </section>
+
+    <section class="signature">
+      <div class="line">Preparado por</div>
+      <div class="line">Recibido por</div>
+    </section>
+  </main>
+
+  {% if auto_print %}
+    <script>
+      window.addEventListener('load', () => setTimeout(() => window.print(), 250));
+    </script>
+  {% endif %}
+</body>
+</html>
