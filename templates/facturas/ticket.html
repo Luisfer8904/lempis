@@ -52,7 +52,7 @@
 
     .ticket {
       width: var(--paper-width);
-      margin: 0 auto 20px;
+      margin: 0 auto;
       padding: {% if receipt_width == '58mm' %}2mm{% else %}3mm{% endif %};
       background: #fff;
       overflow-wrap: anywhere;
@@ -172,7 +172,7 @@
     }
 
     @page {
-      size: {{ receipt_width }} 297mm;
+      size: {{ receipt_width }} 120mm;
       margin: 0;
     }
 
@@ -196,7 +196,7 @@
 <body>
   <div class="toolbar">
     <a href="{{ url_for('facturas.detail', invoice_id=factura.id) }}">Volver</a>
-    <button type="button" onclick="prepareTicketPrint(); window.print()">Imprimir</button>
+    <button type="button" onclick="printTicket()">Imprimir</button>
     <button type="button" class="primary" onclick="openDrawerAndPrint()">Abrir caja e imprimir</button>
   </div>
 
@@ -388,14 +388,20 @@
         console.warn('No se pudo enviar el pulso de caja desde el navegador.', error);
       }
       prepareTicketPrint();
-      window.print();
+      requestAnimationFrame(() => window.print());
+    }
+
+    function printTicket() {
+      prepareTicketPrint();
+      requestAnimationFrame(() => window.print());
     }
 
     function prepareTicketPrint() {
       const ticket = document.querySelector('.ticket');
       if (!ticket) return;
       const width = getComputedStyle(document.documentElement).getPropertyValue('--paper-width').trim() || '80mm';
-      const heightMm = Math.ceil(ticket.getBoundingClientRect().height * 25.4 / 96);
+      const heightPx = Math.max(ticket.scrollHeight, ticket.getBoundingClientRect().height);
+      const heightMm = Math.ceil(heightPx * 25.4 / 96);
       let style = document.getElementById('dynamic-print-page');
       if (!style) {
         style = document.createElement('style');
@@ -415,11 +421,11 @@
         }
       }
       setTimeout(() => {
-        prepareTicketPrint();
-        window.print();
+        printTicket();
         setTimeout(goNextAfterPrint, 1500);
       }, 250);
     });
+    window.addEventListener('beforeprint', prepareTicketPrint);
     window.addEventListener('afterprint', () => setTimeout(goNextAfterPrint, 300));
   </script>
 </body>
