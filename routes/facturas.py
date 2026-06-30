@@ -257,6 +257,7 @@ def orden_carga(invoice_id):
         "facturas/orden_carga.html",
         factura=inv,
         tenant=tenant,
+        receipt_width=settings.receipt_paper_width if settings.receipt_paper_width in ("58mm", "80mm") else "80mm",
         auto_print=request.args.get("print") == "1",
     )
 
