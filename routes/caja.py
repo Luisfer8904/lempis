@@ -72,8 +72,6 @@ def index():
         .limit(30)
         .all()
     )
-    summary = _cash_summary(tenant.id, period_start, period_end, closures)
-
     # Estado de la caja del día actual
     today_closure = (
         CashClosure.query
@@ -82,6 +80,14 @@ def index():
     )
     today_summary = _suggested_closure_values(tenant.id, today)
     is_single_day = (start_date == end_date)
+    summary = _cash_summary(
+        tenant.id,
+        period_start,
+        period_end,
+        closures,
+        open_closure=today_closure if start_date <= today <= end_date else None,
+        open_closure_values=today_summary,
+    )
 
     # Gastos en efectivo de HOY (para listarlos detalladamente en el banner del día)
     today_start, today_end = _period_bounds(today, today)
@@ -403,7 +409,14 @@ def _suggested_closure_values(tenant_id: int, closure_date):
     }
 
 
-def _cash_summary(tenant_id: int, period_start, period_end, closures):
+def _cash_summary(
+    tenant_id: int,
+    period_start,
+    period_end,
+    closures,
+    open_closure: CashClosure | None = None,
+    open_closure_values: dict | None = None,
+):
     sales = _sum_invoices_by_method(tenant_id, period_start, period_end)
     payments = _sum_payments_by_method(tenant_id, period_start, period_end)
     expenses = (
@@ -423,15 +436,31 @@ def _cash_summary(tenant_id: int, period_start, period_end, closures):
     cash_sales = _decimal(sales.get("efectivo"))
     transfer_sales = _decimal(sales.get("transferencia"))
     card_sales = _decimal(sales.get("tarjeta"))
+    closure_dates = {c.closure_date for c in closures}
+    include_open_closure = (
+        open_closure is not None
+        and open_closure.status == "open"
+        and open_closure.closure_date not in closure_dates
+    )
+    open_values = open_closure_values or {}
+    open_opening = _decimal(open_closure.opening_amount) if include_open_closure else Decimal("0.00")
+    open_expected_cash = (
+        open_opening
+        + _decimal(open_values.get("cash_sales_amount"))
+        + _decimal(open_values.get("receivable_cash_amount"))
+        - _decimal(open_values.get("expenses_amount"))
+        if include_open_closure
+        else Decimal("0.00")
+    )
     return {
         "sales": {key: _decimal(value) for key, value in sales.items()},
         "payments": {key: _decimal(value) for key, value in payments.items()},
         "expenses": expenses_by_method,
         # Total "de contado" = todo lo no a crédito del periodo
         "contado_total": cash_sales + transfer_sales + card_sales,
-        "opening_total": sum(_decimal(c.opening_amount) for c in closures),
+        "opening_total": sum(_decimal(c.opening_amount) for c in closures) + open_opening,
         "expenses_total": sum(_decimal(c.expenses_amount) for c in closures),
-        "expected_cash": sum(_decimal(c.expected_cash_amount) for c in closures),
+        "expected_cash": sum(_decimal(c.expected_cash_amount) for c in closures) + open_expected_cash,
         "actual_cash": sum(_decimal(c.actual_cash_amount) for c in closures),
         "delivered_cash": sum(_decimal(c.delivered_cash_amount) for c in closures),
         "variance": sum(_decimal(c.variance_amount) for c in closures),

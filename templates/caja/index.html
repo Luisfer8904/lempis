@@ -140,11 +140,9 @@
     <p class="text-xs text-slate-400 mt-1">Ventas y abonos del periodo</p>
   </div>
   <div class="bg-white rounded-xl border shadow-sm p-5">
-    <p class="text-sm text-slate-500">Dinero entregado</p>
-    <p class="mt-2 text-2xl font-black text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(summary.delivered_cash) }}</p>
-    <p class="text-xs {% if summary.variance < 0 %}text-rose-600{% else %}text-emerald-600{% endif %} mt-1">
-      Diferencia: {{ tenant.currency }} {{ '%.2f'|format(summary.variance) }}
-    </p>
+    <p class="text-sm text-slate-500">Dinero del día</p>
+    <p class="mt-2 text-2xl font-black text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(summary.expected_cash) }}</p>
+    <p class="text-xs text-slate-400 mt-1">Apertura + efectivo + abonos - gastos</p>
   </div>
 </section>
 
@@ -157,7 +155,7 @@
   <div class="bg-white rounded-xl border shadow-sm p-5">
     <p class="text-sm text-slate-500">Apertura acumulada</p>
     <p class="mt-2 text-2xl font-black text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(summary.opening_total) }}</p>
-    <p class="text-xs text-slate-400 mt-1">Suma de aperturas de cierres del periodo</p>
+    <p class="text-xs text-slate-400 mt-1">Aperturas registradas en el periodo</p>
   </div>
   <div class="bg-white rounded-xl border shadow-sm p-5">
     <p class="text-sm text-slate-500">Gastos en efectivo</p>
@@ -165,9 +163,11 @@
     <p class="text-xs text-slate-400 mt-1">Otros métodos: {{ tenant.currency }} {{ '%.2f'|format((summary.expenses.get('transferencia', 0) + summary.expenses.get('tarjeta', 0) + summary.expenses.get('otro', 0))) }}</p>
   </div>
   <div class="bg-white rounded-xl border shadow-sm p-5">
-    <p class="text-sm text-slate-500">Efectivo esperado</p>
-    <p class="mt-2 text-2xl font-black text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(summary.expected_cash) }}</p>
-    <p class="text-xs text-slate-400 mt-1">Suma de los cierres del periodo</p>
+    <p class="text-sm text-slate-500">Dinero entregado</p>
+    <p class="mt-2 text-2xl font-black text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(summary.delivered_cash) }}</p>
+    <p class="text-xs {% if summary.variance < 0 %}text-rose-600{% else %}text-emerald-600{% endif %} mt-1">
+      Diferencia: {{ tenant.currency }} {{ '%.2f'|format(summary.variance) }}
+    </p>
   </div>
 </section>
 
