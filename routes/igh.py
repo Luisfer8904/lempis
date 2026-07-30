@@ -352,6 +352,100 @@ def _pdf_report_widths(count: int):
     return [first] + [(usable - first) / (count - 1)] * (count - 1)
 
 
+def _client_pending_accounts_pdf(client: IVGClient, sales: list[IVGSale]):
+    stream = BytesIO()
+    doc = SimpleDocTemplate(
+        stream,
+        pagesize=landscape(letter),
+        rightMargin=10 * mm,
+        leftMargin=10 * mm,
+        topMargin=10 * mm,
+        bottomMargin=10 * mm,
+    )
+    styles = getSampleStyleSheet()
+    title_style = styles["Title"]
+    title_style.fontSize = 16
+    normal_style = styles["Normal"]
+    normal_style.fontSize = 8
+    normal_style.leading = 10
+
+    category_totals = {
+        code: {"label": label, "count": 0, "total": Decimal("0.00")}
+        for code, label, _ in IVG_SALE_CATEGORIES
+    }
+    grand_total = Decimal("0.00")
+    for sale in sales:
+        category = _normalize_ivg_category(sale.category)
+        balance = _to_decimal(sale.balance_due)
+        category_totals[category]["count"] += 1
+        category_totals[category]["total"] += balance
+        grand_total += balance
+
+    story = [
+        Paragraph("Cuentas pendientes por cliente", title_style),
+        Paragraph(f"Cliente: <b>{client.name}</b>", normal_style),
+        Paragraph(f"RTN: {client.tax_id or 'No registrado'}", normal_style),
+        Paragraph(f"Generado: {datetime.utcnow().strftime('%d/%m/%Y %H:%M')}", normal_style),
+        Spacer(1, 8),
+    ]
+
+    summary_rows = [["Categoría", "Facturas pendientes", "Saldo pendiente"]]
+    for code in ("herbicidas", "concentrados", "semillas"):
+        item = category_totals[code]
+        summary_rows.append([item["label"], item["count"], f"HNL {_money_value(item['total'])}"])
+    summary_rows.append(["TOTAL", sum(item["count"] for item in category_totals.values()), f"HNL {_money_value(grand_total)}"])
+
+    summary_table = Table(summary_rows, colWidths=[80 * mm, 45 * mm, 55 * mm])
+    summary_table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#CBD5E1")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#DCFCE7")),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#F8FAFC")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    ]))
+    story.append(summary_table)
+    story.append(Spacer(1, 10))
+
+    detail_rows = [["Factura", "Categoría", "Fecha venta", "Vencimiento", "Estado", "Total", "Saldo", "Notas"]]
+    for sale in sales:
+        detail_rows.append([
+            sale.reference_number or f"FACT-{sale.id}",
+            _ivg_category_label(sale.category),
+            _format_report_date(sale.sale_date),
+            _format_report_date(sale.due_date),
+            sale.status,
+            f"HNL {_money_value(sale.gross_amount)}",
+            f"HNL {_money_value(sale.balance_due)}",
+            sale.notes or "",
+        ])
+    if len(detail_rows) == 1:
+        detail_rows.append(["Sin cuentas pendientes", "", "", "", "", "", "", ""])
+
+    detail_table = Table(
+        detail_rows,
+        colWidths=[27 * mm, 30 * mm, 25 * mm, 25 * mm, 24 * mm, 28 * mm, 28 * mm, 54 * mm],
+        repeatRows=1,
+    )
+    detail_table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#CBD5E1")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EEF2FF")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
+        ("ALIGN", (5, 1), (6, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8FAFC")]),
+    ]))
+    story.append(Paragraph("Detalle de facturas pendientes", styles["Heading3"]))
+    story.append(detail_table)
+    doc.build(story)
+    stream.seek(0)
+    return stream
+
+
 def _cash_close_instructions_pdf():
     stream = BytesIO()
     doc = SimpleDocTemplate(
@@ -2095,6 +2189,15 @@ def reportes():
         ("clientes-saldos", "Clientes con saldo", "Saldo pendiente acumulado por cliente."),
         ("agenda", "Agenda pendiente", "Seguimientos y actividades no completadas."),
     ]
+    context["clients_with_pending_balance"] = (
+        IVGClient.query.join(IVGSale, IVGSale.client_id == IVGClient.id)
+        .filter(IVGSale.balance_due > 0)
+        .distinct()
+        .order_by(IVGClient.name.asc())
+        .all()
+        if _table_exists(IVGClient) and _table_exists(IVGSale)
+        else []
+    )
     return render_template("igh/reports.html", **context)
 
 
@@ -2272,6 +2375,38 @@ def reportes_descargar(report_type: str, fmt: str):
     if fmt == "pdf":
         return _pdf_response(f"{slug}-{today}.pdf", title, headers, rows)
     abort(404)
+
+
+@igh_bp.route("/reportes/cuentas-pendientes-cliente.pdf")
+@igh_login_required
+@igh_admin_required
+def cuentas_pendientes_cliente_pdf():
+    client_id = request.args.get("client_id", type=int)
+    if not client_id or not _table_exists(IVGClient) or not _table_exists(IVGSale):
+        abort(404)
+
+    client = db.session.get(IVGClient, client_id)
+    if client is None:
+        abort(404)
+
+    sales = (
+        IVGSale.query.filter(
+            IVGSale.client_id == client.id,
+            IVGSale.balance_due > 0,
+            IVGSale.category.in_([code for code, _, _ in IVG_SALE_CATEGORIES]),
+        )
+        .order_by(IVGSale.category.asc(), IVGSale.due_date.asc(), IVGSale.sale_date.asc(), IVGSale.id.asc())
+        .all()
+    )
+    stream = _client_pending_accounts_pdf(client, sales)
+    safe_name = "".join(char if char.isalnum() else "-" for char in client.name.lower()).strip("-") or f"cliente-{client.id}"
+    today = datetime.utcnow().strftime("%Y%m%d")
+    return send_file(
+        stream,
+        as_attachment=True,
+        download_name=f"cuentas-pendientes-{safe_name}-{today}.pdf",
+        mimetype="application/pdf",
+    )
 
 
 @igh_bp.route("/productos")

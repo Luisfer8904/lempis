@@ -426,6 +426,33 @@
       </div>
     </div>
   </section>
+
+  <section class="mt-5 rounded-xl border bg-white p-5 shadow-sm">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div class="lg:max-w-lg">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">PDF por cliente</p>
+        <h3 class="mt-1 text-lg font-bold text-slate-900">Cuentas pendientes por categoría</h3>
+        <p class="mt-1 text-sm text-slate-500">Genera el saldo pendiente del cliente separado en Herbicidas, Concentrados y Semillas.</p>
+      </div>
+      <form method="GET" action="{{ url_for('igh.cuentas_pendientes_cliente_pdf') }}" class="flex w-full flex-col gap-3 sm:flex-row lg:max-w-2xl">
+        <select name="client_id" required
+                class="min-h-[44px] flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+          <option value="">Seleccionar cliente...</option>
+          {% for client in clients_with_pending_balance %}
+            <option value="{{ client.id }}">{{ client.name }}{% if client.tax_id %} · RTN {{ client.tax_id }}{% endif %}</option>
+          {% endfor %}
+        </select>
+        <button type="submit"
+                class="min-h-[44px] rounded-lg bg-indigo-600 px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                {% if not clients_with_pending_balance %}disabled{% endif %}>
+          Generar PDF
+        </button>
+      </form>
+    </div>
+    {% if not clients_with_pending_balance %}
+      <p class="mt-3 text-sm text-slate-500">No hay clientes con cuentas pendientes en este momento.</p>
+    {% endif %}
+  </section>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
