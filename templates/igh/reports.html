@@ -79,25 +79,6 @@
   </div>
 </section>
 
-<section class="mb-6 rounded-xl border border-emerald-200 bg-white p-5 shadow-sm">
-  <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-    <div>
-      <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Cuentas pendientes</p>
-      <h3 class="mt-1 text-lg font-bold text-slate-900">Reporte por cliente</h3>
-      <p class="mt-1 text-sm text-slate-500">Consulta el saldo pendiente separado por Herbicidas, Concentrados y Semillas antes de generar el PDF.</p>
-    </div>
-    <button type="button"
-            id="open-client-pending-modal"
-            class="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-            {% if not clients_with_pending_balance %}disabled{% endif %}>
-      Generar reporte por cliente
-    </button>
-  </div>
-  {% if not clients_with_pending_balance %}
-    <p class="mt-3 text-sm text-slate-500">No hay clientes con cuentas pendientes en este momento.</p>
-  {% endif %}
-</section>
-
 <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
   <div class="bg-white rounded-xl border shadow-sm p-4 sm:p-5">
     <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-2">Cierres del día</p>
@@ -447,71 +428,10 @@
   </section>
 </div>
 
-<div id="client-pending-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 px-4 py-6">
-  <div class="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
-    <div class="flex items-start justify-between gap-4 border-b px-5 py-4">
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">PDF por cliente</p>
-        <h3 class="mt-1 text-lg font-bold text-slate-900">Cuentas pendientes por categoría</h3>
-        <p class="mt-1 text-sm text-slate-500">Selecciona un cliente para revisar el saldo antes de descargar.</p>
-      </div>
-      <button type="button" id="close-client-pending-modal" class="rounded-lg px-2 py-1 text-2xl leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-700">&times;</button>
-    </div>
-    <div class="space-y-4 px-5 py-5">
-      <div>
-        <label class="mb-1 block text-sm font-semibold text-slate-700" for="client-pending-select">Cliente</label>
-        <select id="client-pending-select"
-                class="min-h-[44px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
-          <option value="">Seleccionar cliente...</option>
-          {% for client in clients_with_pending_balance %}
-            <option value="{{ client.id }}">{{ client.name }}{% if client.tax_id %} · RTN {{ client.tax_id }}{% endif %}</option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <div id="client-pending-empty" class="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center text-sm text-slate-500">
-        Selecciona un cliente para cargar sus cuentas pendientes.
-      </div>
-
-      <div id="client-pending-summary" class="hidden space-y-4">
-        <div class="rounded-xl bg-emerald-50 p-4">
-          <p id="client-pending-name" class="font-bold text-slate-900"></p>
-          <p id="client-pending-tax" class="mt-1 text-xs text-slate-500"></p>
-          <div class="mt-3 flex flex-wrap gap-3">
-            <span id="client-pending-count" class="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-slate-700"></span>
-            <span id="client-pending-total" class="rounded-lg bg-white px-3 py-2 text-sm font-bold text-emerald-700"></span>
-          </div>
-        </div>
-        <div class="overflow-hidden rounded-xl border">
-          <table class="w-full text-sm">
-            <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th class="px-4 py-3">Categoría</th>
-                <th class="px-4 py-3 text-right">Facturas</th>
-                <th class="px-4 py-3 text-right">Saldo</th>
-              </tr>
-            </thead>
-            <tbody id="client-pending-category-rows" class="divide-y"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-    <div class="flex flex-col-reverse gap-3 border-t px-5 py-4 sm:flex-row sm:justify-end">
-      <button type="button" id="cancel-client-pending-modal" class="rounded-lg border px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancelar</button>
-      <a id="client-pending-pdf-link"
-         href="#"
-         class="pointer-events-none inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white opacity-50 hover:bg-emerald-700">
-        Generar PDF
-      </a>
-    </div>
-  </div>
-</div>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 (() => {
   const chartData = {{ report_chart_data|tojson }};
-  const clientPendingData = {{ client_pending_report_data|tojson }};
   const currency = new Intl.NumberFormat('es-HN', { style: 'currency', currency: 'HNL' });
   const palette = ['#10b981', '#6366f1', '#f59e0b', '#ef4444', '#14b8a6', '#8b5cf6'];
 
@@ -593,66 +513,6 @@
   }
 
   activateTab({{ active_report_tab|tojson }});
-
-  const modal = document.getElementById('client-pending-modal');
-  const openModal = document.getElementById('open-client-pending-modal');
-  const closeModal = document.getElementById('close-client-pending-modal');
-  const cancelModal = document.getElementById('cancel-client-pending-modal');
-  const clientSelect = document.getElementById('client-pending-select');
-  const emptyState = document.getElementById('client-pending-empty');
-  const summary = document.getElementById('client-pending-summary');
-  const pdfLink = document.getElementById('client-pending-pdf-link');
-  const rowsBody = document.getElementById('client-pending-category-rows');
-  const clientName = document.getElementById('client-pending-name');
-  const clientTax = document.getElementById('client-pending-tax');
-  const clientCount = document.getElementById('client-pending-count');
-  const clientTotal = document.getElementById('client-pending-total');
-
-  function setModalOpen(open) {
-    if (!modal) return;
-    modal.classList.toggle('hidden', !open);
-    modal.classList.toggle('flex', open);
-    if (open && clientSelect) clientSelect.focus();
-  }
-
-  function updatePendingSummary() {
-    const selectedId = Number(clientSelect?.value || 0);
-    const data = clientPendingData.find((item) => Number(item.id) === selectedId);
-    const hasData = Boolean(data);
-    emptyState?.classList.toggle('hidden', hasData);
-    summary?.classList.toggle('hidden', !hasData);
-    pdfLink?.classList.toggle('pointer-events-none', !hasData);
-    pdfLink?.classList.toggle('opacity-50', !hasData);
-    if (!hasData) {
-      if (pdfLink) pdfLink.href = '#';
-      if (rowsBody) rowsBody.innerHTML = '';
-      return;
-    }
-    clientName.textContent = data.name || 'Cliente';
-    clientTax.textContent = data.tax_id ? `RTN: ${data.tax_id}` : 'RTN no registrado';
-    clientCount.textContent = `${data.count || 0} factura(s) pendiente(s)`;
-    clientTotal.textContent = `Saldo total: ${currency.format(Number(data.total || 0))}`;
-    rowsBody.innerHTML = (data.categories || []).map((category) => `
-      <tr>
-        <td class="px-4 py-3 font-medium text-slate-800">${category.label}</td>
-        <td class="px-4 py-3 text-right text-slate-600">${category.count || 0}</td>
-        <td class="px-4 py-3 text-right font-semibold text-slate-900">${currency.format(Number(category.balance || 0))}</td>
-      </tr>
-    `).join('');
-    pdfLink.href = `{{ url_for('igh.cuentas_pendientes_cliente_pdf') }}?client_id=${encodeURIComponent(data.id)}`;
-  }
-
-  openModal?.addEventListener('click', () => setModalOpen(true));
-  closeModal?.addEventListener('click', () => setModalOpen(false));
-  cancelModal?.addEventListener('click', () => setModalOpen(false));
-  modal?.addEventListener('click', (event) => {
-    if (event.target === modal) setModalOpen(false);
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') setModalOpen(false);
-  });
-  clientSelect?.addEventListener('change', updatePendingSummary);
-  updatePendingSummary();
 })();
 </script>
 {% endblock %}

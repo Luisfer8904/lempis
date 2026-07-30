@@ -603,6 +603,73 @@ def _client_delete_block_reason(client: IVGClient | None) -> str | None:
     return None
 
 
+def _client_pending_report_context() -> dict:
+    clients_with_pending_balance = []
+    client_pending_report_data = []
+    if not (_table_exists(IVGClient) and _table_exists(IVGSale)):
+        return {
+            "clients_with_pending_balance": clients_with_pending_balance,
+            "client_pending_report_data": client_pending_report_data,
+        }
+
+    clients_with_pending_balance = (
+        IVGClient.query.join(IVGSale, IVGSale.client_id == IVGClient.id)
+        .filter(IVGSale.balance_due > 0)
+        .distinct()
+        .order_by(IVGClient.name.asc())
+        .all()
+    )
+    pending_rows = (
+        db.session.query(
+            IVGClient.id,
+            IVGSale.category,
+            func.count(IVGSale.id),
+            func.coalesce(func.sum(IVGSale.balance_due), 0),
+        )
+        .join(IVGSale, IVGSale.client_id == IVGClient.id)
+        .filter(IVGSale.balance_due > 0)
+        .group_by(IVGClient.id, IVGSale.category)
+        .all()
+    )
+    pending_by_client = {}
+    for client_id, category, count, balance in pending_rows:
+        code = _normalize_ivg_category(category)
+        pending_by_client.setdefault(client_id, {})[code] = {
+            "count": int(count or 0),
+            "balance": float(_to_decimal(balance)),
+        }
+
+    for client in clients_with_pending_balance:
+        categories = []
+        total = Decimal("0.00")
+        total_count = 0
+        data_for_client = pending_by_client.get(client.id, {})
+        for code, label, _ in IVG_SALE_CATEGORIES:
+            item = data_for_client.get(code, {"count": 0, "balance": 0})
+            balance = _to_decimal(item["balance"])
+            total += balance
+            total_count += int(item["count"])
+            categories.append({
+                "code": code,
+                "label": label,
+                "count": int(item["count"]),
+                "balance": float(balance),
+            })
+        client_pending_report_data.append({
+            "id": client.id,
+            "name": client.name,
+            "tax_id": client.tax_id or "",
+            "total": float(total),
+            "count": total_count,
+            "categories": categories,
+        })
+
+    return {
+        "clients_with_pending_balance": clients_with_pending_balance,
+        "client_pending_report_data": client_pending_report_data,
+    }
+
+
 def _calculate_day_close(
     opening_amount: Decimal,
     cash_amount: Decimal,
@@ -1095,6 +1162,7 @@ def clientes():
     context = _base_context()
     context["clients"] = clients
     context["search_query"] = search_query
+    context.update(_client_pending_report_context())
     return render_template("igh/clients_list.html", **context)
 
 
@@ -2189,61 +2257,6 @@ def reportes():
         ("clientes-saldos", "Clientes con saldo", "Saldo pendiente acumulado por cliente."),
         ("agenda", "Agenda pendiente", "Seguimientos y actividades no completadas."),
     ]
-    clients_with_pending_balance = []
-    client_pending_report_data = []
-    if _table_exists(IVGClient) and _table_exists(IVGSale):
-        clients_with_pending_balance = (
-            IVGClient.query.join(IVGSale, IVGSale.client_id == IVGClient.id)
-            .filter(IVGSale.balance_due > 0)
-            .distinct()
-            .order_by(IVGClient.name.asc())
-            .all()
-        )
-        pending_rows = (
-            db.session.query(
-                IVGClient.id,
-                IVGSale.category,
-                func.count(IVGSale.id),
-                func.coalesce(func.sum(IVGSale.balance_due), 0),
-            )
-            .join(IVGSale, IVGSale.client_id == IVGClient.id)
-            .filter(IVGSale.balance_due > 0)
-            .group_by(IVGClient.id, IVGSale.category)
-            .all()
-        )
-        pending_by_client = {}
-        for client_id, category, count, balance in pending_rows:
-            code = _normalize_ivg_category(category)
-            pending_by_client.setdefault(client_id, {})[code] = {
-                "count": int(count or 0),
-                "balance": float(_to_decimal(balance)),
-            }
-        for client in clients_with_pending_balance:
-            categories = []
-            total = Decimal("0.00")
-            total_count = 0
-            data_for_client = pending_by_client.get(client.id, {})
-            for code, label, _ in IVG_SALE_CATEGORIES:
-                item = data_for_client.get(code, {"count": 0, "balance": 0})
-                balance = _to_decimal(item["balance"])
-                total += balance
-                total_count += int(item["count"])
-                categories.append({
-                    "code": code,
-                    "label": label,
-                    "count": int(item["count"]),
-                    "balance": float(balance),
-                })
-            client_pending_report_data.append({
-                "id": client.id,
-                "name": client.name,
-                "tax_id": client.tax_id or "",
-                "total": float(total),
-                "count": total_count,
-                "categories": categories,
-            })
-    context["clients_with_pending_balance"] = clients_with_pending_balance
-    context["client_pending_report_data"] = client_pending_report_data
     return render_template("igh/reports.html", **context)
 
 
