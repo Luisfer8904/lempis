@@ -166,7 +166,9 @@
           <th>SKU</th>
           <th>Nombre</th>
           <th>Categoría</th>
-          <th>Tipo</th>
+          {% if current_user.is_admin() %}
+          <th class="text-right">Costo</th>
+          {% endif %}
           <th class="text-right">General</th>
           <th class="text-right">Mayorista</th>
           <th class="text-right">Especial</th>
@@ -196,13 +198,9 @@
             {% if p.description %}<div class="text-xs text-slate-500 truncate max-w-xs">{{ p.description }}</div>{% endif %}
           </td>
           <td class="text-sm">{{ p.category.name if p.category else '—' }}</td>
-          <td>
-            {% if p.kind == 'service' %}
-              <span class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">Servicio</span>
-            {% else %}
-              <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Producto</span>
-            {% endif %}
-          </td>
+          {% if current_user.is_admin() %}
+          <td class="text-right font-medium text-slate-600">{{ tenant.currency }} {{ '%.2f'|format(p.cost or 0) }}</td>
+          {% endif %}
           <td class="text-right font-medium">{{ tenant.currency }} {{ '%.2f'|format(p.price) }}</td>
           <td class="text-right font-medium">{{ tenant.currency }} {{ '%.2f'|format(p.price_wholesale if p.price_wholesale is not none else p.price) }}</td>
           <td class="text-right font-medium">{{ tenant.currency }} {{ '%.2f'|format(p.price_special if p.price_special is not none else p.price) }}</td>
