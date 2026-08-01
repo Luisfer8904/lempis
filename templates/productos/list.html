@@ -159,7 +159,7 @@
 {% else %}
 <div class="bg-white rounded-xl shadow-sm border overflow-hidden overflow-x-auto">
   {% if productos %}
-    <table class="saas-table w-full min-w-[800px]">
+    <table class="saas-table w-full min-w-[980px]">
       <thead>
         <tr>
           <th>Img</th>
@@ -167,7 +167,9 @@
           <th>Nombre</th>
           <th>Categoría</th>
           <th>Tipo</th>
-          <th class="text-right">Precio</th>
+          <th class="text-right">General</th>
+          <th class="text-right">Mayorista</th>
+          <th class="text-right">Especial</th>
           <th class="text-right">Stock</th>
           <th>Estado</th>
           <th class="text-right">Acciones</th>
@@ -202,6 +204,8 @@
             {% endif %}
           </td>
           <td class="text-right font-medium">{{ tenant.currency }} {{ '%.2f'|format(p.price) }}</td>
+          <td class="text-right font-medium">{{ tenant.currency }} {{ '%.2f'|format(p.price_wholesale if p.price_wholesale is not none else p.price) }}</td>
+          <td class="text-right font-medium">{{ tenant.currency }} {{ '%.2f'|format(p.price_special if p.price_special is not none else p.price) }}</td>
           <td class="text-right">
             {% if p.track_stock %}{{ p.visible_stock if p.visible_stock is defined else p.stock }}{% else %}—{% endif %}
           </td>
