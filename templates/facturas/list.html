@@ -68,7 +68,7 @@
 {% if facturas %}
   <div class="space-y-2">
     {% for f in facturas %}
-      <a href="{{ url_for('facturas.detail', invoice_id=f.id) }}"
+      <a href="{{ url_for('pos.quick_sale', draft_id=f.id) if f.status == 'draft' else url_for('facturas.detail', invoice_id=f.id) }}"
          class="block bg-white rounded-xl border hover:border-indigo-300 hover:shadow-sm transition p-3 sm:p-4">
         <div class="flex flex-wrap items-center gap-3 sm:gap-4">
 
