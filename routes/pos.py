@@ -238,6 +238,23 @@ def detailed_sale():
     return redirect(url_for("facturas.new"))
 
 
+@pos_bp.route("/borrador/<int:draft_id>/delete", methods=["POST"])
+@login_required
+@tenant_required
+@permission_required("sales.create")
+def delete_draft(draft_id):
+    tenant = current_tenant()
+    inv = _get_draft_for_pos(tenant, draft_id)
+    if inv is None:
+        flash("La venta guardada ya no existe.", "warning")
+        return redirect(url_for("pos.quick_sale"))
+
+    db.session.delete(inv)
+    db.session.commit()
+    flash("Venta guardada eliminada.", "info")
+    return redirect(url_for("pos.quick_sale"))
+
+
 @pos_bp.route("/cobrar", methods=["POST"])
 @login_required
 @tenant_required
