@@ -145,6 +145,14 @@
       <div class="flex flex-wrap items-center gap-2 justify-end">
         {% block actions %}{% endblock %}
       </div>
+      {% set topbar_logo = tenant.logo_url if tenant and tenant.logo_url else url_for('static', filename='img/lempis-logo.png') %}
+      <div class="hidden sm:flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <img
+          src="{{ topbar_logo }}"
+          alt="Logo de {{ tenant.name if tenant else APP_NAME }}"
+          class="h-10 w-10 object-contain"
+        />
+      </div>
     </header>
     {% endblock %}
 
