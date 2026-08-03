@@ -467,6 +467,11 @@ function setQty(id, value) {
   renderCart();
 }
 
+function removeCartItem(id) {
+  cart.delete(id);
+  renderCart();
+}
+
 function clearCart() {
   if (!confirm('¿Vaciar el carrito?')) return;
   cart.clear();
@@ -767,6 +772,9 @@ function renderCart() {
                class="w-12 text-center text-sm border rounded py-1" />
         <button type="button" onclick="changeQty('${item.id}', 1)"
                 class="w-7 h-7 bg-white border rounded hover:bg-slate-100">+</button>
+        <button type="button" onclick="removeCartItem('${item.id}')"
+                class="ml-1 w-7 h-7 rounded border border-rose-100 bg-white text-rose-600 font-bold hover:bg-rose-50"
+                title="Quitar producto">×</button>
       </div>
       <input type="hidden" name="cart_product_id[]" value="${item.id}" />
       <input type="hidden" name="cart_name[]" value="${item.name}" />
