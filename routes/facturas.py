@@ -6,7 +6,7 @@ CRUD de Facturas con líneas de detalle.
 """
 from __future__ import annotations  # type hints lazy (evita conflicto con la ruta list())
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from flask import (
@@ -16,8 +16,8 @@ from flask_login import login_required, current_user
 from sqlalchemy import or_
 
 from models import db
-from models.invoice import Invoice
-from models.catalog import Customer, Product
+from models.invoice import Invoice, InvoiceItem
+from models.catalog import Customer, Product, ProductBatch
 from models.country import TaxConfig
 from models.printing import TenantPrintSettings
 from models.user import User
@@ -30,6 +30,7 @@ from services.invoice_service import (
 from services.pdf_generator import _number_to_letters
 from services.inventory import consume_from_batch, recompute_product_stock
 from services.locations import (
+    add_stock,
     can_user_sell_from_warehouse,
     sale_warehouses_for_user,
     subtract_stock,
@@ -147,14 +148,28 @@ def new():
 def edit(invoice_id):
     inv = _get_or_404(invoice_id)
     tenant = current_tenant()
+    admin_edit_issued = inv.status != "draft" and inv.status != "void" and current_user.is_admin()
 
-    if inv.status != "draft":
+    if inv.status != "draft" and not admin_edit_issued:
         flash("Solo puedes editar facturas en borrador.", "warning")
         return redirect(url_for("facturas.detail", invoice_id=inv.id))
+
+    if request.method == "GET" and inv.status == "draft":
+        return redirect(url_for("pos.quick_sale", draft_id=inv.id))
 
     if request.method == "POST":
         try:
             items = _parse_items()
+            warehouse_id = request.form.get("warehouse_id", type=int) or inv.warehouse_id
+            if not can_user_sell_from_warehouse(tenant.id, current_user, warehouse_id):
+                flash("No puedes facturar desde una bodega de otra sede.", "warning")
+                return redirect(url_for("facturas.edit", invoice_id=inv.id))
+
+            if admin_edit_issued:
+                _admin_update_issued_invoice(inv, tenant, items, warehouse_id)
+                flash(f"Venta {inv.number} actualizada.", "success")
+                return redirect(url_for("facturas.detail", invoice_id=inv.id))
+
             update_invoice(
                 inv,
                 items_data=items,
@@ -166,10 +181,6 @@ def edit(invoice_id):
                 ),
                 status=request.form.get("status", "draft"),
             )
-            warehouse_id = request.form.get("warehouse_id", type=int) or inv.warehouse_id
-            if not can_user_sell_from_warehouse(tenant.id, current_user, warehouse_id):
-                flash("No puedes facturar desde una bodega de otra sede.", "warning")
-                return redirect(url_for("facturas.edit", invoice_id=inv.id))
             inv.warehouse_id = warehouse_id
             # Si pasó a issued, asignar número definitivo
             if request.form.get("action") == "emit":
@@ -177,6 +188,7 @@ def edit(invoice_id):
             flash(f"Factura {inv.number} actualizada.", "success")
             return redirect(_invoice_detail_url(inv))
         except CAIError as e:
+            db.session.rollback()
             flash(str(e), "danger")
 
     clientes = Customer.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Customer.name).all()
@@ -192,6 +204,7 @@ def edit(invoice_id):
         next_number=inv.number, tenant=tenant,
         can_emit=True, reason=None,
         warehouses=warehouses, selected_warehouse_id=selected_warehouse_id,
+        admin_edit_issued=admin_edit_issued,
     )
 
 
@@ -445,6 +458,136 @@ def _create_from_form(tenant) -> Invoice:
     )
 
 
+def _customer_from_form(tenant):
+    customer_id = request.form.get("customer_id")
+    if not customer_id:
+        return None
+    return Customer.query.filter_by(id=customer_id, tenant_id=tenant.id).first()
+
+
+def _apply_invoice_header_from_form(inv: Invoice, tenant, warehouse_id: int | None) -> None:
+    customer = _customer_from_form(tenant)
+    payment_method = request.form.get("payment_method", "efectivo")
+    payment_terms_days = int(request.form.get("payment_terms_days", 0) or 0)
+
+    inv.customer_id = customer.id if customer else None
+    inv.warehouse_id = warehouse_id
+    inv.currency = tenant.currency
+    inv.payment_method = payment_method
+    inv.payment_terms_days = payment_terms_days
+    inv.notes = _notes_with_cash_details(request.form.get("notes", ""), payment_method)
+    inv.receptor_name = customer.name if customer else (request.form.get("receptor_name") or "").strip() or None
+    inv.receptor_tax_id = customer.tax_id if customer else (request.form.get("receptor_tax_id") or "").strip() or None
+    inv.due_date = (
+        inv.issue_date + timedelta(days=payment_terms_days)
+        if payment_method == "credito" and payment_terms_days
+        else None
+    )
+
+
+def _restore_invoice_stock(inv: Invoice) -> None:
+    for item in list(inv.items):
+        qty = Decimal(item.quantity or 0)
+        if qty <= 0 or not item.product_id:
+            continue
+        if item.batch_id:
+            batch = db.session.get(ProductBatch, item.batch_id)
+            if batch is not None:
+                batch.remaining_quantity = Decimal(batch.remaining_quantity or 0) + qty
+                if inv.warehouse_id:
+                    add_stock(inv.tenant_id, inv.warehouse_id, batch.product_id, qty, batch.id, "edicion_venta")
+                if batch.product:
+                    recompute_product_stock(batch.product)
+            continue
+
+        product = db.session.get(Product, int(item.product_id))
+        if product is not None and product.tenant_id == inv.tenant_id and product.track_stock:
+            product.stock = Decimal(product.stock or 0) + qty
+            if inv.warehouse_id:
+                add_stock(inv.tenant_id, inv.warehouse_id, product.id, qty, None, "edicion_venta")
+
+
+def _replace_invoice_items_and_consume(inv: Invoice, tenant, items_data: list[dict]) -> None:
+    for old_item in list(inv.items):
+        db.session.delete(old_item)
+    inv.items = []
+    db.session.flush()
+
+    for data in items_data:
+        product_id = data.get("product_id")
+        qty = Decimal(str(data.get("quantity") or 1))
+        batch = _resolve_batch(tenant.id, product_id, data.get("batch_id"), qty, inv.status, inv.warehouse_id)
+
+        item = InvoiceItem(
+            tenant_id=inv.tenant_id,
+            product_id=product_id,
+            batch_id=batch.id if batch else None,
+            description=data.get("description") or "",
+            quantity=qty,
+            unit_price=Decimal(str(data.get("unit_price") or 0)),
+            tax_rate=Decimal(str(data.get("tax_rate") or 0)),
+            discount_amount=Decimal(str(data.get("discount_amount") or 0)),
+        )
+        item.recalc()
+        inv.items.append(item)
+
+        if not product_id:
+            continue
+        if batch is not None:
+            consume_from_batch(batch, qty, inv.warehouse_id)
+            if batch.product:
+                recompute_product_stock(batch.product)
+            continue
+
+        product = db.session.get(Product, int(product_id))
+        if product is not None and product.tenant_id == tenant.id and product.track_stock:
+            product.stock = max(Decimal(0), Decimal(product.stock or 0) - qty)
+            if inv.warehouse_id:
+                subtract_stock(inv.tenant_id, inv.warehouse_id, product.id, qty, None, "edicion_venta")
+
+
+def _refresh_invoice_status_after_admin_edit(inv: Invoice) -> None:
+    paid = Decimal(inv.amount_paid or 0)
+    total = Decimal(inv.total or 0)
+    tolerance = Decimal("0.005")
+
+    if inv.payment_method != "credito":
+        inv.amount_paid = total
+        inv.status = "paid"
+        return
+
+    if paid - total > tolerance:
+        raise CAIError(
+            "No se puede guardar: los cobros registrados superan el nuevo total de la factura."
+        )
+    if total - paid <= tolerance:
+        inv.amount_paid = total
+        inv.status = "paid"
+    elif paid > tolerance:
+        inv.status = "partially_paid"
+    else:
+        inv.status = "issued"
+
+    if inv.status in ("issued", "partially_paid") and inv.due_date and inv.due_date < datetime.utcnow():
+        inv.status = "overdue"
+
+
+def _admin_update_issued_invoice(inv: Invoice, tenant, items_data: list[dict], warehouse_id: int | None) -> None:
+    if not current_user.is_admin():
+        raise CAIError("Solo el administrador puede editar ventas emitidas.")
+    if inv.status in ("draft", "void"):
+        raise CAIError("Esta acción solo aplica a ventas emitidas.")
+    if not items_data:
+        raise CAIError("Debes agregar al menos una línea a la factura.")
+
+    _restore_invoice_stock(inv)
+    _apply_invoice_header_from_form(inv, tenant, warehouse_id)
+    _replace_invoice_items_and_consume(inv, tenant, items_data)
+    inv.recalc_totals()
+    _refresh_invoice_status_after_admin_edit(inv)
+    db.session.commit()
+
+
 def _emit_draft(inv: Invoice, tenant) -> None:
     """Convierte un draft a emitido: asigna número definitivo + congela CAI."""
     validate_can_emit(tenant)
@@ -471,7 +614,7 @@ def _emit_draft(inv: Invoice, tenant) -> None:
 
         product = db.session.get(Product, int(item.product_id))
         if product is not None and product.tenant_id == tenant.id and product.track_stock:
-            product.stock = max(0, int(Decimal(product.stock or 0) - item.quantity))
+            product.stock = max(Decimal(0), Decimal(product.stock or 0) - Decimal(item.quantity or 0))
             if inv.warehouse_id:
                 subtract_stock(inv.tenant_id, inv.warehouse_id, product.id, item.quantity, None, "venta")
     if inv.payment_method != "credito":
