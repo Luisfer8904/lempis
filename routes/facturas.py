@@ -144,13 +144,16 @@ def new():
 @facturas_bp.route("/<int:invoice_id>/edit", methods=["GET", "POST"])
 @login_required
 @tenant_required
-@permission_required("sales.create")
 def edit(invoice_id):
     inv = _get_or_404(invoice_id)
     tenant = current_tenant()
-    admin_edit_issued = inv.status != "draft" and inv.status != "void" and current_user.is_admin()
+    can_edit_issued = inv.status != "draft" and inv.status != "void" and current_user.has_permission("sales.edit_issued")
 
-    if inv.status != "draft" and not admin_edit_issued:
+    if inv.status == "draft":
+        if not current_user.has_permission("sales.create"):
+            flash("No tienes permisos para realizar esa acción.", "warning")
+            return redirect(url_for("facturas.detail", invoice_id=inv.id))
+    elif not can_edit_issued:
         flash("Solo puedes editar facturas en borrador.", "warning")
         return redirect(url_for("facturas.detail", invoice_id=inv.id))
 
@@ -165,7 +168,7 @@ def edit(invoice_id):
                 flash("No puedes facturar desde una bodega de otra sede.", "warning")
                 return redirect(url_for("facturas.edit", invoice_id=inv.id))
 
-            if admin_edit_issued:
+            if can_edit_issued:
                 _admin_update_issued_invoice(inv, tenant, items, warehouse_id)
                 flash(f"Venta {inv.number} actualizada.", "success")
                 return redirect(url_for("facturas.detail", invoice_id=inv.id))
@@ -204,7 +207,7 @@ def edit(invoice_id):
         next_number=inv.number, tenant=tenant,
         can_emit=True, reason=None,
         warehouses=warehouses, selected_warehouse_id=selected_warehouse_id,
-        admin_edit_issued=admin_edit_issued,
+        admin_edit_issued=can_edit_issued,
     )
 
 
@@ -340,11 +343,13 @@ def delete(invoice_id):
 @facturas_bp.route("/api/productos/<int:product_id>/lotes")
 @login_required
 @tenant_required
-@permission_required("sales.create")
 def api_lotes_de_producto(product_id):
     """Devuelve JSON con los lotes disponibles de un producto (para el form de facturas)."""
     from flask import jsonify
     from models.catalog import Product, ProductBatch
+
+    if not (current_user.has_permission("sales.create") or current_user.has_permission("sales.edit_issued")):
+        return jsonify({"lotes": []}), 403
 
     tenant = current_tenant()
     p = Product.query.filter_by(id=product_id, tenant_id=tenant.id).first()
@@ -573,8 +578,8 @@ def _refresh_invoice_status_after_admin_edit(inv: Invoice) -> None:
 
 
 def _admin_update_issued_invoice(inv: Invoice, tenant, items_data: list[dict], warehouse_id: int | None) -> None:
-    if not current_user.is_admin():
-        raise CAIError("Solo el administrador puede editar ventas emitidas.")
+    if not current_user.has_permission("sales.edit_issued"):
+        raise CAIError("No tienes permiso para editar ventas emitidas.")
     if inv.status in ("draft", "void"):
         raise CAIError("Esta acción solo aplica a ventas emitidas.")
     if not items_data:

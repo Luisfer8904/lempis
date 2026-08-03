@@ -13,6 +13,7 @@ PERMISSION_GROUPS = [
     ("Ventas", [
         ("sales.view", "Ver facturas y ventas"),
         ("sales.create", "Crear ventas y facturas"),
+        ("sales.edit_issued", "Editar ventas emitidas"),
         ("sales.manage", "Anular o eliminar facturas"),
     ]),
     ("Clientes", [

@@ -27,7 +27,7 @@
      class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm">
     Facturar
   </a>
-{% elif factura.status != 'void' and current_user.is_admin() %}
+{% elif factura.status != 'void' and current_user.has_permission('sales.edit_issued') %}
   <a href="{{ url_for('facturas.edit', invoice_id=factura.id) }}"
      class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm">
     Editar venta
