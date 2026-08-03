@@ -12,14 +12,18 @@ Incluye:
 from io import BytesIO
 from datetime import datetime
 from decimal import Decimal
+import os
+from urllib.parse import urlparse
 from xml.sax.saxutils import escape
 
+from flask import current_app, has_app_context
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether, Image
 )
 
 from services.datetime_utils import format_local_datetime
@@ -31,6 +35,10 @@ SLATE_700 = colors.HexColor("#334155")
 SLATE_500 = colors.HexColor("#64748b")
 SLATE_200 = colors.HexColor("#e2e8f0")
 SLATE_50 = colors.HexColor("#f8fafc")
+EMERALD = colors.HexColor("#059669")
+AMBER_50 = colors.HexColor("#fffbeb")
+AMBER_200 = colors.HexColor("#fde68a")
+AMBER_700 = colors.HexColor("#b45309")
 
 
 def generate_invoice_pdf(invoice, tenant) -> BytesIO:
@@ -263,6 +271,52 @@ def _footer(canvas, doc):
     canvas.restoreState()
 
 
+def _static_folder() -> str:
+    if has_app_context():
+        return current_app.static_folder
+    return os.path.abspath("static")
+
+
+def _resolve_tenant_logo_path(tenant) -> str | None:
+    """Devuelve un logo local usable por ReportLab; usa Lempis como respaldo."""
+    static_folder = _static_folder()
+    candidates = []
+    logo_url = (getattr(tenant, "logo_url", None) or "").strip()
+
+    if logo_url:
+        parsed = urlparse(logo_url)
+        path = parsed.path if parsed.scheme in ("", "file") else ""
+        if path:
+            if os.path.isabs(path) and not path.startswith("/static/"):
+                candidates.append(path)
+            else:
+                rel_path = path
+                if rel_path.startswith("/static/"):
+                    rel_path = rel_path[len("/static/"):]
+                elif rel_path.startswith("static/"):
+                    rel_path = rel_path[len("static/"):]
+                candidates.append(os.path.join(static_folder, rel_path.lstrip("/")))
+
+    candidates.append(os.path.join(static_folder, "img", "lempis-logo.png"))
+
+    for candidate in candidates:
+        if candidate and os.path.exists(candidate):
+            return candidate
+    return None
+
+
+def _logo_flowable(tenant, max_width=32 * mm, max_height=24 * mm):
+    logo_path = _resolve_tenant_logo_path(tenant)
+    if not logo_path:
+        return ""
+    try:
+        width, height = ImageReader(logo_path).getSize()
+        scale = min(max_width / width, max_height / height)
+        return Image(logo_path, width=width * scale, height=height * scale)
+    except Exception:
+        return ""
+
+
 def generate_quote_pdf(tenant, items_data: list[dict], customer_name: str, customer_tax_id: str = "") -> BytesIO:
     """Genera una cotización desde el carrito del POS sin crear factura ni afectar inventario."""
     buffer = BytesIO()
@@ -280,21 +334,37 @@ def generate_quote_pdf(tenant, items_data: list[dict], customer_name: str, custo
     )
 
     styles = getSampleStyleSheet()
-    body = ParagraphStyle("quote_body", parent=styles["Normal"], fontSize=9, leading=11)
-    small = ParagraphStyle("quote_small", parent=body, fontSize=7.5, leading=9, textColor=SLATE_500)
+    body = ParagraphStyle("quote_body", parent=styles["Normal"], fontSize=9.5, leading=12, textColor=SLATE_700)
+    small = ParagraphStyle("quote_small", parent=body, fontSize=8, leading=10, textColor=SLATE_500)
+    label = ParagraphStyle(
+        "quote_label",
+        parent=body,
+        fontSize=7,
+        leading=8,
+        textColor=SLATE_500,
+        fontName="Helvetica-Bold",
+    )
     h1 = ParagraphStyle(
         "quote_h1",
         parent=body,
-        fontSize=18,
-        leading=22,
-        textColor=INDIGO,
+        fontSize=21,
+        leading=25,
+        textColor=SLATE_700,
+        fontName="Helvetica-Bold",
+    )
+    quote_badge = ParagraphStyle(
+        "quote_badge",
+        parent=body,
+        fontSize=9,
+        leading=11,
+        textColor=AMBER_700,
         fontName="Helvetica-Bold",
     )
 
     story = []
 
     emisor_name = tenant.legal_name or tenant.name
-    emisor_lines = [f"<b>{escape(emisor_name)}</b>"]
+    emisor_lines = [f"<b><font size='12'>{escape(emisor_name)}</font></b>"]
     if tenant.tax_id:
         emisor_lines.append(f"<font size='8' color='#64748b'>RTN: {escape(tenant.tax_id)}</font>")
     if tenant.address:
@@ -307,36 +377,92 @@ def generate_quote_pdf(tenant, items_data: list[dict], customer_name: str, custo
     if contact:
         emisor_lines.append(f"<font size='8'>{escape(' - '.join(contact))}</font>")
 
-    header = Table(
+    brand = Table(
         [[
+            _logo_flowable(tenant),
             Paragraph("<br/>".join(emisor_lines), body),
-            Paragraph(
-                f"<b><font size='14' color='#4f46e5'>COTIZACION</font></b><br/>"
-                f"<font size='8' color='#64748b'>Fecha:</font> "
-                f"<font size='9'>{now.strftime('%d/%m/%Y %H:%M')}</font>",
-                body,
-            ),
         ]],
-        colWidths=[105 * mm, 75 * mm],
+        colWidths=[35 * mm, 86 * mm],
+    )
+    brand.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+    ]))
+
+    doc_info = Table(
+        [
+            [Paragraph("COTIZACION", h1)],
+            [Paragraph(f"Emitida el {now.strftime('%d/%m/%Y %H:%M')}", small)],
+        ],
+        colWidths=[54 * mm],
+    )
+    doc_info.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BACKGROUND", (0, 0), (-1, -1), SLATE_50),
+        ("BOX", (0, 0), (-1, -1), 0.5, SLATE_200),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+    ]))
+
+    header = Table(
+        [[brand, doc_info]],
+        colWidths=[124 * mm, 56 * mm],
     )
     header.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
     ]))
     story.append(header)
-    story.append(Spacer(1, 7 * mm))
+    story.append(Spacer(1, 6 * mm))
 
-    story.append(Paragraph("COTIZACION", h1))
-    story.append(Spacer(1, 3 * mm))
+    intro = Table(
+        [[
+            Paragraph("<b>Documento de referencia comercial</b><br/>Precios calculados desde la venta actual.", body),
+            Paragraph("NO ES FACTURA", quote_badge),
+        ]],
+        colWidths=[130 * mm, 50 * mm],
+    )
+    intro.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), AMBER_50),
+        ("BOX", (0, 0), (-1, -1), 0.6, AMBER_200),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+    ]))
+    story.append(intro)
+    story.append(Spacer(1, 6 * mm))
 
     client_lines = [
-        "<font size='7' color='#64748b'><b>CLIENTE</b></font>",
+        "<b>CLIENTE</b>",
         f"<b>{escape(customer_name or 'Consumidor final')}</b>",
     ]
     if customer_tax_id:
         client_lines.append(f"<font size='8' color='#64748b'>RTN: {escape(customer_tax_id)}</font>")
-    story.append(Paragraph("<br/>".join(client_lines), body))
+    client_card = Table(
+        [[Paragraph("<br/>".join(client_lines), body)]],
+        colWidths=[180 * mm],
+    )
+    client_card.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.white),
+        ("BOX", (0, 0), (-1, -1), 0.5, SLATE_200),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+    ]))
+    story.append(client_card)
     story.append(Spacer(1, 6 * mm))
+
+    story.append(Paragraph("Productos cotizados", label))
+    story.append(Spacer(1, 2 * mm))
 
     rows = [["#", "Descripcion", "Cant.", "Precio", "ISV%", "Subtotal"]]
     subtotal = Decimal("0.00")
@@ -364,10 +490,10 @@ def generate_quote_pdf(tenant, items_data: list[dict], customer_name: str, custo
         repeatRows=1,
     )
     table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), INDIGO),
+        ("BACKGROUND", (0, 0), (-1, 0), SLATE_700),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("FONTSIZE", (0, 0), (-1, -1), 9.5),
         ("ALIGN", (0, 0), (0, -1), "CENTER"),
         ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -396,7 +522,7 @@ def generate_quote_pdf(tenant, items_data: list[dict], customer_name: str, custo
         ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
         ("FONTSIZE", (0, 0), (-1, -1), 10),
         ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("BACKGROUND", (0, -1), (-1, -1), INDIGO),
+        ("BACKGROUND", (0, -1), (-1, -1), EMERALD),
         ("TEXTCOLOR", (0, -1), (-1, -1), colors.white),
         ("FONTSIZE", (0, -1), (-1, -1), 12),
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
@@ -406,10 +532,22 @@ def generate_quote_pdf(tenant, items_data: list[dict], customer_name: str, custo
     ]))
     story.append(totals)
     story.append(Spacer(1, 8 * mm))
-    story.append(Paragraph(
-        "Esta cotizacion es informativa. No es factura fiscal, no reserva inventario y no representa credito aprobado.",
-        small,
-    ))
+    note = Table(
+        [[Paragraph(
+            "Esta cotizacion es informativa. No es factura fiscal, no reserva inventario y no representa credito aprobado.",
+            small,
+        )]],
+        colWidths=[180 * mm],
+    )
+    note.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), SLATE_50),
+        ("BOX", (0, 0), (-1, -1), 0.5, SLATE_200),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(note)
 
     doc.build(story, onFirstPage=_footer, onLaterPages=_footer)
     buffer.seek(0)
