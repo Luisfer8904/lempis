@@ -486,7 +486,7 @@ def _apply_invoice_header_from_form(inv: Invoice, tenant, warehouse_id: int | No
 
 
 def _restore_invoice_stock(inv: Invoice) -> None:
-    for item in list(inv.items):
+    for item in tuple(inv.items):
         qty = Decimal(item.quantity or 0)
         if qty <= 0 or not item.product_id:
             continue
@@ -508,7 +508,7 @@ def _restore_invoice_stock(inv: Invoice) -> None:
 
 
 def _replace_invoice_items_and_consume(inv: Invoice, tenant, items_data: list[dict]) -> None:
-    for old_item in list(inv.items):
+    for old_item in tuple(inv.items):
         db.session.delete(old_item)
     inv.items = []
     db.session.flush()
