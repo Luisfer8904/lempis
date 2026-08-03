@@ -316,11 +316,17 @@
           <span>Total</span>
           <span class="font-mono text-indigo-600" id="sum-total">{{ tenant.currency }} 0.00</span>
         </div>
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-3 gap-2">
           <button id="save-draft-btn" name="action" value="draft" type="submit" disabled
                   class="rounded-xl border border-indigo-200 bg-white py-3 font-bold text-indigo-700
                          hover:bg-indigo-50 disabled:border-slate-200 disabled:text-slate-300 disabled:cursor-not-allowed">
             Guardar venta
+          </button>
+          <button id="quote-btn" name="action" value="quote" type="submit" disabled
+                  formaction="{{ url_for('pos.quote_pdf') }}" formtarget="_blank" formnovalidate
+                  class="rounded-xl border border-amber-200 bg-white py-3 font-bold text-amber-700
+                         hover:bg-amber-50 disabled:border-slate-200 disabled:text-slate-300 disabled:cursor-not-allowed">
+            Cotización PDF
           </button>
           <button id="checkout-btn" name="action" value="charge" type="submit" disabled
                   data-can-emit="{{ '1' if can_emit else '0' }}"
@@ -723,6 +729,7 @@ function renderCart() {
   const empty = document.getElementById('cart-empty');
   const checkoutBtn = document.getElementById('checkout-btn');
   const saveDraftBtn = document.getElementById('save-draft-btn');
+  const quoteBtn = document.getElementById('quote-btn');
 
   // Limpiar pero conservar el empty state
   Array.from(container.children).forEach(c => {
@@ -736,6 +743,7 @@ function renderCart() {
     document.getElementById('sum-total').textContent = fmt(0);
     checkoutBtn.disabled = true;
     saveDraftBtn.disabled = true;
+    quoteBtn.disabled = true;
     updatePaymentFields();
     return;
   }
@@ -790,6 +798,7 @@ function renderCart() {
   document.getElementById('sum-total').textContent = fmt(subtotal + taxTotal);
   checkoutBtn.disabled = checkoutBtn.dataset.canEmit !== '1';
   saveDraftBtn.disabled = false;
+  quoteBtn.disabled = false;
   updatePaymentFields();
 }
 
@@ -863,6 +872,13 @@ document.getElementById('checkout-confirm').addEventListener('click', confirmChe
 document.getElementById('checkout-form').addEventListener('submit', e => {
   const action = e.submitter?.value || 'charge';
   if (action === 'draft') {
+    document.getElementById('print-invoice').value = '0';
+    document.getElementById('cash-received-input').value = '';
+    document.getElementById('cash-change-input').value = '0.00';
+    checkoutConfirmed = false;
+    return;
+  }
+  if (action === 'quote') {
     document.getElementById('print-invoice').value = '0';
     document.getElementById('cash-received-input').value = '';
     document.getElementById('cash-change-input').value = '0.00';

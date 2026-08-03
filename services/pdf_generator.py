@@ -12,6 +12,7 @@ Incluye:
 from io import BytesIO
 from datetime import datetime
 from decimal import Decimal
+from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -260,6 +261,159 @@ def _footer(canvas, doc):
         f"Página {doc.page} • Hecho con Lempis"
     )
     canvas.restoreState()
+
+
+def generate_quote_pdf(tenant, items_data: list[dict], customer_name: str, customer_tax_id: str = "") -> BytesIO:
+    """Genera una cotización desde el carrito del POS sin crear factura ni afectar inventario."""
+    buffer = BytesIO()
+    now = datetime.now()
+
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        leftMargin=15 * mm,
+        rightMargin=15 * mm,
+        topMargin=15 * mm,
+        bottomMargin=15 * mm,
+        title=f"Cotizacion {now.strftime('%Y%m%d%H%M')}",
+        author=tenant.name,
+    )
+
+    styles = getSampleStyleSheet()
+    body = ParagraphStyle("quote_body", parent=styles["Normal"], fontSize=9, leading=11)
+    small = ParagraphStyle("quote_small", parent=body, fontSize=7.5, leading=9, textColor=SLATE_500)
+    h1 = ParagraphStyle(
+        "quote_h1",
+        parent=body,
+        fontSize=18,
+        leading=22,
+        textColor=INDIGO,
+        fontName="Helvetica-Bold",
+    )
+
+    story = []
+
+    emisor_name = tenant.legal_name or tenant.name
+    emisor_lines = [f"<b>{escape(emisor_name)}</b>"]
+    if tenant.tax_id:
+        emisor_lines.append(f"<font size='8' color='#64748b'>RTN: {escape(tenant.tax_id)}</font>")
+    if tenant.address:
+        emisor_lines.append(f"<font size='8'>{escape(tenant.address).replace(chr(10), '<br/>')}</font>")
+    contact = []
+    if tenant.phone:
+        contact.append(tenant.phone)
+    if tenant.email:
+        contact.append(tenant.email)
+    if contact:
+        emisor_lines.append(f"<font size='8'>{escape(' - '.join(contact))}</font>")
+
+    header = Table(
+        [[
+            Paragraph("<br/>".join(emisor_lines), body),
+            Paragraph(
+                f"<b><font size='14' color='#4f46e5'>COTIZACION</font></b><br/>"
+                f"<font size='8' color='#64748b'>Fecha:</font> "
+                f"<font size='9'>{now.strftime('%d/%m/%Y %H:%M')}</font>",
+                body,
+            ),
+        ]],
+        colWidths=[105 * mm, 75 * mm],
+    )
+    header.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+    ]))
+    story.append(header)
+    story.append(Spacer(1, 7 * mm))
+
+    story.append(Paragraph("COTIZACION", h1))
+    story.append(Spacer(1, 3 * mm))
+
+    client_lines = [
+        "<font size='7' color='#64748b'><b>CLIENTE</b></font>",
+        f"<b>{escape(customer_name or 'Consumidor final')}</b>",
+    ]
+    if customer_tax_id:
+        client_lines.append(f"<font size='8' color='#64748b'>RTN: {escape(customer_tax_id)}</font>")
+    story.append(Paragraph("<br/>".join(client_lines), body))
+    story.append(Spacer(1, 6 * mm))
+
+    rows = [["#", "Descripcion", "Cant.", "Precio", "ISV%", "Subtotal"]]
+    subtotal = Decimal("0.00")
+    tax_total = Decimal("0.00")
+    for idx, item in enumerate(items_data, start=1):
+        qty = Decimal(str(item.get("quantity") or 0))
+        price = Decimal(str(item.get("unit_price") or 0))
+        tax_rate = Decimal(str(item.get("tax_rate") or 0))
+        line_subtotal = qty * price
+        line_tax = line_subtotal * tax_rate / Decimal("100")
+        subtotal += line_subtotal
+        tax_total += line_tax
+        rows.append([
+            str(idx),
+            Paragraph(escape(item.get("description") or ""), body),
+            f"{qty:.2f}",
+            f"{price:.2f}",
+            f"{tax_rate:.2f}%",
+            f"{line_subtotal:.2f}",
+        ])
+
+    table = Table(
+        rows,
+        colWidths=[10 * mm, 92 * mm, 20 * mm, 22 * mm, 16 * mm, 20 * mm],
+        repeatRows=1,
+    )
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), INDIGO),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (0, 0), (0, -1), "CENTER"),
+        ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, SLATE_50]),
+        ("BOX", (0, 0), (-1, -1), 0.5, SLATE_200),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(table)
+    story.append(Spacer(1, 5 * mm))
+
+    currency = tenant.currency or "HNL"
+    total = subtotal + tax_total
+    totals = Table(
+        [
+            ["Subtotal:", f"{currency} {subtotal:.2f}"],
+            ["ISV:", f"{currency} {tax_total:.2f}"],
+            ["TOTAL COTIZADO:", f"{currency} {total:.2f}"],
+        ],
+        colWidths=[42 * mm, 42 * mm],
+        hAlign="RIGHT",
+    )
+    totals.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("BACKGROUND", (0, -1), (-1, -1), INDIGO),
+        ("TEXTCOLOR", (0, -1), (-1, -1), colors.white),
+        ("FONTSIZE", (0, -1), (-1, -1), 12),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(totals)
+    story.append(Spacer(1, 8 * mm))
+    story.append(Paragraph(
+        "Esta cotizacion es informativa. No es factura fiscal, no reserva inventario y no representa credito aprobado.",
+        small,
+    ))
+
+    doc.build(story, onFirstPage=_footer, onLaterPages=_footer)
+    buffer.seek(0)
+    return buffer
 
 
 # ============================================================

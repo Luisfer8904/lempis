@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from decimal import Decimal
 from flask import (
-    Blueprint, render_template, request, redirect, url_for, flash, jsonify
+    Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file
 )
 from flask_login import login_required, current_user
 from sqlalchemy import or_
@@ -28,6 +28,7 @@ from services.invoice_service import (
     next_invoice_number,
     _resolve_batch,
 )
+from services.pdf_generator import generate_quote_pdf
 from services.locations import (
     can_user_sell_from_warehouse,
     sale_warehouses_for_user,
@@ -253,6 +254,43 @@ def delete_draft(draft_id):
     db.session.commit()
     flash("Venta guardada eliminada.", "info")
     return redirect(url_for("pos.quick_sale"))
+
+
+@pos_bp.route("/cotizacion.pdf", methods=["POST"])
+@login_required
+@tenant_required
+@permission_required("sales.create")
+def quote_pdf():
+    """Genera una cotización desde el carrito sin crear factura ni mover inventario."""
+    tenant = current_tenant()
+    items_data = _parse_cart()
+    if not items_data:
+        flash("Agrega al menos un producto para generar la cotización.", "warning")
+        return redirect(url_for("pos.quick_sale"))
+
+    customer_id = request.form.get("customer_id")
+    customer = None
+    if customer_id:
+        customer = Customer.query.filter_by(id=customer_id, tenant_id=tenant.id).first()
+
+    customer_name = (
+        customer.name if customer
+        else (request.form.get("receptor_name") or "").strip()
+        or "Consumidor final"
+    )
+    customer_tax_id = (
+        customer.tax_id if customer
+        else (request.form.get("receptor_tax_id") or "").strip()
+    )
+
+    buffer = generate_quote_pdf(tenant, items_data, customer_name, customer_tax_id or "")
+    filename = f"cotizacion_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    return send_file(
+        buffer,
+        mimetype="application/pdf",
+        as_attachment=False,
+        download_name=filename,
+    )
 
 
 @pos_bp.route("/cobrar", methods=["POST"])
