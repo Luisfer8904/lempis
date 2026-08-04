@@ -30,6 +30,7 @@ class CashClosure(db.Model, TimestampMixin):
     receivable_transfer_amount = Column(Numeric(12, 2), default=0, nullable=False)
     receivable_card_amount = Column(Numeric(12, 2), default=0, nullable=False)
     expenses_amount = Column(Numeric(12, 2), default=0, nullable=False)
+    withdrawals_amount = Column(Numeric(12, 2), default=0, nullable=False)
     expected_cash_amount = Column(Numeric(12, 2), default=0, nullable=False)
     actual_cash_amount = Column(Numeric(12, 2), default=0, nullable=False)
     delivered_cash_amount = Column(Numeric(12, 2), default=0, nullable=False)
@@ -40,6 +41,7 @@ class CashClosure(db.Model, TimestampMixin):
     warehouse = relationship("Warehouse")
     user = relationship("User")
     expenses = relationship("CashExpense", back_populates="closure")
+    withdrawals = relationship("CashWithdrawal", back_populates="closure")
 
     @property
     def payment_total(self):
@@ -107,5 +109,26 @@ class CashExpense(db.Model, TimestampMixin):
     notes = Column(Text)
 
     closure = relationship("CashClosure", back_populates="expenses")
+    branch = relationship("Branch")
+    user = relationship("User")
+
+
+class CashWithdrawal(db.Model, TimestampMixin):
+    """Retiro parcial de efectivo durante el dia de caja."""
+    __tablename__ = "lempis_retiros_caja"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = tenant_fk()
+    closure_id = Column(Integer, ForeignKey("lempis_cierres_diarios.id", ondelete="SET NULL"), nullable=True, index=True)
+    branch_id = Column(Integer, ForeignKey("lempis_sedes.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id = Column(Integer, ForeignKey("lempis_usuarios.id", ondelete="SET NULL"), nullable=True)
+
+    withdrawal_date = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    recipient = Column(String(120), nullable=False)
+    description = Column(String(180), nullable=False)
+    amount = Column(Numeric(12, 2), default=0, nullable=False)
+    notes = Column(Text)
+
+    closure = relationship("CashClosure", back_populates="withdrawals")
     branch = relationship("Branch")
     user = relationship("User")

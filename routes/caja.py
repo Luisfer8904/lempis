@@ -18,7 +18,7 @@ from flask_login import current_user, login_required
 from sqlalchemy import func
 
 from models import db
-from models.cash import CashClosure, CashExpense
+from models.cash import CashClosure, CashExpense, CashWithdrawal
 from models.invoice import Invoice, InvoicePayment
 from models.locations import Branch, Warehouse
 from services.datetime_utils import local_date_range_to_utc, tenant_today, to_local_datetime, to_utc_datetime
@@ -72,6 +72,17 @@ def index():
         .limit(30)
         .all()
     )
+    withdrawals = (
+        CashWithdrawal.query
+        .filter(
+            CashWithdrawal.tenant_id == tenant.id,
+            CashWithdrawal.withdrawal_date >= period_start,
+            CashWithdrawal.withdrawal_date < period_end,
+        )
+        .order_by(CashWithdrawal.withdrawal_date.desc(), CashWithdrawal.id.desc())
+        .limit(30)
+        .all()
+    )
     # Estado de la caja del día actual
     today_closure = (
         CashClosure.query
@@ -102,6 +113,16 @@ def index():
         .order_by(CashExpense.expense_date.desc(), CashExpense.id.desc())
         .all()
     )
+    today_withdrawals = (
+        CashWithdrawal.query
+        .filter(
+            CashWithdrawal.tenant_id == tenant.id,
+            CashWithdrawal.withdrawal_date >= today_start,
+            CashWithdrawal.withdrawal_date < today_end,
+        )
+        .order_by(CashWithdrawal.withdrawal_date.desc(), CashWithdrawal.id.desc())
+        .all()
+    )
 
     # Atajos de fecha para los botones rápidos del filtro
     yesterday = today - timedelta(days=1)
@@ -113,6 +134,7 @@ def index():
         tenant=tenant,
         closures=closures,
         expenses=expenses,
+        withdrawals=withdrawals,
         branches=_active_branches(tenant.id),
         summary=summary,
         desde=start_date.isoformat(),
@@ -127,6 +149,7 @@ def index():
         week_start_iso=week_start.isoformat(),
         month_start_iso=month_start.isoformat(),
         today_expenses=today_expenses,
+        today_withdrawals=today_withdrawals,
     )
 
 
@@ -162,6 +185,7 @@ def new_closure():
             db.session.add(closure)
         db.session.flush()  # necesitamos closure.id antes de vincular gastos
         _link_day_expenses_to_closure(closure)
+        _link_day_withdrawals_to_closure(closure)
         _reconcile_closure(closure)
         db.session.commit()
         flash("Cierre de caja registrado.", "success")
@@ -213,6 +237,7 @@ def open_day():
         db.session.add(closure)
         db.session.flush()
     _link_day_expenses_to_closure(closure)
+    _link_day_withdrawals_to_closure(closure)
     _reconcile_closure(closure)
     db.session.commit()
     flash("Apertura de caja registrada.", "success")
@@ -233,6 +258,7 @@ def edit_closure(closure_id):
     if request.method == "POST":
         _fill_closure_from_form(closure, suggested)
         _link_day_expenses_to_closure(closure)
+        _link_day_withdrawals_to_closure(closure)
         _reconcile_closure(closure)
         db.session.commit()
         flash("Cierre de caja actualizado.", "success")
@@ -295,6 +321,51 @@ def create_expense():
     return redirect(url_for("caja.index", desde=expense_local_date.isoformat(), hasta=expense_local_date.isoformat()))
 
 
+@caja_bp.route("/retiros", methods=["POST"])
+@login_required
+@tenant_required
+@permission_required("cash.manage")
+def create_withdrawal():
+    tenant = current_tenant()
+    amount = _decimal(request.form.get("amount"))
+    recipient = (request.form.get("recipient") or "").strip()
+    description = (request.form.get("description") or "").strip()
+    if amount <= 0 or not recipient or not description:
+        flash("Ingresa destinatario, descripción y monto válido para el retiro.", "warning")
+        return redirect(url_for("caja.index"))
+
+    withdrawal_date = _parse_datetime(request.form.get("withdrawal_date")) or datetime.utcnow()
+    withdrawal_local_date = _cash_movement_local_date(withdrawal_date)
+    withdrawal = CashWithdrawal(
+        tenant_id=tenant.id,
+        branch_id=request.form.get("branch_id", type=int) or None,
+        user_id=current_user.id,
+        withdrawal_date=withdrawal_date,
+        recipient=recipient[:120],
+        description=description[:180],
+        amount=amount,
+        notes=(request.form.get("notes") or "").strip() or None,
+    )
+    db.session.add(withdrawal)
+    db.session.flush()
+
+    existing_closure = (
+        CashClosure.query
+        .filter(
+            CashClosure.tenant_id == tenant.id,
+            CashClosure.closure_date == withdrawal_local_date,
+        )
+        .first()
+    )
+    if existing_closure is not None:
+        withdrawal.closure_id = existing_closure.id
+        _reconcile_closure(existing_closure)
+
+    db.session.commit()
+    flash("Retiro parcial registrado.", "success")
+    return redirect(url_for("caja.index", desde=withdrawal_local_date.isoformat(), hasta=withdrawal_local_date.isoformat()))
+
+
 # ============================================================
 # Helpers internos
 # ============================================================
@@ -337,6 +408,19 @@ def _link_day_expenses_to_closure(closure: CashClosure) -> None:
     )
 
 
+def _link_day_withdrawals_to_closure(closure: CashClosure) -> None:
+    """Asocia todos los retiros parciales del día al cierre."""
+    start, end = _period_bounds(closure.closure_date, closure.closure_date)
+    (CashWithdrawal.query
+        .filter(
+            CashWithdrawal.tenant_id == closure.tenant_id,
+            CashWithdrawal.withdrawal_date >= start,
+            CashWithdrawal.withdrawal_date < end,
+        )
+        .update({CashWithdrawal.closure_id: closure.id}, synchronize_session=False)
+    )
+
+
 def _reconcile_closure(closure: CashClosure) -> None:
     """
     Recalcula los gastos (en tiempo real), el efectivo esperado y la diferencia
@@ -344,7 +428,7 @@ def _reconcile_closure(closure: CashClosure) -> None:
     registrado gastos después de haberlo creado.
 
     Fórmulas oficiales:
-      efectivo_esperado = apertura + ventas_efectivo + abonos_efectivo - gastos_efectivo
+      efectivo_esperado = apertura + ventas_efectivo + abonos_efectivo - gastos_efectivo - retiros
       diferencia        = dinero_entregado - efectivo_esperado
         · > 0 → sobrante
         · = 0 → cuadrado
@@ -364,12 +448,23 @@ def _reconcile_closure(closure: CashClosure) -> None:
         )
         .scalar()
     )
+    withdrawals_total = (
+        db.session.query(func.coalesce(func.sum(CashWithdrawal.amount), 0))
+        .filter(
+            CashWithdrawal.tenant_id == closure.tenant_id,
+            CashWithdrawal.withdrawal_date >= start,
+            CashWithdrawal.withdrawal_date < end,
+        )
+        .scalar()
+    )
     closure.expenses_amount = _decimal(expenses_total)
+    closure.withdrawals_amount = _decimal(withdrawals_total)
     closure.expected_cash_amount = (
         _decimal(closure.opening_amount)
         + _decimal(closure.cash_sales_amount)
         + _decimal(closure.receivable_cash_amount)
         - _decimal(closure.expenses_amount)
+        - _decimal(closure.withdrawals_amount)
     )
     # Diferencia oficial: entregado - esperado
     closure.variance_amount = (
@@ -391,6 +486,15 @@ def _suggested_closure_values(tenant_id: int, closure_date):
         )
         .scalar()
     )
+    withdrawals_amount = (
+        db.session.query(func.coalesce(func.sum(CashWithdrawal.amount), 0))
+        .filter(
+            CashWithdrawal.tenant_id == tenant_id,
+            CashWithdrawal.withdrawal_date >= start,
+            CashWithdrawal.withdrawal_date < end,
+        )
+        .scalar()
+    )
     cash_sales = _decimal(sales.get("efectivo"))
     transfer_sales = _decimal(sales.get("transferencia"))
     card_sales = _decimal(sales.get("tarjeta"))
@@ -406,6 +510,7 @@ def _suggested_closure_values(tenant_id: int, closure_date):
         "receivable_transfer_amount": _decimal(payments.get("transferencia")),
         "receivable_card_amount": _decimal(payments.get("tarjeta")),
         "expenses_amount": _decimal(expenses_amount),
+        "withdrawals_amount": _decimal(withdrawals_amount),
     }
 
 
@@ -433,6 +538,15 @@ def _cash_summary(
         .all()
     )
     expenses_by_method = {row.method: _decimal(row.total) for row in expenses}
+    withdrawals_total = (
+        db.session.query(func.coalesce(func.sum(CashWithdrawal.amount), 0))
+        .filter(
+            CashWithdrawal.tenant_id == tenant_id,
+            CashWithdrawal.withdrawal_date >= period_start,
+            CashWithdrawal.withdrawal_date < period_end,
+        )
+        .scalar()
+    )
     cash_sales = _decimal(sales.get("efectivo"))
     transfer_sales = _decimal(sales.get("transferencia"))
     card_sales = _decimal(sales.get("tarjeta"))
@@ -449,6 +563,7 @@ def _cash_summary(
         + _decimal(open_values.get("cash_sales_amount"))
         + _decimal(open_values.get("receivable_cash_amount"))
         - _decimal(open_values.get("expenses_amount"))
+        - _decimal(open_values.get("withdrawals_amount"))
         if include_open_closure
         else Decimal("0.00")
     )
@@ -460,6 +575,7 @@ def _cash_summary(
         "contado_total": cash_sales + transfer_sales + card_sales,
         "opening_total": sum(_decimal(c.opening_amount) for c in closures) + open_opening,
         "expenses_total": sum(_decimal(c.expenses_amount) for c in closures),
+        "withdrawals_total": _decimal(withdrawals_total),
         "expected_cash": sum(_decimal(c.expected_cash_amount) for c in closures) + open_expected_cash,
         "actual_cash": sum(_decimal(c.actual_cash_amount) for c in closures),
         "delivered_cash": sum(_decimal(c.delivered_cash_amount) for c in closures),
@@ -535,6 +651,10 @@ def _parse_datetime(value):
 
 def _expense_local_date(expense_date):
     return to_local_datetime(expense_date, current_tenant()).date()
+
+
+def _cash_movement_local_date(movement_date):
+    return to_local_datetime(movement_date, current_tenant()).date()
 
 
 def _decimal(value) -> Decimal:
