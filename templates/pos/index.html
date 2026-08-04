@@ -363,10 +363,6 @@
         </div>
         <p id="cash-warning" class="hidden text-sm text-rose-600">El efectivo recibido no cubre el total.</p>
       </div>
-      <label class="flex items-center gap-3 rounded-lg border px-4 py-3 cursor-pointer hover:bg-slate-50">
-        <input type="checkbox" id="print-invoice-modal" class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
-        <span class="text-sm font-medium text-slate-700">Imprimir factura al finalizar</span>
-      </label>
     </div>
     <div class="px-5 py-4 border-t flex justify-end gap-2">
       <button type="button" id="checkout-cancel"
@@ -380,6 +376,39 @@
     </div>
   </div>
 </div>
+
+{% if sale_result %}
+<div id="sale-result-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
+  <div class="w-full max-w-md rounded-xl bg-white shadow-xl border">
+    <div class="px-5 py-4 border-b">
+      <p class="text-xs font-bold uppercase tracking-wide text-emerald-600">Cobro finalizado</p>
+      <h3 class="mt-1 text-lg font-semibold text-slate-900">Venta {{ sale_result.number }} emitida correctamente</h3>
+    </div>
+    <div class="px-5 py-4 space-y-4">
+      <div class="flex justify-between items-center rounded-lg bg-emerald-50 px-4 py-3">
+        <span class="text-sm font-medium text-emerald-900">Cambio a entregar</span>
+        <span class="font-mono text-xl font-bold text-emerald-700">{{ tenant.currency }} {{ sale_result.change }}</span>
+      </div>
+      <div class="grid gap-2">
+        <a href="{{ sale_result.ticket_url }}" target="_blank" rel="noopener"
+           class="w-full rounded-lg bg-emerald-600 px-4 py-3 text-center text-sm font-bold text-white hover:bg-emerald-700">
+          Imprimir factura
+        </a>
+        <a href="{{ sale_result.load_order_url }}" target="_blank" rel="noopener"
+           class="w-full rounded-lg bg-amber-600 px-4 py-3 text-center text-sm font-bold text-white hover:bg-amber-700">
+          Imprimir orden de carga
+        </a>
+      </div>
+    </div>
+    <div class="px-5 py-4 border-t flex justify-end">
+      <button type="button" id="sale-result-close"
+              class="px-4 py-2 rounded-lg border text-slate-700 hover:bg-slate-50">
+        Cerrar
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <script>
 const TENANT_CURRENCY = "{{ tenant.currency }}";
@@ -830,7 +859,6 @@ function openCheckoutModal() {
   document.getElementById('checkout-modal-method').textContent = methods[method] || 'Método de pago';
   document.getElementById('checkout-modal-total').textContent = fmt(getCartTotals().total);
   document.getElementById('checkout-cash-fields').classList.toggle('hidden', method !== 'efectivo');
-  document.getElementById('print-invoice-modal').checked = true;
   document.getElementById('checkout-modal').classList.remove('hidden');
   document.getElementById('checkout-modal').classList.add('flex');
   if (method === 'efectivo') {
@@ -856,7 +884,7 @@ function confirmCheckout() {
 
   document.getElementById('cash-received-input').value = method === 'efectivo' ? cash.received.toFixed(2) : '';
   document.getElementById('cash-change-input').value = method === 'efectivo' ? cash.change.toFixed(2) : '0.00';
-  document.getElementById('print-invoice').value = document.getElementById('print-invoice-modal').checked ? '1' : '0';
+  document.getElementById('print-invoice').value = '0';
 
   checkoutConfirmed = true;
   closeCheckoutModal();
@@ -874,6 +902,13 @@ document.getElementById('cash-received-modal').addEventListener('keydown', event
 });
 document.getElementById('checkout-cancel').addEventListener('click', closeCheckoutModal);
 document.getElementById('checkout-confirm').addEventListener('click', confirmCheckout);
+document.getElementById('sale-result-close')?.addEventListener('click', () => {
+  document.getElementById('sale-result-modal')?.remove();
+  const url = new URL(window.location.href);
+  url.searchParams.delete('sale_id');
+  url.searchParams.delete('change');
+  window.history.replaceState({}, '', url.toString());
+});
 document.getElementById('checkout-form').addEventListener('submit', e => {
   const action = e.submitter?.value || 'charge';
   if (action === 'draft') {

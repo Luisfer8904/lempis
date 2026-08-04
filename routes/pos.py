@@ -218,6 +218,24 @@ def quick_sale():
         can_emit = False
         reason = str(e)
 
+    sale_result = None
+    sale_id = request.args.get("sale_id", type=int)
+    if sale_id:
+        sale_invoice = Invoice.query.filter_by(id=sale_id, tenant_id=tenant.id).first()
+        if sale_invoice is not None:
+            settings = _get_print_settings(tenant)
+            if settings.thermal_printer_enabled and settings.quick_sale_format == "thermal_receipt":
+                invoice_print_url = url_for("facturas.ticket", invoice_id=sale_invoice.id, print=1)
+            else:
+                invoice_print_url = url_for("facturas.detail", invoice_id=sale_invoice.id, print=1)
+            sale_result = {
+                "number": sale_invoice.number,
+                "payment_method": sale_invoice.payment_method or "",
+                "change": request.args.get("change", "0.00"),
+                "ticket_url": invoice_print_url,
+                "load_order_url": url_for("facturas.orden_carga", invoice_id=sale_invoice.id, print=1),
+            }
+
     return render_template(
         "pos/index.html",
         productos=productos, categorias=categorias, clientes=clientes,
@@ -228,6 +246,7 @@ def quick_sale():
         draft_invoice=draft_invoice,
         draft_payload=_draft_payload(draft_invoice),
         open_drafts=open_drafts,
+        sale_result=sale_result,
     )
 
 
@@ -372,19 +391,11 @@ def cobrar():
             return redirect(url_for("pos.quick_sale"))
 
         flash(f"Venta {inv.number} emitida correctamente.", "success")
-        next_sale_url = url_for("pos.quick_sale")
-        if request.form.get("print_invoice") == "1":
-            settings = _get_print_settings(tenant)
-            if settings.thermal_printer_enabled and settings.quick_sale_format == "thermal_receipt":
-                return redirect(url_for(
-                    "facturas.ticket",
-                    invoice_id=inv.id,
-                    print=1,
-                    drawer=1 if settings.open_cash_drawer_on_print else 0,
-                    next=next_sale_url,
-                ))
-            return redirect(url_for("facturas.detail", invoice_id=inv.id, print=1, next=next_sale_url))
-        return redirect(next_sale_url)
+        return redirect(url_for(
+            "pos.quick_sale",
+            sale_id=inv.id,
+            change=request.form.get("cash_change") or "0.00",
+        ))
     except CAIError as e:
         flash(str(e), "danger")
         return redirect(url_for("pos.quick_sale"))

@@ -197,7 +197,6 @@
   <div class="toolbar">
     <a href="{{ url_for('facturas.detail', invoice_id=factura.id) }}">Volver</a>
     <button type="button" onclick="printTicket()">Imprimir</button>
-    <button type="button" class="primary" onclick="openDrawerAndPrint()">Abrir caja e imprimir</button>
   </div>
 
   {% set methods = {'efectivo': 'EFECTIVO', 'transferencia': 'TRANSFERENCIA', 'tarjeta': 'TARJETA', 'credito': 'CREDITO'} %}

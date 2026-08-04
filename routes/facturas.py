@@ -253,7 +253,7 @@ def ticket(invoice_id):
         display_notes=display_notes,
         receipt_width=width,
         auto_print=request.args.get("print") == "1",
-        open_drawer=request.args.get("drawer", "1") == "1",
+        open_drawer=request.args.get("drawer", "0") == "1",
         next_url=request.args.get("next") or "",
     )
 
@@ -266,9 +266,6 @@ def orden_carga(invoice_id):
     inv = _get_or_404(invoice_id)
     tenant = current_tenant()
     settings = _get_print_settings(tenant)
-    if not settings.enable_load_order_print:
-        flash("La impresión de orden de carga no está habilitada.", "warning")
-        return redirect(url_for("facturas.detail", invoice_id=inv.id))
     return render_template(
         "facturas/orden_carga.html",
         factura=inv,
@@ -637,7 +634,7 @@ def _invoice_detail_url(inv: Invoice) -> str:
                 "facturas.ticket",
                 invoice_id=inv.id,
                 print=1,
-                drawer=1 if settings.open_cash_drawer_on_print else 0,
+                drawer=0,
             )
         return url_for("facturas.detail", invoice_id=inv.id, print=1)
     return url_for("facturas.detail", invoice_id=inv.id)
