@@ -84,7 +84,7 @@
         <p class="text-xs font-medium text-slate-500">Inventario de venta</p>
         <p class="text-sm text-slate-700">La venta descontará stock de esta bodega.</p>
       </div>
-      <select name="warehouse_id" onchange="this.form.submit()"
+      <select name="warehouse_id" onchange="submitWarehouseChange(this)"
               class="min-w-[240px] px-3 py-2 border rounded-lg bg-white text-sm focus:ring-2 focus:ring-indigo-500">
         {% for w in warehouses %}
           <option value="{{ w.id }}" {% if selected_warehouse_id == w.id %}selected{% endif %}>
@@ -377,6 +377,32 @@
   </div>
 </div>
 
+<div id="unsaved-sale-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/50 px-4">
+  <div class="w-full max-w-md rounded-xl bg-white shadow-xl border">
+    <div class="px-5 py-4 border-b">
+      <p class="text-xs font-bold uppercase tracking-wide text-amber-600">Venta sin guardar</p>
+      <h3 class="mt-1 text-lg font-semibold text-slate-900">Tienes productos en el carrito</h3>
+      <p class="mt-1 text-sm text-slate-500">Puedes guardar esta venta para recuperarla después o salir sin guardarla.</p>
+    </div>
+    <div class="px-5 py-4 flex flex-col gap-2">
+      <button type="button" id="unsaved-save"
+              class="w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-700">
+        Guardar venta
+      </button>
+      <button type="button" id="unsaved-leave"
+              class="w-full rounded-lg border border-rose-200 px-4 py-3 text-sm font-bold text-rose-700 hover:bg-rose-50">
+        Salir sin guardar
+      </button>
+    </div>
+    <div class="px-5 py-4 border-t flex justify-end">
+      <button type="button" id="unsaved-cancel"
+              class="px-4 py-2 rounded-lg border text-slate-700 hover:bg-slate-50">
+        Cancelar
+      </button>
+    </div>
+  </div>
+</div>
+
 {% if sale_result %}
 <div id="sale-result-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
   <div class="w-full max-w-md rounded-xl bg-white shadow-xl border">
@@ -415,10 +441,62 @@ const TENANT_CURRENCY = "{{ tenant.currency }}";
 const DRAFT_PAYLOAD = {{ draft_payload|tojson }};
 const cart = new Map();
 let checkoutConfirmed = false;
+let allowNavigation = false;
+let pendingNavigationUrl = null;
+let pendingNavigationForm = null;
 let pendingSubmitter = null;
 let selectedCategory = "{{ selected_category or '' }}";
 
 function fmt(n) { return TENANT_CURRENCY + " " + Number(n).toFixed(2); }
+function hasUnsavedSale() {
+  return cart.size > 0;
+}
+
+function openUnsavedSaleModal({ url = null, form = null } = {}) {
+  pendingNavigationUrl = url;
+  pendingNavigationForm = form;
+  const modal = document.getElementById('unsaved-sale-modal');
+  modal?.classList.remove('hidden');
+  modal?.classList.add('flex');
+}
+
+function closeUnsavedSaleModal() {
+  const modal = document.getElementById('unsaved-sale-modal');
+  modal?.classList.add('hidden');
+  modal?.classList.remove('flex');
+  pendingNavigationUrl = null;
+  pendingNavigationForm = null;
+}
+
+function leaveWithoutSaving() {
+  allowNavigation = true;
+  if (pendingNavigationForm) {
+    pendingNavigationForm.submit();
+    return;
+  }
+  if (pendingNavigationUrl) {
+    window.location.href = pendingNavigationUrl;
+    return;
+  }
+  closeUnsavedSaleModal();
+}
+
+function saveBeforeLeaving() {
+  const saveDraftBtn = document.getElementById('save-draft-btn');
+  if (!saveDraftBtn || saveDraftBtn.disabled) return;
+  allowNavigation = true;
+  saveDraftBtn.form.requestSubmit(saveDraftBtn);
+}
+
+function submitWarehouseChange(select) {
+  if (!select?.form) return;
+  if (allowNavigation || !hasUnsavedSale()) {
+    select.form.submit();
+    return;
+  }
+  openUnsavedSaleModal({ form: select.form });
+}
+
 function getCartTotals() {
   let subtotal = 0, taxTotal = 0;
   cart.forEach(item => {
@@ -886,6 +964,7 @@ function confirmCheckout() {
   document.getElementById('cash-change-input').value = method === 'efectivo' ? cash.change.toFixed(2) : '0.00';
   document.getElementById('print-invoice').value = '0';
 
+  allowNavigation = true;
   checkoutConfirmed = true;
   closeCheckoutModal();
   const form = document.getElementById('checkout-form');
@@ -912,6 +991,7 @@ document.getElementById('sale-result-close')?.addEventListener('click', () => {
 document.getElementById('checkout-form').addEventListener('submit', e => {
   const action = e.submitter?.value || 'charge';
   if (action === 'draft') {
+    allowNavigation = true;
     document.getElementById('print-invoice').value = '0';
     document.getElementById('cash-received-input').value = '';
     document.getElementById('cash-change-input').value = '0.00';
@@ -936,23 +1016,35 @@ document.getElementById('checkout-form').addEventListener('submit', e => {
   checkoutConfirmed = false;
 });
 
+document.getElementById('unsaved-save')?.addEventListener('click', saveBeforeLeaving);
+document.getElementById('unsaved-leave')?.addEventListener('click', leaveWithoutSaving);
+document.getElementById('unsaved-cancel')?.addEventListener('click', closeUnsavedSaleModal);
+window.addEventListener('beforeunload', event => {
+  if (allowNavigation || !hasUnsavedSale()) return;
+  event.preventDefault();
+  event.returnValue = '';
+});
+document.addEventListener('click', event => {
+  const link = event.target.closest('a[href]');
+  if (!link || allowNavigation || !hasUnsavedSale()) return;
+  const href = link.getAttribute('href') || '';
+  if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+  if (link.target === '_blank' || link.hasAttribute('download')) return;
+  event.preventDefault();
+  openUnsavedSaleModal({ url: link.href });
+});
+document.querySelectorAll('form').forEach(form => {
+  if (form.id === 'checkout-form') return;
+  form.addEventListener('submit', event => {
+    if (allowNavigation || !hasUnsavedSale()) return;
+    event.preventDefault();
+    openUnsavedSaleModal({ form });
+  });
+});
+
 document.getElementById('customer-select')?.addEventListener('change', syncTierFromCustomer);
 document.querySelectorAll('.customer-combobox').forEach(enhanceCustomerCombobox);
 document.getElementById('product-search')?.addEventListener('input', filterProducts);
-document.getElementById('new-sale-link')?.addEventListener('click', event => {
-  if (!cart.size) return;
-  if (!confirm('La venta actual no se recuperará si no la guardas. ¿Abrir una venta nueva?')) {
-    event.preventDefault();
-  }
-});
-document.querySelectorAll('.open-draft-link').forEach(link => {
-  link.addEventListener('click', event => {
-    if (!cart.size) return;
-    if (!confirm('La venta actual no se recuperará si no la guardas. ¿Abrir la venta seleccionada?')) {
-      event.preventDefault();
-    }
-  });
-});
 document.querySelectorAll('.category-chip').forEach(chip => {
   chip.addEventListener('click', () => setCategoryFilter(chip.dataset.categoryId || ''));
 });
