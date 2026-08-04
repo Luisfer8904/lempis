@@ -867,6 +867,11 @@ function confirmCheckout() {
 
 document.getElementById('payment-method').addEventListener('change', updatePaymentFields);
 document.getElementById('cash-received-modal').addEventListener('input', cashChangeFromModal);
+document.getElementById('cash-received-modal').addEventListener('keydown', event => {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  confirmCheckout();
+});
 document.getElementById('checkout-cancel').addEventListener('click', closeCheckoutModal);
 document.getElementById('checkout-confirm').addEventListener('click', confirmCheckout);
 document.getElementById('checkout-form').addEventListener('submit', e => {
