@@ -689,6 +689,17 @@ def _calculate_day_close(
     }
 
 
+def _clean_required(value: str | None) -> str:
+    return (value or "").strip()
+
+
+def _clean_optional(value: str | None, *, lowercase: bool = False) -> str | None:
+    cleaned = (value or "").strip()
+    if cleaned.lower() in {"", "none", "null", "nan", "n/a"}:
+        return None
+    return cleaned.lower() if lowercase else cleaned
+
+
 def _base_context():
     current_igh_user = _current_igh_user()
     month_start = _month_start()
@@ -1214,12 +1225,12 @@ def clientes_detail(client_id: int):
 def clientes_new():
     context = _base_context()
     if request.method == "POST":
-        name = (request.form.get("name") or "").strip()
-        legal_name = (request.form.get("legal_name") or "").strip() or None
-        tax_id = (request.form.get("tax_id") or "").strip() or None
-        email = (request.form.get("email") or "").strip().lower() or None
-        phone = (request.form.get("phone") or "").strip() or None
-        city = (request.form.get("city") or "").strip() or None
+        name = _clean_required(request.form.get("name"))
+        legal_name = _clean_optional(request.form.get("legal_name"))
+        tax_id = _clean_optional(request.form.get("tax_id"))
+        email = _clean_optional(request.form.get("email"), lowercase=True)
+        phone = _clean_optional(request.form.get("phone"))
+        city = _clean_optional(request.form.get("city"))
 
         if not name:
             flash("El nombre del cliente es obligatorio.", "danger")
@@ -1251,17 +1262,17 @@ def clientes_edit(client_id: int):
     context = _base_context()
 
     if request.method == "POST":
-        name = (request.form.get("name") or "").strip()
+        name = _clean_required(request.form.get("name"))
         if not name:
             flash("El nombre del cliente es obligatorio.", "danger")
             return redirect(url_for("igh.clientes_edit", client_id=client.id))
 
         client.name = name
-        client.legal_name = (request.form.get("legal_name") or "").strip() or None
-        client.tax_id = (request.form.get("tax_id") or "").strip() or None
-        client.email = (request.form.get("email") or "").strip().lower() or None
-        client.phone = (request.form.get("phone") or "").strip() or None
-        client.city = (request.form.get("city") or "").strip() or None
+        client.legal_name = _clean_optional(request.form.get("legal_name"))
+        client.tax_id = _clean_optional(request.form.get("tax_id"))
+        client.email = _clean_optional(request.form.get("email"), lowercase=True)
+        client.phone = _clean_optional(request.form.get("phone"))
+        client.city = _clean_optional(request.form.get("city"))
         client.status = "activo"
         client.is_active = True
 

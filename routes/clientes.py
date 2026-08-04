@@ -6,6 +6,7 @@ from __future__ import annotations
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, jsonify
 from flask_login import login_required
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 
 from models import db
 from models.catalog import Customer
@@ -127,7 +128,12 @@ def new():
         cliente = Customer(tenant_id=tenant.id)
         _populate_from_form(cliente)
         db.session.add(cliente)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            flash("No se pudo guardar el cliente. Revisa si el RTN ya existe.", "danger")
+            return redirect(url_for("clientes.new"))
         flash(f"Cliente '{cliente.name}' creado correctamente.", "success")
         return redirect(url_for("clientes.list"))
 
@@ -148,7 +154,12 @@ def edit(client_id):
     cliente = _get_or_404(client_id)
     if request.method == "POST":
         _populate_from_form(cliente)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            flash("No se pudo guardar el cliente. Revisa si el RTN ya existe.", "danger")
+            return redirect(url_for("clientes.edit", client_id=cliente.id))
         flash(f"Cliente '{cliente.name}' actualizado.", "success")
         return redirect(url_for("clientes.list"))
 
@@ -287,13 +298,24 @@ def _empty_summary() -> dict:
 
 def _populate_from_form(cliente: Customer) -> None:
     """Lee request.form y rellena los campos del cliente."""
-    cliente.name = (request.form.get("name") or "").strip()
-    cliente.tax_id = (request.form.get("tax_id") or "").strip() or None
-    cliente.email = (request.form.get("email") or "").strip() or None
-    cliente.phone = (request.form.get("phone") or "").strip() or None
-    cliente.address = (request.form.get("address") or "").strip() or None
-    cliente.city = (request.form.get("city") or "").strip() or None
+    cliente.name = _clean_required(request.form.get("name"))
+    cliente.tax_id = _clean_optional(request.form.get("tax_id"))
+    cliente.email = _clean_optional(request.form.get("email"))
+    cliente.phone = _clean_optional(request.form.get("phone"))
+    cliente.address = _clean_optional(request.form.get("address"))
+    cliente.city = _clean_optional(request.form.get("city"))
     cliente.preferred_price_tier = request.form.get("preferred_price_tier") or "general"
-    cliente.country_code = (request.form.get("country_code") or "").strip() or None
-    cliente.notes = (request.form.get("notes") or "").strip() or None
+    cliente.country_code = _clean_optional(request.form.get("country_code"))
+    cliente.notes = _clean_optional(request.form.get("notes"))
     cliente.is_active = bool(request.form.get("is_active"))
+
+
+def _clean_required(value: str | None) -> str:
+    return (value or "").strip()
+
+
+def _clean_optional(value: str | None) -> str | None:
+    cleaned = (value or "").strip()
+    if cleaned.lower() in {"", "none", "null", "nan", "n/a"}:
+        return None
+    return cleaned

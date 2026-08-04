@@ -19,29 +19,29 @@
     </div>
     <div>
       <label class="block text-sm font-medium mb-1">Razón social</label>
-      <input name="legal_name" value="{{ client.legal_name if client else '' }}"
+      <input name="legal_name" value="{{ (client.legal_name or '') if client else '' }}"
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
     </div>
 
     <div>
       <label class="block text-sm font-medium mb-1">RTN / Identificación</label>
-      <input name="tax_id" value="{{ client.tax_id if client else '' }}"
+      <input name="tax_id" value="{{ (client.tax_id or '') if client else '' }}"
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
     </div>
     <div>
       <label class="block text-sm font-medium mb-1">Correo</label>
-      <input type="email" name="email" value="{{ client.email if client else '' }}"
+      <input type="email" name="email" value="{{ (client.email or '') if client else '' }}"
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
     </div>
 
     <div>
       <label class="block text-sm font-medium mb-1">Teléfono</label>
-      <input name="phone" value="{{ client.phone if client else '' }}"
+      <input name="phone" value="{{ (client.phone or '') if client else '' }}"
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
     </div>
     <div>
       <label class="block text-sm font-medium mb-1">Ciudad</label>
-      <input name="city" value="{{ client.city if client else '' }}"
+      <input name="city" value="{{ (client.city or '') if client else '' }}"
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
     </div>
   </div>

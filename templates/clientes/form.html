@@ -19,25 +19,25 @@
 
     <div>
       <label class="block text-sm font-medium mb-1">RTN / ID Fiscal</label>
-      <input name="tax_id" value="{{ cliente.tax_id if cliente else '' }}"
+      <input name="tax_id" value="{{ (cliente.tax_id or '') if cliente else '' }}"
              placeholder="08011990123456"
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
     </div>
     <div>
       <label class="block text-sm font-medium mb-1">Email</label>
-      <input type="email" name="email" value="{{ cliente.email if cliente else '' }}"
+      <input type="email" name="email" value="{{ (cliente.email or '') if cliente else '' }}"
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
     </div>
 
     <div>
       <label class="block text-sm font-medium mb-1">Teléfono</label>
-      <input name="phone" value="{{ cliente.phone if cliente else '' }}"
+      <input name="phone" value="{{ (cliente.phone or '') if cliente else '' }}"
              placeholder="+504 9999-9999"
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
     </div>
     <div>
       <label class="block text-sm font-medium mb-1">Ciudad</label>
-      <input name="city" value="{{ cliente.city if cliente else '' }}"
+      <input name="city" value="{{ (cliente.city or '') if cliente else '' }}"
              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
     </div>
 
@@ -56,7 +56,7 @@
     <div class="md:col-span-2">
       <label class="block text-sm font-medium mb-1">Dirección</label>
       <textarea name="address" rows="2"
-                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">{{ cliente.address if cliente else '' }}</textarea>
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">{{ (cliente.address or '') if cliente else '' }}</textarea>
     </div>
 
     <div>
@@ -85,7 +85,7 @@
       <label class="block text-sm font-medium mb-1">Notas internas</label>
       <textarea name="notes" rows="3"
                 placeholder="Información interna sobre el cliente..."
-                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">{{ cliente.notes if cliente else '' }}</textarea>
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">{{ (cliente.notes or '') if cliente else '' }}</textarea>
     </div>
   </div>
 
