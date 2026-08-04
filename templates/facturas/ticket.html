@@ -195,7 +195,7 @@
 </head>
 <body>
   <div class="toolbar">
-    <a href="{{ url_for('facturas.detail', invoice_id=factura.id) }}">Volver</a>
+    <button type="button" onclick="closePrintWindow()">Cerrar ventana</button>
     <button type="button" onclick="printTicket()">Imprimir</button>
   </div>
 
@@ -393,6 +393,15 @@
     function printTicket() {
       prepareTicketPrint();
       requestAnimationFrame(() => window.print());
+    }
+
+    function closePrintWindow() {
+      window.close();
+      setTimeout(() => {
+        if (!window.closed) {
+          alert('Puedes cerrar esta pestaña desde la X del navegador.');
+        }
+      }, 200);
     }
 
     function prepareTicketPrint() {
