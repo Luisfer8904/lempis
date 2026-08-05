@@ -199,7 +199,7 @@
     <button type="button" onclick="printTicket()">Imprimir</button>
   </div>
 
-  {% set methods = {'efectivo': 'EFECTIVO', 'transferencia': 'TRANSFERENCIA', 'tarjeta': 'TARJETA', 'credito': 'CREDITO'} %}
+  {% set methods = {'efectivo': 'EFECTIVO', 'transferencia': 'TRANSFERENCIA', 'tarjeta': 'TARJETA', 'credito': 'CREDITO', 'cheque': 'CHEQUE', 'otro': 'OTRO'} %}
   {% set status_labels = {'draft': 'BORRADOR', 'issued': 'EMITIDA', 'paid': 'PAGADA', 'partially_paid': 'PARCIAL', 'void': 'ANULADA', 'overdue': 'VENCIDA'} %}
   {% set terms_label = 'CREDITO' if factura.payment_method == 'credito' else 'CONTADO' %}
   {% set ns = namespace(exento=0, gravado15=0, gravado18=0, isv15=0, isv18=0) %}
@@ -304,7 +304,13 @@
     <div class="divider"></div>
 
     <section class="uppercase">
-      <div class="amount-row"><span>{{ methods.get(factura.payment_method, factura.payment_method)|upper }}</span><span>{{ '%.2f'|format(factura.total or 0) }}</span></div>
+      {% if factura.payments %}
+        {% for pago in factura.payments %}
+          <div class="amount-row"><span>{{ methods.get(pago.payment_method, pago.payment_method)|upper }}</span><span>{{ '%.2f'|format(pago.amount or 0) }}</span></div>
+        {% endfor %}
+      {% else %}
+        <div class="amount-row"><span>{{ methods.get(factura.payment_method, factura.payment_method)|upper }}</span><span>{{ '%.2f'|format(factura.total or 0) }}</span></div>
+      {% endif %}
       {% if cash_received %}
         <div class="amount-row"><span>EFECTIVO RECIBIDO</span><span>{{ cash_received }}</span></div>
       {% endif %}

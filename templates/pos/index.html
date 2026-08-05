@@ -278,17 +278,20 @@
           <p class="text-[11px] text-slate-400 mt-1" id="tier-hint">Se ajusta automáticamente según el cliente; puedes cambiarla aquí.</p>
         </div>
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Método de pago</label>
-          <select name="payment_method" id="payment-method"
+          <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de venta</label>
+          <select name="sale_type" id="sale-type"
                   class="w-full px-3 py-2 text-sm border rounded-lg bg-white">
-            <option value="efectivo">💵 Efectivo</option>
-            <option value="transferencia">🏦 Transferencia</option>
-            <option value="tarjeta">💳 Tarjeta</option>
-            <option value="credito">📋 Crédito</option>
+            <option value="contado">Contado</option>
+            <option value="credito">Crédito</option>
           </select>
+          <input type="hidden" name="payment_method" id="payment-method" value="efectivo" />
         </div>
         <input type="hidden" name="cash_received" id="cash-received-input" value="" />
         <input type="hidden" name="cash_change" id="cash-change-input" value="0.00" />
+        <input type="hidden" name="payment_efectivo" id="payment-efectivo-input" value="" />
+        <input type="hidden" name="payment_tarjeta" id="payment-tarjeta-input" value="" />
+        <input type="hidden" name="payment_transferencia" id="payment-transferencia-input" value="" />
+        <input type="hidden" name="payment_cheque" id="payment-cheque-input" value="" />
         <input type="hidden" name="print_invoice" id="print-invoice" value="0" />
         <div id="terms-row" style="display:none">
           <label class="block text-xs font-medium text-slate-600 mb-1">Días de crédito</label>
@@ -352,16 +355,48 @@
         <span class="text-sm text-slate-500">Total a cobrar</span>
         <span class="font-mono text-xl font-bold text-indigo-600" id="checkout-modal-total">{{ tenant.currency }} 0.00</span>
       </div>
-      <div id="checkout-cash-fields" class="space-y-2">
-        <label class="block text-sm font-medium text-slate-700">Efectivo recibido</label>
-        <input type="number" step="0.01" min="0" id="cash-received-modal"
-               class="w-full px-3 py-3 border rounded-lg text-right font-mono text-lg focus:ring-2 focus:ring-indigo-500"
-               placeholder="0.00" />
-        <div class="flex justify-between rounded-lg border px-4 py-3">
-          <span class="text-sm text-slate-500">Cambio</span>
-          <span id="cash-change-modal" class="font-mono font-bold text-emerald-700">{{ tenant.currency }} 0.00</span>
+      <div id="checkout-payment-fields" class="space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-slate-700">Efectivo</label>
+            <input type="number" step="0.01" min="0" id="checkout-pay-efectivo"
+                   class="mt-1 w-full px-3 py-3 border rounded-lg text-right font-mono text-lg focus:ring-2 focus:ring-indigo-500"
+                   placeholder="0.00" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700">Tarjeta</label>
+            <input type="number" step="0.01" min="0" id="checkout-pay-tarjeta"
+                   class="mt-1 w-full px-3 py-3 border rounded-lg text-right font-mono text-lg focus:ring-2 focus:ring-indigo-500"
+                   placeholder="0.00" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700">Transferencia</label>
+            <input type="number" step="0.01" min="0" id="checkout-pay-transferencia"
+                   class="mt-1 w-full px-3 py-3 border rounded-lg text-right font-mono text-lg focus:ring-2 focus:ring-indigo-500"
+                   placeholder="0.00" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700">Cheque</label>
+            <input type="number" step="0.01" min="0" id="checkout-pay-cheque"
+                   class="mt-1 w-full px-3 py-3 border rounded-lg text-right font-mono text-lg focus:ring-2 focus:ring-indigo-500"
+                   placeholder="0.00" />
+          </div>
         </div>
-        <p id="cash-warning" class="hidden text-sm text-rose-600">El efectivo recibido no cubre el total.</p>
+        <div class="space-y-2 rounded-lg border bg-slate-50 px-4 py-3">
+          <div class="flex justify-between text-sm">
+            <span class="text-slate-500">Aplicado</span>
+            <span id="checkout-applied" class="font-mono font-bold text-slate-900">{{ tenant.currency }} 0.00</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-slate-500">Pendiente</span>
+            <span id="checkout-pending" class="font-mono font-bold text-amber-700">{{ tenant.currency }} 0.00</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-slate-500">Cambio</span>
+            <span id="cash-change-modal" class="font-mono font-bold text-emerald-700">{{ tenant.currency }} 0.00</span>
+          </div>
+        </div>
+        <p id="cash-warning" class="hidden text-sm text-rose-600">La venta de contado debe quedar pagada completa.</p>
       </div>
     </div>
     <div class="px-5 py-4 border-t flex justify-end gap-2">
@@ -769,9 +804,13 @@ function loadDraftPayload() {
   if (receptorName) receptorName.value = DRAFT_PAYLOAD.receptor_name || '';
   if (receptorTaxId) receptorTaxId.value = DRAFT_PAYLOAD.receptor_tax_id || '';
 
+  const saleType = document.getElementById('sale-type');
   const paymentMethod = document.getElementById('payment-method');
-  if (paymentMethod && DRAFT_PAYLOAD.payment_method) {
-    paymentMethod.value = DRAFT_PAYLOAD.payment_method;
+  if (saleType && DRAFT_PAYLOAD.payment_method) {
+    saleType.value = DRAFT_PAYLOAD.payment_method === 'credito' ? 'credito' : 'contado';
+  }
+  if (paymentMethod) {
+    paymentMethod.value = saleType?.value === 'credito' ? 'credito' : 'efectivo';
   }
   const terms = document.querySelector('[name="payment_terms_days"]');
   if (terms && DRAFT_PAYLOAD.payment_terms_days) {
@@ -911,40 +950,70 @@ function renderCart() {
 
 // Toggle plazo crédito
 function updatePaymentFields() {
-  const method = document.getElementById('payment-method').value;
+  const saleType = document.getElementById('sale-type')?.value || 'contado';
+  const methodInput = document.getElementById('payment-method');
+  if (methodInput) methodInput.value = saleType === 'credito' ? 'credito' : 'efectivo';
   const termsRow = document.getElementById('terms-row');
-  termsRow.style.display = method === 'credito' ? 'block' : 'none';
+  termsRow.style.display = saleType === 'credito' ? 'block' : 'none';
 }
 
-function cashChangeFromModal() {
+const checkoutPaymentInputIds = {
+  efectivo: 'checkout-pay-efectivo',
+  tarjeta: 'checkout-pay-tarjeta',
+  transferencia: 'checkout-pay-transferencia',
+  cheque: 'checkout-pay-cheque',
+};
+const hiddenPaymentInputIds = {
+  efectivo: 'payment-efectivo-input',
+  tarjeta: 'payment-tarjeta-input',
+  transferencia: 'payment-transferencia-input',
+  cheque: 'payment-cheque-input',
+};
+
+function parseMoneyValue(value) {
+  const parsed = Number.parseFloat(String(value || '').replace(',', '.'));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function calculateCheckoutPayments() {
   const total = getCartTotals().total;
-  const receivedInput = document.getElementById('cash-received-modal');
-  const received = parseFloat(receivedInput.value) || 0;
-  const change = Math.max(received - total, 0);
+  const raw = {};
+  Object.entries(checkoutPaymentInputIds).forEach(([method, id]) => {
+    raw[method] = parseMoneyValue(document.getElementById(id)?.value);
+  });
+  const nonCash = raw.tarjeta + raw.transferencia + raw.cheque;
+  const cashNeeded = Math.max(total - nonCash, 0);
+  const cashApplied = Math.min(raw.efectivo, cashNeeded);
+  const applied = nonCash + cashApplied;
+  const pending = Math.max(total - applied, 0);
+  const change = Math.max(raw.efectivo - cashNeeded, 0);
+  const saleType = document.getElementById('sale-type')?.value || 'contado';
+  const invalidOver = nonCash > total + 0.005 || applied > total + 0.005;
+  const missing = saleType !== 'credito' && pending > 0.005;
+
+  document.getElementById('checkout-applied').textContent = fmt(applied);
+  document.getElementById('checkout-pending').textContent = fmt(pending);
   document.getElementById('cash-change-modal').textContent = fmt(change);
-  document.getElementById('cash-warning').classList.toggle('hidden', !receivedInput.value || received >= total);
-  return { received, change, total };
+  const warning = document.getElementById('cash-warning');
+  warning.textContent = invalidOver
+    ? 'El cobro registrado supera el total de la factura.'
+    : 'La venta de contado debe quedar pagada completa.';
+  warning.classList.toggle('hidden', !(invalidOver || missing));
+  return { raw, cashApplied, applied, pending, change, total, invalidOver, missing };
 }
 
 function openCheckoutModal() {
-  const method = document.getElementById('payment-method').value;
-  const methods = {
-    efectivo: 'Efectivo',
-    transferencia: 'Transferencia',
-    tarjeta: 'Tarjeta',
-    credito: 'Crédito',
-  };
-  document.getElementById('checkout-modal-method').textContent = methods[method] || 'Método de pago';
+  const saleType = document.getElementById('sale-type')?.value || 'contado';
+  document.getElementById('checkout-modal-method').textContent = saleType === 'credito' ? 'Venta a crédito' : 'Venta de contado';
   document.getElementById('checkout-modal-total').textContent = fmt(getCartTotals().total);
-  document.getElementById('checkout-cash-fields').classList.toggle('hidden', method !== 'efectivo');
+  Object.values(checkoutPaymentInputIds).forEach(id => {
+    const input = document.getElementById(id);
+    if (input) input.value = '';
+  });
+  calculateCheckoutPayments();
   document.getElementById('checkout-modal').classList.remove('hidden');
   document.getElementById('checkout-modal').classList.add('flex');
-  if (method === 'efectivo') {
-    const cashInput = document.getElementById('cash-received-modal');
-    cashInput.value = '';
-    cashChangeFromModal();
-    setTimeout(() => cashInput.focus(), 50);
-  }
+  setTimeout(() => document.getElementById('checkout-pay-efectivo')?.focus(), 50);
 }
 
 function closeCheckoutModal() {
@@ -953,15 +1022,18 @@ function closeCheckoutModal() {
 }
 
 function confirmCheckout() {
-  const method = document.getElementById('payment-method').value;
-  const cash = cashChangeFromModal();
-  if (method === 'efectivo' && cash.received < cash.total) {
-    document.getElementById('cash-received-modal').focus();
+  const payment = calculateCheckoutPayments();
+  if (payment.invalidOver || payment.missing) {
+    document.getElementById('checkout-pay-efectivo')?.focus();
     return;
   }
 
-  document.getElementById('cash-received-input').value = method === 'efectivo' ? cash.received.toFixed(2) : '';
-  document.getElementById('cash-change-input').value = method === 'efectivo' ? cash.change.toFixed(2) : '0.00';
+  Object.entries(hiddenPaymentInputIds).forEach(([method, id]) => {
+    const amount = method === 'efectivo' ? payment.cashApplied : payment.raw[method];
+    document.getElementById(id).value = amount > 0 ? amount.toFixed(2) : '';
+  });
+  document.getElementById('cash-received-input').value = payment.raw.efectivo > 0 ? payment.raw.efectivo.toFixed(2) : '';
+  document.getElementById('cash-change-input').value = payment.change.toFixed(2);
   document.getElementById('print-invoice').value = '0';
 
   allowNavigation = true;
@@ -972,12 +1044,23 @@ function confirmCheckout() {
   else form.requestSubmit();
 }
 
-document.getElementById('payment-method').addEventListener('change', updatePaymentFields);
-document.getElementById('cash-received-modal').addEventListener('input', cashChangeFromModal);
-document.getElementById('cash-received-modal').addEventListener('keydown', event => {
-  if (event.key !== 'Enter') return;
-  event.preventDefault();
-  confirmCheckout();
+function clearCheckoutPaymentInputs() {
+  document.getElementById('cash-received-input').value = '';
+  document.getElementById('cash-change-input').value = '0.00';
+  Object.values(hiddenPaymentInputIds).forEach(id => {
+    document.getElementById(id).value = '';
+  });
+}
+
+document.getElementById('sale-type')?.addEventListener('change', updatePaymentFields);
+Object.values(checkoutPaymentInputIds).forEach(id => {
+  const input = document.getElementById(id);
+  input?.addEventListener('input', calculateCheckoutPayments);
+  input?.addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    confirmCheckout();
+  });
 });
 document.getElementById('checkout-cancel').addEventListener('click', closeCheckoutModal);
 document.getElementById('checkout-confirm').addEventListener('click', confirmCheckout);
@@ -993,20 +1076,17 @@ document.getElementById('checkout-form').addEventListener('submit', e => {
   if (action === 'draft') {
     allowNavigation = true;
     document.getElementById('print-invoice').value = '0';
-    document.getElementById('cash-received-input').value = '';
-    document.getElementById('cash-change-input').value = '0.00';
+    clearCheckoutPaymentInputs();
     checkoutConfirmed = false;
     return;
   }
   if (action === 'quote') {
     document.getElementById('print-invoice').value = '0';
-    document.getElementById('cash-received-input').value = '';
-    document.getElementById('cash-change-input').value = '0.00';
+    clearCheckoutPaymentInputs();
     checkoutConfirmed = false;
     return;
   }
 
-  const method = document.getElementById('payment-method').value;
   if (!checkoutConfirmed) {
     e.preventDefault();
     pendingSubmitter = e.submitter;

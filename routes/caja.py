@@ -15,7 +15,7 @@ from decimal import Decimal, InvalidOperation
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from models import db
 from models.cash import CashClosure, CashExpense, CashWithdrawal
@@ -476,6 +476,7 @@ def _suggested_closure_values(tenant_id: int, closure_date):
     start, end = _period_bounds(closure_date, closure_date)
     sales = _sum_invoices_by_method(tenant_id, start, end)
     payments = _sum_payments_by_method(tenant_id, start, end)
+    credit_payments = _sum_payments_by_method(tenant_id, start, end, credit_only=True)
     expenses_amount = (
         db.session.query(func.coalesce(func.sum(CashExpense.amount), 0))
         .filter(
@@ -495,20 +496,21 @@ def _suggested_closure_values(tenant_id: int, closure_date):
         )
         .scalar()
     )
-    cash_sales = _decimal(sales.get("efectivo"))
-    transfer_sales = _decimal(sales.get("transferencia"))
-    card_sales = _decimal(sales.get("tarjeta"))
+    cash_sales = _decimal(sales.get("efectivo")) + _decimal(payments.get("efectivo")) - _decimal(credit_payments.get("efectivo"))
+    transfer_sales = _decimal(sales.get("transferencia")) + _decimal(payments.get("transferencia")) - _decimal(credit_payments.get("transferencia"))
+    card_sales = _decimal(sales.get("tarjeta")) + _decimal(payments.get("tarjeta")) - _decimal(credit_payments.get("tarjeta"))
+    check_sales = _decimal(payments.get("cheque")) - _decimal(credit_payments.get("cheque"))
     return {
         "closure_date": closure_date,
         "cash_sales_amount": cash_sales,
         "transfer_sales_amount": transfer_sales,
         "card_sales_amount": card_sales,
         "credit_sales_amount": _decimal(sales.get("credito")),
-        # "Ventas de contado" = todo lo no a crédito (efectivo + transferencia + tarjeta)
-        "contado_sales_amount": cash_sales + transfer_sales + card_sales,
-        "receivable_cash_amount": _decimal(payments.get("efectivo")),
-        "receivable_transfer_amount": _decimal(payments.get("transferencia")),
-        "receivable_card_amount": _decimal(payments.get("tarjeta")),
+        # "Ventas de contado" = todo lo no a crédito cobrado en el momento.
+        "contado_sales_amount": cash_sales + transfer_sales + card_sales + check_sales,
+        "receivable_cash_amount": _decimal(credit_payments.get("efectivo")),
+        "receivable_transfer_amount": _decimal(credit_payments.get("transferencia")),
+        "receivable_card_amount": _decimal(credit_payments.get("tarjeta")),
         "expenses_amount": _decimal(expenses_amount),
         "withdrawals_amount": _decimal(withdrawals_amount),
     }
@@ -572,7 +574,7 @@ def _cash_summary(
         "payments": {key: _decimal(value) for key, value in payments.items()},
         "expenses": expenses_by_method,
         # Total "de contado" = todo lo no a crédito del periodo
-        "contado_total": cash_sales + transfer_sales + card_sales,
+        "contado_total": cash_sales + transfer_sales + card_sales + check_sales,
         "opening_total": sum(_decimal(c.opening_amount) for c in closures) + open_opening,
         "expenses_total": sum(_decimal(c.expenses_amount) for c in closures),
         "withdrawals_total": _decimal(withdrawals_total),
@@ -594,6 +596,7 @@ def _sum_invoices_by_method(tenant_id: int, period_start, period_end):
             Invoice.status.in_(VALID_INVOICE_STATUSES),
             Invoice.issue_date >= period_start,
             Invoice.issue_date < period_end,
+            or_(Invoice.payment_method == "credito", ~Invoice.payments.any()),
         )
         .group_by(Invoice.payment_method)
         .all()
@@ -601,20 +604,22 @@ def _sum_invoices_by_method(tenant_id: int, period_start, period_end):
     return {row.method: row.total for row in rows}
 
 
-def _sum_payments_by_method(tenant_id: int, period_start, period_end):
-    rows = (
+def _sum_payments_by_method(tenant_id: int, period_start, period_end, credit_only: bool = False):
+    query = (
         db.session.query(
             InvoicePayment.payment_method.label("method"),
             func.coalesce(func.sum(InvoicePayment.amount), 0).label("total"),
         )
+        .join(Invoice, Invoice.id == InvoicePayment.invoice_id)
         .filter(
             InvoicePayment.tenant_id == tenant_id,
             InvoicePayment.paid_at >= period_start,
             InvoicePayment.paid_at < period_end,
         )
-        .group_by(InvoicePayment.payment_method)
-        .all()
     )
+    if credit_only:
+        query = query.filter(Invoice.payment_method == "credito")
+    rows = query.group_by(InvoicePayment.payment_method).all()
     return {row.method: row.total for row in rows}
 
 

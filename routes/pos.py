@@ -14,7 +14,7 @@ from sqlalchemy import or_
 
 from models import db
 from models.catalog import Product, Category, Customer
-from models.invoice import Invoice
+from models.invoice import Invoice, InvoicePayment
 from models.printing import TenantPrintSettings
 from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
@@ -38,6 +38,9 @@ from services.locations import (
 )
 
 pos_bp = Blueprint("pos", __name__, url_prefix="/app/venta")
+
+PAYMENT_METHODS = ("efectivo", "tarjeta", "transferencia", "cheque")
+CENT = Decimal("0.01")
 
 
 def _get_print_settings(tenant):
@@ -153,8 +156,7 @@ def _emit_pos_draft(inv: Invoice, tenant) -> None:
                 subtract_stock(inv.tenant_id, inv.warehouse_id, product.id, item.quantity, None, "venta")
 
     if inv.payment_method != "credito":
-        inv.status = "paid"
-        inv.amount_paid = inv.total
+        inv.amount_paid = Decimal("0.00")
     tenant.next_invoice_number = correlativo + 1
     db.session.commit()
 
@@ -335,7 +337,8 @@ def cobrar():
         manual_receptor_name = (request.form.get("receptor_name") or "").strip() if not customer else ""
         manual_receptor_tax_id = (request.form.get("receptor_tax_id") or "").strip() if not customer else ""
 
-        payment_method = request.form.get("payment_method", "efectivo")
+        sale_type = request.form.get("sale_type") or "contado"
+        payment_method = "credito" if sale_type == "credito" else "efectivo"
         default_warehouse = sync_default_warehouse_stock(tenant)
         warehouses = sale_warehouses_for_user(tenant.id, current_user) or [default_warehouse]
         allowed_warehouse_ids = {w.id for w in warehouses}
@@ -345,10 +348,14 @@ def cobrar():
         if not can_user_sell_from_warehouse(tenant.id, current_user, warehouse_id):
             flash("No puedes facturar desde una bodega de otra sede.", "warning")
             return redirect(url_for("pos.quick_sale"))
-        notes = _notes_with_cash_details(request.form.get("notes", ""), payment_method)
+        payment_breakdown = _payment_breakdown_from_form() if action == "charge" else _empty_payment_breakdown()
+        notes = _notes_with_payment_details(request.form.get("notes", ""), payment_breakdown)
         status = "draft" if action == "draft" else "issued"
         payment_terms_days = int(request.form.get("payment_terms_days") or 0)
         draft_invoice = _get_draft_for_pos(tenant, request.form.get("draft_id", type=int))
+
+        if status != "draft":
+            _validate_pos_payment(payment_breakdown, _cart_total(items_data), sale_type)
 
         if draft_invoice:
             inv = update_invoice(
@@ -386,6 +393,9 @@ def cobrar():
                 receptor_name=manual_receptor_name,
                 receptor_tax_id=manual_receptor_tax_id,
             )
+        if status != "draft":
+            _replace_invoice_payments(inv, payment_breakdown, current_user.id)
+            db.session.commit()
         if status == "draft":
             flash("Venta guardada. Puedes recuperarla desde Ventas abiertas.", "success")
             return redirect(url_for("pos.quick_sale"))
@@ -444,8 +454,111 @@ def _notes_with_cash_details(notes: str, payment_method: str) -> str:
     return f"{base}\n\n{cash_note}" if base else cash_note
 
 
+def _empty_payment_breakdown() -> dict[str, Decimal]:
+    return {method: Decimal("0.00") for method in PAYMENT_METHODS}
+
+
+def _payment_breakdown_from_form() -> dict[str, Decimal]:
+    return {
+        "efectivo": _money_or_zero(request.form.get("payment_efectivo")),
+        "tarjeta": _money_or_zero(request.form.get("payment_tarjeta")),
+        "transferencia": _money_or_zero(request.form.get("payment_transferencia")),
+        "cheque": _money_or_zero(request.form.get("payment_cheque")),
+    }
+
+
+def _payment_total(breakdown: dict[str, Decimal]) -> Decimal:
+    return sum((amount for amount in breakdown.values()), Decimal("0.00")).quantize(CENT)
+
+
+def _cart_total(items_data: list[dict]) -> Decimal:
+    total = Decimal("0.00")
+    for item in items_data:
+        quantity = Decimal(str(item.get("quantity") or 0))
+        unit_price = Decimal(str(item.get("unit_price") or 0))
+        tax_rate = Decimal(str(item.get("tax_rate") or 0))
+        line_subtotal = quantity * unit_price
+        total += line_subtotal + (line_subtotal * tax_rate / Decimal("100"))
+    return total.quantize(CENT)
+
+
+def _validate_pos_payment(breakdown: dict[str, Decimal], total: Decimal, sale_type: str) -> None:
+    paid = _payment_total(breakdown)
+    tolerance = Decimal("0.01")
+    if paid > total + tolerance:
+        raise CAIError("El cobro registrado supera el total de la factura.")
+    if sale_type != "credito" and paid < total - tolerance:
+        raise CAIError("La venta de contado debe quedar pagada completa.")
+
+
+def _replace_invoice_payments(inv: Invoice, breakdown: dict[str, Decimal], user_id: int | None) -> None:
+    for payment in list(inv.payments):
+        db.session.delete(payment)
+    db.session.flush()
+
+    paid = Decimal("0.00")
+    for method, amount in breakdown.items():
+        amount = _money_or_zero(amount)
+        if amount <= 0:
+            continue
+        paid += amount
+        db.session.add(InvoicePayment(
+            tenant_id=inv.tenant_id,
+            invoice_id=inv.id,
+            amount=amount,
+            payment_method=method,
+            received_by_user_id=user_id,
+        ))
+
+    total = Decimal(inv.total or 0).quantize(CENT)
+    inv.amount_paid = min(paid.quantize(CENT), total)
+    if inv.status in {"draft", "void"}:
+        return
+    if inv.amount_paid >= total - Decimal("0.01"):
+        inv.status = "paid"
+    elif inv.amount_paid > 0:
+        inv.status = "partially_paid"
+    else:
+        inv.status = "issued"
+
+
+def _notes_with_payment_details(notes: str, breakdown: dict[str, Decimal]) -> str:
+    base = (notes or "").strip()
+    lines = []
+
+    received = _money_or_none(request.form.get("cash_received"))
+    change = _money_or_none(request.form.get("cash_change"))
+    if received is not None and received > 0:
+        lines.append(f"Efectivo recibido: {received:.2f}")
+    if change is not None and change > 0:
+        lines.append(f"Cambio entregado: {change:.2f}")
+
+    labels = {
+        "efectivo": "Efectivo aplicado",
+        "tarjeta": "Tarjeta",
+        "transferencia": "Transferencia",
+        "cheque": "Cheque",
+    }
+    for method in PAYMENT_METHODS:
+        amount = breakdown.get(method, Decimal("0.00"))
+        if amount > 0:
+            lines.append(f"{labels[method]}: {amount:.2f}")
+
+    payment_note = "\n".join(lines)
+    if not payment_note:
+        return base
+    return f"{base}\n\n{payment_note}" if base else payment_note
+
+
 def _money_or_none(value: str | None) -> Decimal | None:
     try:
-        return Decimal(str(value or "").strip()).quantize(Decimal("0.01"))
+        return Decimal(str(value or "").strip()).quantize(CENT)
     except Exception:
         return None
+
+
+def _money_or_zero(value) -> Decimal:
+    parsed = _money_or_none(str(value) if value is not None else None)
+    if parsed is None or parsed <= 0:
+        return Decimal("0.00")
+    return parsed

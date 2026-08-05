@@ -182,7 +182,7 @@ class InvoicePayment(db.Model, TimestampMixin):
 
     amount = Column(Numeric(12, 2), nullable=False)
     payment_method = Column(
-        Enum("efectivo", "transferencia", "tarjeta", "credito", "otro",
+        Enum("efectivo", "transferencia", "tarjeta", "credito", "cheque", "otro",
              name="invoice_payment_method"),
         default="efectivo",
         nullable=False,

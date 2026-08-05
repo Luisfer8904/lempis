@@ -6,6 +6,8 @@ Cuentas por cobrar:
 """
 from __future__ import annotations
 
+from decimal import Decimal
+
 from flask import (
     Blueprint, render_template, request, redirect, url_for, flash, abort, send_file,
     Response,
@@ -25,6 +27,8 @@ from services.receivables import (
 )
 
 cobros_bp = Blueprint("cobros", __name__, url_prefix="/app/cobros")
+
+PAYMENT_METHODS = ("efectivo", "tarjeta", "transferencia", "cheque")
 
 
 @cobros_bp.route("/")
@@ -85,14 +89,31 @@ def abonar(invoice_id):
     tenant = current_tenant()
     inv = Invoice.query.filter_by(id=invoice_id, tenant_id=tenant.id).first_or_404()
     try:
-        record_invoice_payment(
-            inv,
-            amount=request.form.get("amount") or 0,
-            payment_method=request.form.get("payment_method") or "efectivo",
-            reference=request.form.get("reference") or "",
-            notes=request.form.get("notes") or "",
-            user_id=current_user.id,
-        )
+        payments = _payment_breakdown_from_form()
+        if not any(amount > 0 for amount in payments.values()):
+            legacy_amount = _money_or_zero(request.form.get("amount"))
+            legacy_method = request.form.get("payment_method") or "efectivo"
+            if legacy_method not in PAYMENT_METHODS:
+                legacy_method = "efectivo"
+            payments[legacy_method] = legacy_amount
+
+        total_paid = sum(payments.values(), Decimal("0.00"))
+        if total_paid <= 0:
+            raise ReceivableError("Ingresa al menos un monto para registrar el abono.")
+        if total_paid > Decimal(inv.amount_due or 0).quantize(Decimal("0.01")):
+            raise ReceivableError("El abono supera el saldo pendiente de la factura.")
+
+        for method, amount in payments.items():
+            if amount <= 0:
+                continue
+            record_invoice_payment(
+                inv,
+                amount=amount,
+                payment_method=method,
+                reference=request.form.get("reference") or "",
+                notes=request.form.get("notes") or "",
+                user_id=current_user.id,
+            )
         msg = f"Abono registrado. Saldo: {tenant.currency} {inv.amount_due:.2f}"
         flash(msg, "success")
     except ReceivableError as e:
@@ -213,3 +234,20 @@ def revertir(payment_id):
     if back == "cliente" and customer_id:
         return redirect(url_for("cobros.cliente", customer_id=customer_id))
     return redirect(url_for("cobros.index"))
+
+
+def _payment_breakdown_from_form() -> dict[str, Decimal]:
+    return {
+        "efectivo": _money_or_zero(request.form.get("payment_efectivo")),
+        "tarjeta": _money_or_zero(request.form.get("payment_tarjeta")),
+        "transferencia": _money_or_zero(request.form.get("payment_transferencia")),
+        "cheque": _money_or_zero(request.form.get("payment_cheque")),
+    }
+
+
+def _money_or_zero(value) -> Decimal:
+    try:
+        amount = Decimal(str(value or "").strip()).quantize(Decimal("0.01"))
+    except Exception:
+        return Decimal("0.00")
+    return amount if amount > 0 else Decimal("0.00")

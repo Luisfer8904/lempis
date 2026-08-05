@@ -130,21 +130,44 @@
 
     <form method="POST" id="abono-form" class="space-y-3">
       <input type="hidden" name="back" value="cliente" />
-      <div>
-        <label class="block text-sm font-medium mb-1">Monto a abonar *</label>
-        <input type="number" step="0.01" min="0.01" id="abono-amount" name="amount" required
-               class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right text-lg font-mono" />
-        <p class="text-xs text-slate-500 mt-1">Saldo pendiente: <strong id="abono-saldo"></strong></p>
+      <p class="text-xs text-slate-500">Saldo pendiente: <strong id="abono-saldo"></strong></p>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium mb-1">Efectivo</label>
+          <input type="number" step="0.01" min="0" id="abono-efectivo" name="payment_efectivo"
+                 class="abono-payment w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right text-lg font-mono"
+                 placeholder="0.00" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Tarjeta</label>
+          <input type="number" step="0.01" min="0" id="abono-tarjeta" name="payment_tarjeta"
+                 class="abono-payment w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right text-lg font-mono"
+                 placeholder="0.00" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Transferencia</label>
+          <input type="number" step="0.01" min="0" id="abono-transferencia" name="payment_transferencia"
+                 class="abono-payment w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right text-lg font-mono"
+                 placeholder="0.00" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Cheque</label>
+          <input type="number" step="0.01" min="0" id="abono-cheque" name="payment_cheque"
+                 class="abono-payment w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-right text-lg font-mono"
+                 placeholder="0.00" />
+        </div>
       </div>
-      <div>
-        <label class="block text-sm font-medium mb-1">Método de pago</label>
-        <select name="payment_method" class="w-full px-3 py-2 border rounded-lg">
-          <option value="efectivo">💵 Efectivo</option>
-          <option value="transferencia">🏦 Transferencia</option>
-          <option value="tarjeta">💳 Tarjeta</option>
-          <option value="otro">Otro</option>
-        </select>
+      <div class="rounded-lg border bg-slate-50 px-3 py-2 space-y-1 text-sm">
+        <div class="flex justify-between">
+          <span class="text-slate-500">Abono total</span>
+          <span class="font-mono font-bold" id="abono-total">{{ tenant.currency }} 0.00</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-500">Saldo después</span>
+          <span class="font-mono font-bold text-amber-700" id="abono-restante">{{ tenant.currency }} 0.00</span>
+        </div>
       </div>
+      <p id="abono-warning" class="hidden text-sm text-rose-600">Ingresa un abono válido.</p>
       <div>
         <label class="block text-sm font-medium mb-1">Referencia (opcional)</label>
         <input name="reference" placeholder="Nº cheque, transferencia, recibo..."
@@ -168,16 +191,60 @@
 
 <script>
 const CURRENCY = "{{ tenant.currency }}";
+const abonoFields = ['efectivo', 'tarjeta', 'transferencia', 'cheque'];
+let currentAbonoSaldo = 0;
+
+function parseAbonoAmount(value) {
+  const parsed = Number.parseFloat(String(value || '').replace(',', '.'));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function updateAbonoTotals() {
+  const total = abonoFields.reduce((sum, method) => {
+    return sum + parseAbonoAmount(document.getElementById(`abono-${method}`)?.value);
+  }, 0);
+  const remaining = Math.max(currentAbonoSaldo - total, 0);
+  const invalid = total <= 0 || total > currentAbonoSaldo + 0.005;
+  document.getElementById('abono-total').textContent = CURRENCY + ' ' + total.toFixed(2);
+  document.getElementById('abono-restante').textContent = CURRENCY + ' ' + remaining.toFixed(2);
+  const warning = document.getElementById('abono-warning');
+  warning.textContent = total > currentAbonoSaldo + 0.005
+    ? 'El abono supera el saldo pendiente de la factura.'
+    : 'Ingresa al menos un monto para registrar el abono.';
+  warning.classList.toggle('hidden', !invalid);
+  return { total, invalid };
+}
+
 function openAbonoModal(invoiceId, number, saldo) {
+  currentAbonoSaldo = parseFloat(saldo) || 0;
   document.getElementById('abono-form').action = `/app/cobros/factura/${invoiceId}/abono`;
   document.getElementById('abono-number').textContent = number;
-  document.getElementById('abono-saldo').textContent = CURRENCY + ' ' + parseFloat(saldo).toFixed(2);
-  document.getElementById('abono-amount').max = saldo;
-  document.getElementById('abono-amount').value = parseFloat(saldo).toFixed(2);
+  document.getElementById('abono-saldo').textContent = CURRENCY + ' ' + currentAbonoSaldo.toFixed(2);
+  abonoFields.forEach(method => {
+    const input = document.getElementById(`abono-${method}`);
+    if (input) input.value = '';
+  });
+  updateAbonoTotals();
   document.getElementById('abono-modal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('abono-efectivo')?.focus(), 50);
 }
 function closeAbonoModal() {
   document.getElementById('abono-modal').classList.add('hidden');
 }
+
+document.querySelectorAll('.abono-payment').forEach(input => {
+  input.addEventListener('input', updateAbonoTotals);
+  input.addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    document.getElementById('abono-form').requestSubmit();
+  });
+});
+
+document.getElementById('abono-form').addEventListener('submit', event => {
+  if (!updateAbonoTotals().invalid) return;
+  event.preventDefault();
+  document.getElementById('abono-efectivo')?.focus();
+});
 </script>
 {% endblock %}

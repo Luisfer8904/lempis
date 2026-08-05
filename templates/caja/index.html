@@ -151,9 +151,9 @@
 
 <section class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
   <div class="bg-white rounded-xl border shadow-sm p-5">
-    <p class="text-sm text-slate-500">Ventas en efectivo</p>
-    <p class="mt-2 text-2xl font-black text-emerald-700">{{ tenant.currency }} {{ '%.2f'|format(summary.sales.get('efectivo', 0)) }}</p>
-    <p class="text-xs text-slate-400 mt-1">Más abonos: {{ tenant.currency }} {{ '%.2f'|format(summary.payments.get('efectivo', 0)) }}</p>
+    <p class="text-sm text-slate-500">Efectivo cobrado</p>
+    <p class="mt-2 text-2xl font-black text-emerald-700">{{ tenant.currency }} {{ '%.2f'|format(summary.sales.get('efectivo', 0) + summary.payments.get('efectivo', 0)) }}</p>
+    <p class="text-xs text-slate-400 mt-1">Ventas y cobros en efectivo</p>
   </div>
   <div class="bg-white rounded-xl border shadow-sm p-5">
     <p class="text-sm text-slate-500">Transferencias</p>
@@ -174,9 +174,9 @@
 
 <section class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
   <div class="bg-white rounded-xl border shadow-sm p-5">
-    <p class="text-sm text-slate-500">Ventas de contado</p>
+    <p class="text-sm text-slate-500">Cobrado del periodo</p>
     <p class="mt-2 text-2xl font-black text-emerald-700">{{ tenant.currency }} {{ '%.2f'|format(summary.contado_total) }}</p>
-    <p class="text-xs text-slate-400 mt-1">Efectivo + transferencia + tarjeta del periodo</p>
+    <p class="text-xs text-slate-400 mt-1">Efectivo + transferencia + tarjeta + cheque</p>
   </div>
   <div class="bg-white rounded-xl border shadow-sm p-5">
     <p class="text-sm text-slate-500">Apertura acumulada</p>
