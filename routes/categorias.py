@@ -12,6 +12,12 @@ from services.permissions import permission_required, tenant_required
 categorias_bp = Blueprint("categorias", __name__, url_prefix="/app/categorias")
 
 
+def _redirect_after_save():
+    if request.form.get("next") == "productos" or request.args.get("next") == "productos":
+        return redirect(url_for("productos.list"))
+    return redirect(url_for("categorias.list"))
+
+
 def _get_or_404(cat_id: int) -> Category:
     tenant = current_tenant()
     cat = Category.query.filter_by(id=cat_id, tenant_id=tenant.id).first()
@@ -46,7 +52,7 @@ def new():
         db.session.add(cat)
         db.session.commit()
         flash(f"Categoría '{cat.name}' creada.", "success")
-        return redirect(url_for("categorias.list"))
+        return _redirect_after_save()
     return render_template("categorias/form.html", categoria=None)
 
 
@@ -60,7 +66,7 @@ def edit(cat_id):
         _populate_from_form(cat)
         db.session.commit()
         flash(f"Categoría '{cat.name}' actualizada.", "success")
-        return redirect(url_for("categorias.list"))
+        return _redirect_after_save()
     return render_template("categorias/form.html", categoria=cat)
 
 
@@ -74,7 +80,7 @@ def delete(cat_id):
     db.session.delete(cat)
     db.session.commit()
     flash(f"Categoría '{name}' eliminada.", "info")
-    return redirect(url_for("categorias.list"))
+    return _redirect_after_save()
 
 
 def _populate_from_form(cat: Category) -> None:

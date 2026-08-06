@@ -15,6 +15,11 @@
    class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 text-sm font-medium mr-2">
   💰 Nueva venta
 </a>
+<button type="button"
+        onclick="openCategoriesModal()"
+        class="border border-slate-300 bg-white text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-50 text-sm font-medium mr-2">
+  🏷️ Categorías
+</button>
 <a href="{{ url_for('productos.new') }}"
    class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium">
   + Nuevo producto
@@ -242,6 +247,99 @@
 {% if productos %}
   <p class="text-sm text-slate-500 mt-3"><span id="product-visible-count">{{ productos|length }}</span> producto(s)</p>
 {% endif %}
+
+{% if current_user.has_permission('products.manage') %}
+<div id="categories-modal"
+     class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/50 px-4 py-6">
+  <div class="w-full max-w-4xl max-h-[88vh] overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-200">
+    <div class="flex items-start justify-between gap-4 border-b px-5 py-4">
+      <div>
+        <h2 class="text-xl font-bold text-slate-900">Categorías</h2>
+        <p class="text-sm text-slate-500">Administra las categorías sin salir de productos.</p>
+      </div>
+      <button type="button"
+              onclick="closeCategoriesModal()"
+              class="rounded-lg px-3 py-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+              aria-label="Cerrar categorías">
+        ✕
+      </button>
+    </div>
+
+    <div class="max-h-[calc(88vh-76px)] overflow-y-auto px-5 py-5">
+      <form method="POST" action="{{ url_for('categorias.new') }}"
+            class="mb-5 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
+        <input type="hidden" name="next" value="productos" />
+        <div class="grid gap-3 md:grid-cols-[1fr_1.4fr_auto_auto] md:items-end">
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Nombre</label>
+            <input name="name" required placeholder="Nueva categoría"
+                   class="w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Descripción</label>
+            <input name="description" placeholder="Descripción opcional"
+                   class="w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Color</label>
+            <input type="color" name="color" value="#6366f1"
+                   class="h-10 w-16 rounded-lg border bg-white cursor-pointer" />
+          </div>
+          <button class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+            + Agregar
+          </button>
+        </div>
+      </form>
+
+      <div class="space-y-3">
+        {% for c in categorias %}
+          <div class="rounded-xl border bg-white p-4">
+            <form method="POST" action="{{ url_for('categorias.edit', cat_id=c.id) }}"
+                  class="grid gap-3 md:grid-cols-[1fr_1.4fr_auto_auto] md:items-end">
+              <input type="hidden" name="next" value="productos" />
+              <div>
+                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Nombre</label>
+                <div class="flex items-center gap-2">
+                  <span class="h-3 w-3 rounded-full border flex-shrink-0"
+                        style="background: {{ c.color or '#6366f1' }}"></span>
+                  <input name="name" required value="{{ c.name }}"
+                         class="w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Descripción</label>
+                <input name="description" value="{{ c.description or '' }}"
+                       class="w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Color</label>
+                <input type="color" name="color" value="{{ c.color or '#6366f1' }}"
+                       class="h-10 w-16 rounded-lg border bg-white cursor-pointer" />
+              </div>
+              <button class="rounded-lg border border-indigo-200 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50">
+                Guardar
+              </button>
+            </form>
+            {% if current_user.has_permission('products.delete') %}
+              <form method="POST" action="{{ url_for('categorias.delete', cat_id=c.id) }}"
+                    class="mt-2 flex justify-end"
+                    onsubmit="return confirm('¿Eliminar categoría {{ c.name }}? Los productos asociados quedarán sin categoría.');">
+                <input type="hidden" name="next" value="productos" />
+                <button class="text-sm font-semibold text-rose-600 hover:underline">Eliminar</button>
+              </form>
+            {% endif %}
+          </div>
+        {% else %}
+          <div class="rounded-xl border border-dashed py-10 text-center text-slate-500">
+            Aún no tienes categorías.
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <script>
 (() => {
   const input = document.getElementById('product-list-search');
@@ -260,5 +358,27 @@
   input?.addEventListener('input', filterProducts);
   filterProducts();
 })();
+
+function openCategoriesModal() {
+  const modal = document.getElementById('categories-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  document.body.classList.add('overflow-hidden');
+  const firstInput = modal.querySelector('input[name="name"]');
+  setTimeout(() => firstInput?.focus(), 50);
+}
+
+function closeCategoriesModal() {
+  const modal = document.getElementById('categories-modal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+  document.body.classList.remove('overflow-hidden');
+}
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeCategoriesModal();
+});
 </script>
 {% endblock %}

@@ -87,7 +87,6 @@
       {% if current_user.has_permission('cash.view') %}{{ navlink('caja.index', 'Caja diaria', '🏦') }}{% endif %}
       {% if current_user.has_permission('customers.view') %}{{ navlink('clientes.list', 'Clientes', '👥') }}{% endif %}
       {% if current_user.has_permission('products.view') %}{{ navlink('productos.list', 'Productos', '📦') }}{% endif %}
-      {% if current_user.has_permission('products.manage') %}{{ navlink('categorias.list', 'Categorías', '🏷️') }}{% endif %}
 
       {% if current_user.has_permission('purchases.view') or current_user.has_permission('products.manage') %}
         <div class="pt-3 mt-2 border-t">
