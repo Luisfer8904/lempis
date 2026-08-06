@@ -321,6 +321,29 @@ def create_expense():
     return redirect(url_for("caja.index", desde=expense_local_date.isoformat(), hasta=expense_local_date.isoformat()))
 
 
+@caja_bp.route("/gastos/<int:expense_id>/eliminar", methods=["POST"])
+@login_required
+@tenant_required
+@permission_required("cash.delete_expense")
+def delete_expense(expense_id):
+    tenant = current_tenant()
+    expense = CashExpense.query.filter_by(id=expense_id, tenant_id=tenant.id).first_or_404()
+    expense_local_date = _expense_local_date(expense.expense_date)
+    closure_id = expense.closure_id
+
+    db.session.delete(expense)
+    db.session.flush()
+
+    if closure_id:
+        closure = CashClosure.query.filter_by(id=closure_id, tenant_id=tenant.id).first()
+        if closure is not None:
+            _reconcile_closure(closure)
+
+    db.session.commit()
+    flash("Gasto eliminado.", "success")
+    return redirect(url_for("caja.index", desde=expense_local_date.isoformat(), hasta=expense_local_date.isoformat()))
+
+
 @caja_bp.route("/retiros", methods=["POST"])
 @login_required
 @tenant_required

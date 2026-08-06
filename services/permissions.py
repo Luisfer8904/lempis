@@ -33,6 +33,7 @@ PERMISSION_GROUPS = [
     ("Caja diaria", [
         ("cash.view", "Ver cierres, aperturas y gastos de caja"),
         ("cash.manage", "Registrar aperturas, gastos y cierres de caja"),
+        ("cash.delete_expense", "Quitar gastos de caja"),
         ("cash.edit_closure", "Editar o anular cierres ya realizados"),
     ]),
     ("Compras", [
