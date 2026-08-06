@@ -499,7 +499,7 @@ def _suggested_closure_values(tenant_id: int, closure_date):
     cash_sales = _decimal(sales.get("efectivo")) + _decimal(payments.get("efectivo")) - _decimal(credit_payments.get("efectivo"))
     transfer_sales = _decimal(sales.get("transferencia")) + _decimal(payments.get("transferencia")) - _decimal(credit_payments.get("transferencia"))
     card_sales = _decimal(sales.get("tarjeta")) + _decimal(payments.get("tarjeta")) - _decimal(credit_payments.get("tarjeta"))
-    check_sales = _decimal(payments.get("cheque")) - _decimal(credit_payments.get("cheque"))
+    check_sales = _decimal(sales.get("cheque")) + _decimal(payments.get("cheque")) - _decimal(credit_payments.get("cheque"))
     return {
         "closure_date": closure_date,
         "cash_sales_amount": cash_sales,
@@ -552,6 +552,7 @@ def _cash_summary(
     cash_sales = _decimal(sales.get("efectivo"))
     transfer_sales = _decimal(sales.get("transferencia"))
     card_sales = _decimal(sales.get("tarjeta"))
+    check_sales = _decimal(sales.get("cheque")) + _decimal(payments.get("cheque"))
     closure_dates = {c.closure_date for c in closures}
     include_open_closure = (
         open_closure is not None
