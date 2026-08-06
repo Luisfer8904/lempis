@@ -61,6 +61,13 @@
     </div>
 
     <div>
+      <label for="paid_at" class="block text-sm font-medium mb-1">Fecha y hora del abono *</label>
+      <input id="paid_at" name="paid_at" type="datetime-local" value="{{ form_data.paid_at }}" required
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+      <p class="mt-1 text-xs text-slate-500">Se guardará usando la zona horaria de {{ tenant.name }}.</p>
+    </div>
+
+    <div>
       <label for="reference" class="block text-sm font-medium mb-1">Referencia</label>
       <input id="reference" name="reference" maxlength="80" value="{{ form_data.reference }}"
              placeholder="Nº de cheque, transferencia o recibo"

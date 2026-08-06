@@ -74,6 +74,7 @@ def update_invoice_payment(
     payment_method: str,
     reference: str = "",
     notes: str = "",
+    paid_at: Optional[datetime] = None,
 ) -> InvoicePayment:
     """Edita un abono y reconstruye el saldo de su factura desde los pagos reales."""
     invoice = payment.invoice
@@ -104,6 +105,8 @@ def update_invoice_payment(
     payment.payment_method = payment_method
     payment.reference = (reference or "").strip() or None
     payment.notes = (notes or "").strip() or None
+    if paid_at is not None:
+        payment.paid_at = paid_at
     db.session.flush()
     recalculate_invoice_payment_state(invoice)
     db.session.commit()

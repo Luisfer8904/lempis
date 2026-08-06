@@ -7,6 +7,7 @@ Cuentas por cobrar:
 """
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 
 from flask import (
@@ -20,6 +21,7 @@ from models import db
 from models.invoice import Invoice, InvoicePayment
 from models.catalog import Customer
 from services.tenant_context import current_tenant
+from services.datetime_utils import to_local_datetime, to_utc_datetime
 from services.permissions import admin_required, permission_required, tenant_required
 from services.receivables import (
     record_invoice_payment, update_invoice_payment, revert_payment,
@@ -162,9 +164,14 @@ def editar_pago(payment_id):
     if back not in ("factura", "cliente"):
         back = "factura"
 
+    local_paid_at = to_local_datetime(payment.paid_at, tenant)
     form_data = {
         "amount": request.form.get("amount", f"{Decimal(payment.amount or 0):.2f}"),
         "payment_method": request.form.get("payment_method", payment.payment_method),
+        "paid_at": request.form.get(
+            "paid_at",
+            local_paid_at.strftime("%Y-%m-%dT%H:%M") if local_paid_at else "",
+        ),
         "reference": request.form.get("reference", payment.reference or ""),
         "notes": request.form.get("notes", payment.notes or ""),
     }
@@ -174,21 +181,23 @@ def editar_pago(payment_id):
             amount = Decimal(str(form_data["amount"] or "").strip()).quantize(Decimal("0.01"))
             if form_data["payment_method"] not in EDITABLE_PAYMENT_METHODS:
                 raise ReceivableError("Selecciona un método de pago válido.")
+            paid_at_local = datetime.fromisoformat(form_data["paid_at"])
             update_invoice_payment(
                 payment,
                 amount=amount,
                 payment_method=form_data["payment_method"],
                 reference=form_data["reference"],
                 notes=form_data["notes"],
+                paid_at=to_utc_datetime(paid_at_local, tenant),
             )
             flash("Abono actualizado. Saldo y estado de la factura recalculados.", "success")
             return _payment_back_redirect(payment.invoice, back)
         except ReceivableError as exc:
             db.session.rollback()
             flash(str(exc), "danger")
-        except (ValueError, ArithmeticError):
+        except (TypeError, ValueError, ArithmeticError):
             db.session.rollback()
-            flash("Revisa el monto y los datos del abono.", "danger")
+            flash("Revisa el monto, la fecha y los datos del abono.", "danger")
 
     other_paid = sum(
         (Decimal(item.amount or 0) for item in payment.invoice.payments if item.id != payment.id),
