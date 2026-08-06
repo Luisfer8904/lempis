@@ -17,7 +17,8 @@
   {% set t_cash = today_summary.cash_sales_amount + today_summary.receivable_cash_amount %}
   {% set t_transfer = today_summary.transfer_sales_amount + today_summary.receivable_transfer_amount %}
   {% set t_card = today_summary.card_sales_amount + today_summary.receivable_card_amount %}
-  {% set t_contado = t_cash + t_transfer + t_card %}
+  {% set t_check = today_summary.check_sales_amount + today_summary.receivable_check_amount %}
+  {% set t_contado = t_cash + t_transfer + t_card + t_check %}
   {% if today_closure and today_closure.status == 'closed' %}
     <div class="mb-5 rounded-2xl border-2 border-emerald-200 bg-gradient-to-r from-emerald-50 to-white p-5">
       <div class="flex items-center justify-between gap-3 flex-wrap">

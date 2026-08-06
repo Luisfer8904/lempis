@@ -508,9 +508,11 @@ def _suggested_closure_values(tenant_id: int, closure_date):
         "credit_sales_amount": _decimal(sales.get("credito")),
         # "Ventas de contado" = todo lo no a crédito cobrado en el momento.
         "contado_sales_amount": cash_sales + transfer_sales + card_sales + check_sales,
+        "check_sales_amount": check_sales,
         "receivable_cash_amount": _decimal(credit_payments.get("efectivo")),
         "receivable_transfer_amount": _decimal(credit_payments.get("transferencia")),
         "receivable_card_amount": _decimal(credit_payments.get("tarjeta")),
+        "receivable_check_amount": _decimal(credit_payments.get("cheque")),
         "expenses_amount": _decimal(expenses_amount),
         "withdrawals_amount": _decimal(withdrawals_amount),
     }
