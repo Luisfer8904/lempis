@@ -279,11 +279,17 @@
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de venta</label>
-          <select name="sale_type" id="sale-type"
-                  class="w-full px-3 py-2 text-sm border rounded-lg bg-white">
-            <option value="contado">Contado</option>
-            <option value="credito">Crédito</option>
-          </select>
+          <div class="grid grid-cols-2 gap-1.5 bg-white p-1 rounded-lg border" id="sale-type-buttons">
+            <button type="button" data-sale-type-option="contado"
+                    class="sale-type-chip px-3 py-2 text-sm font-semibold rounded-md transition">
+              Contado
+            </button>
+            <button type="button" data-sale-type-option="credito"
+                    class="sale-type-chip px-3 py-2 text-sm font-semibold rounded-md transition">
+              Crédito
+            </button>
+          </div>
+          <input type="hidden" name="sale_type" id="sale-type" value="contado" />
           <input type="hidden" name="payment_method" id="payment-method" value="efectivo" />
         </div>
         <input type="hidden" name="cash_received" id="cash-received-input" value="" />
@@ -807,10 +813,10 @@ function loadDraftPayload() {
   const saleType = document.getElementById('sale-type');
   const paymentMethod = document.getElementById('payment-method');
   if (saleType && DRAFT_PAYLOAD.payment_method) {
-    saleType.value = DRAFT_PAYLOAD.payment_method === 'credito' ? 'credito' : 'contado';
+    setSaleType(DRAFT_PAYLOAD.payment_method === 'credito' ? 'credito' : 'contado');
   }
   if (paymentMethod) {
-    paymentMethod.value = saleType?.value === 'credito' ? 'credito' : 'efectivo';
+    paymentMethod.value = document.getElementById('sale-type')?.value === 'credito' ? 'credito' : 'efectivo';
   }
   const terms = document.querySelector('[name="payment_terms_days"]');
   if (terms && DRAFT_PAYLOAD.payment_terms_days) {
@@ -949,6 +955,27 @@ function renderCart() {
 }
 
 // Toggle plazo crédito
+function syncSaleTypeButtons() {
+  const current = document.getElementById('sale-type')?.value || 'contado';
+  document.querySelectorAll('.sale-type-chip').forEach(button => {
+    const active = button.dataset.saleTypeOption === current;
+    button.classList.toggle('bg-emerald-600', active);
+    button.classList.toggle('text-white', active);
+    button.classList.toggle('shadow-sm', active);
+    button.classList.toggle('bg-white', !active);
+    button.classList.toggle('text-slate-600', !active);
+    button.classList.toggle('hover:bg-slate-50', !active);
+  });
+}
+
+function setSaleType(value) {
+  const saleType = document.getElementById('sale-type');
+  if (!saleType) return;
+  saleType.value = value === 'credito' ? 'credito' : 'contado';
+  syncSaleTypeButtons();
+  updatePaymentFields();
+}
+
 function updatePaymentFields() {
   const saleType = document.getElementById('sale-type')?.value || 'contado';
   const methodInput = document.getElementById('payment-method');
@@ -1052,7 +1079,9 @@ function clearCheckoutPaymentInputs() {
   });
 }
 
-document.getElementById('sale-type')?.addEventListener('change', updatePaymentFields);
+document.querySelectorAll('.sale-type-chip').forEach(button => {
+  button.addEventListener('click', () => setSaleType(button.dataset.saleTypeOption));
+});
 Object.values(checkoutPaymentInputIds).forEach(id => {
   const input = document.getElementById(id);
   input?.addEventListener('input', calculateCheckoutPayments);
@@ -1138,6 +1167,7 @@ document.querySelectorAll('.tier-chip').forEach(chip => {
 });
 
 setSelectedTier('general');
+setSaleType('contado');
 loadDraftPayload();
 syncTierFromCustomer();
 toggleManualCustomerFields();
