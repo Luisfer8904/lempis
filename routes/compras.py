@@ -5,7 +5,7 @@ CRUD de Compras (entrada de mercadería).
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from flask import (
@@ -39,6 +39,20 @@ def _get_or_404(purchase_id: int) -> Purchase:
     return p
 
 
+def _amount_due(purchase: Purchase) -> Decimal:
+    return Decimal(purchase.amount_due or 0)
+
+
+def _due_day(purchase: Purchase):
+    if not purchase.due_date:
+        return None
+    return purchase.due_date.date() if hasattr(purchase.due_date, "date") else purchase.due_date
+
+
+def _pending_credit_purchases(query):
+    return [purchase for purchase in query.all() if _amount_due(purchase) > 0]
+
+
 # ---------------- LISTAR ----------------
 
 @compras_bp.route("/")
@@ -67,6 +81,71 @@ def list():
 
     compras = query.order_by(Purchase.issue_date.desc()).all()
     return render_template("compras/list.html", compras=compras, q=q, status=status)
+
+
+@compras_bp.route("/por-pagar")
+@login_required
+@tenant_required
+@permission_required("purchases.view")
+def payables():
+    tenant = current_tenant()
+    q = (request.args.get("q") or "").strip()
+    status = (request.args.get("status") or "").strip()
+    today = datetime.now().date()
+    soon_limit = today + timedelta(days=7)
+
+    base_query = (
+        Purchase.query.outerjoin(Supplier)
+        .filter(
+            Purchase.tenant_id == tenant.id,
+            Purchase.status == "received",
+            Purchase.terms_days > 0,
+        )
+    )
+    all_credit = _pending_credit_purchases(base_query)
+
+    query = base_query
+    if q:
+        like = f"%{q}%"
+        query = query.filter(or_(
+            Purchase.number.ilike(like),
+            Purchase.supplier_invoice_number.ilike(like),
+            Supplier.name.ilike(like),
+            Supplier.tax_id.ilike(like),
+        ))
+
+    compras = _pending_credit_purchases(query)
+    if status == "vencidas":
+        compras = [c for c in compras if _due_day(c) and _due_day(c) < today]
+    elif status == "proximas":
+        compras = [c for c in compras if _due_day(c) and today <= _due_day(c) <= soon_limit]
+    elif status == "sin_fecha":
+        compras = [c for c in compras if not _due_day(c)]
+
+    compras.sort(key=lambda c: (_due_day(c) is None, _due_day(c) or today, c.issue_date or datetime.min))
+    due_days = {c.id: _due_day(c) for c in compras}
+    overdue_all = [c for c in all_credit if _due_day(c) and _due_day(c) < today]
+    soon_all = [c for c in all_credit if _due_day(c) and today <= _due_day(c) <= soon_limit]
+    supplier_count = len({c.supplier_id for c in all_credit if c.supplier_id})
+    total_pending = sum((_amount_due(c) for c in all_credit), Decimal("0"))
+    total_overdue = sum((_amount_due(c) for c in overdue_all), Decimal("0"))
+    total_soon = sum((_amount_due(c) for c in soon_all), Decimal("0"))
+
+    return render_template(
+        "compras/payables.html",
+        compras=compras,
+        due_days=due_days,
+        q=q,
+        status=status,
+        today=today,
+        soon_limit=soon_limit,
+        total_pending=total_pending,
+        total_overdue=total_overdue,
+        total_soon=total_soon,
+        overdue_count=len(overdue_all),
+        soon_count=len(soon_all),
+        supplier_count=supplier_count,
+    )
 
 
 # ---------------- CREAR ----------------
@@ -220,11 +299,14 @@ def void(purchase_id):
 def payment(purchase_id):
     inv = _get_or_404(purchase_id)
     amount = request.form.get("amount") or 0
+    next_view = request.form.get("next") or request.args.get("next")
     try:
         register_payment(inv, amount)
         flash(f"Pago registrado. Saldo pendiente: {inv.currency} {inv.amount_due:.2f}", "success")
     except PurchaseError as e:
         flash(str(e), "danger")
+    if next_view == "payables":
+        return redirect(url_for("compras.payables"))
     return redirect(url_for("compras.detail", purchase_id=inv.id))
 
 
