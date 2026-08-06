@@ -276,11 +276,15 @@
           <td class="text-right font-semibold text-emerald-700 align-middle">{{ tenant.currency }} {{ "{:,.2f}".format(payment.amount or 0) }}</td>
           {% if current_user.is_admin() %}
             <td class="text-right align-middle">
-              <form method="POST" action="{{ url_for('cobros.revertir', payment_id=payment.id) }}"
-                    onsubmit="return confirm('¿Eliminar este cobro? Se recalculará el saldo de la factura.');">
-                <input type="hidden" name="back" value="cliente" />
-                <button class="text-sm text-rose-600 hover:text-rose-700">Eliminar</button>
-              </form>
+              <div class="flex items-center justify-end gap-3">
+                <a href="{{ url_for('cobros.editar_pago', payment_id=payment.id, back='cliente') }}"
+                   class="text-sm text-indigo-600 hover:text-indigo-700">Editar</a>
+                <form method="POST" action="{{ url_for('cobros.revertir', payment_id=payment.id) }}"
+                      onsubmit="return confirm('¿Eliminar este cobro? Se recalculará el saldo de la factura.');">
+                  <input type="hidden" name="back" value="cliente" />
+                  <button class="text-sm text-rose-600 hover:text-rose-700">Eliminar</button>
+                </form>
+              </div>
             </td>
           {% endif %}
         </tr>

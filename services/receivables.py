@@ -61,36 +61,82 @@ def record_invoice_payment(
         paid_at=paid_at or datetime.utcnow(),
     )
     db.session.add(payment)
-
-    # Actualizar acumulado en la factura
-    invoice.amount_paid = Decimal(invoice.amount_paid or 0) + amt
-
-    # Auto-status
-    if invoice.amount_due <= Decimal("0.005"):  # tolerancia de centavos
-        invoice.status = "paid"
-    else:
-        invoice.status = "partially_paid"
+    db.session.flush()
+    recalculate_invoice_payment_state(invoice)
 
     db.session.commit()
     return payment
 
 
+def update_invoice_payment(
+    payment: InvoicePayment,
+    amount,
+    payment_method: str,
+    reference: str = "",
+    notes: str = "",
+) -> InvoicePayment:
+    """Edita un abono y reconstruye el saldo de su factura desde los pagos reales."""
+    invoice = payment.invoice
+    if invoice.status == "void":
+        raise ReceivableError("No se puede editar un abono de una factura anulada.")
+    if invoice.status == "draft":
+        raise ReceivableError("No se puede editar un abono de una factura en borrador.")
+
+    amt = Decimal(str(amount or 0)).quantize(Decimal("0.01"))
+    if amt <= 0:
+        raise ReceivableError("El monto del abono debe ser mayor a cero.")
+
+    other_payments = (
+        db.session.query(func.coalesce(func.sum(InvoicePayment.amount), 0))
+        .filter(
+            InvoicePayment.invoice_id == invoice.id,
+            InvoicePayment.id != payment.id,
+        )
+        .scalar()
+    )
+    available = Decimal(invoice.total or 0) - Decimal(other_payments or 0)
+    if amt > available + Decimal("0.005"):
+        raise ReceivableError(
+            f"El abono ({amt:.2f}) excede el monto disponible ({max(available, Decimal('0')):.2f})."
+        )
+
+    payment.amount = amt
+    payment.payment_method = payment_method
+    payment.reference = (reference or "").strip() or None
+    payment.notes = (notes or "").strip() or None
+    db.session.flush()
+    recalculate_invoice_payment_state(invoice)
+    db.session.commit()
+    return payment
+
+
+def recalculate_invoice_payment_state(invoice: Invoice) -> None:
+    """Sincroniza el total abonado y el estado usando los pagos persistidos."""
+    total_paid = (
+        db.session.query(func.coalesce(func.sum(InvoicePayment.amount), 0))
+        .filter(InvoicePayment.invoice_id == invoice.id)
+        .scalar()
+    )
+    invoice.amount_paid = Decimal(total_paid or 0).quantize(Decimal("0.01"))
+
+    if invoice.status in ("draft", "void"):
+        return
+    if invoice.amount_due <= Decimal("0.005"):
+        invoice.status = "paid"
+    elif invoice.due_date and invoice.due_date < datetime.utcnow():
+        invoice.status = "overdue"
+    elif invoice.amount_paid > Decimal("0.005"):
+        invoice.status = "partially_paid"
+    else:
+        invoice.status = "issued"
+
+
 def revert_payment(payment: InvoicePayment) -> None:
     """Elimina un pago y revierte el saldo. Útil para correcciones."""
     inv = payment.invoice
-    inv.amount_paid = max(
-        Decimal(0),
-        Decimal(inv.amount_paid or 0) - Decimal(payment.amount or 0),
-    )
-    # Recalcular status
-    if inv.amount_paid <= Decimal("0.005"):
-        inv.status = "issued" if not inv.is_overdue else "overdue"
-    elif inv.amount_due <= Decimal("0.005"):
-        inv.status = "paid"
-    else:
-        inv.status = "partially_paid"
-
     db.session.delete(payment)
+    db.session.flush()
+    recalculate_invoice_payment_state(inv)
     db.session.commit()
 
 

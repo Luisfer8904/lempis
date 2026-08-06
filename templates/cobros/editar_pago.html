@@ -1,0 +1,90 @@
+{% extends "app/_layout.html" %}
+{% block title %}Editar abono — {{ APP_NAME }}{% endblock %}
+{% block heading %}Editar abono{% endblock %}
+
+{% block actions %}
+  {% if back == 'cliente' and factura.customer_id %}
+    <a href="{{ url_for('clientes.detail', client_id=factura.customer_id) }}"
+       class="text-slate-600 hover:text-slate-900 text-sm">← Volver al cliente</a>
+  {% else %}
+    <a href="{{ url_for('facturas.detail', invoice_id=factura.id) }}"
+       class="text-slate-600 hover:text-slate-900 text-sm">← Volver a la factura</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl space-y-5">
+  <div class="bg-white rounded-xl border shadow-sm p-5">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <p class="text-xs uppercase tracking-wide text-slate-500">Factura</p>
+        <a href="{{ url_for('facturas.detail', invoice_id=factura.id) }}"
+           class="font-mono font-semibold text-indigo-600 hover:underline">{{ factura.number }}</a>
+        <p class="mt-1 text-sm text-slate-500">
+          {{ factura.receptor_name or (factura.customer.name if factura.customer else 'Consumidor final') }}
+        </p>
+      </div>
+      <div class="text-right text-sm">
+        <p class="text-slate-500">Total de factura</p>
+        <p class="font-mono font-semibold">{{ tenant.currency }} {{ '%.2f'|format(factura.total) }}</p>
+      </div>
+    </div>
+  </div>
+
+  <form method="POST" class="bg-white rounded-xl border shadow-sm p-6 space-y-5">
+    <input type="hidden" name="back" value="{{ back }}" />
+
+    <div>
+      <label for="amount" class="block text-sm font-medium mb-1">Monto del abono *</label>
+      <input id="amount" name="amount" type="number" step="0.01" min="0.01"
+             max="{{ '%.2f'|format(max_amount) }}" value="{{ form_data.amount }}" required
+             class="w-full px-3 py-2 border rounded-lg text-right font-mono text-lg focus:ring-2 focus:ring-indigo-500" />
+      <p class="mt-1 text-xs text-slate-500">
+        Máximo disponible: {{ tenant.currency }} {{ '%.2f'|format(max_amount) }}. El saldo se recalculará al guardar.
+      </p>
+    </div>
+
+    <div>
+      <label for="payment_method" class="block text-sm font-medium mb-1">Método de pago *</label>
+      {% set method_labels = {
+        'efectivo': 'Efectivo', 'tarjeta': 'Tarjeta', 'transferencia': 'Transferencia',
+        'cheque': 'Cheque', 'otro': 'Otro'
+      } %}
+      <select id="payment_method" name="payment_method" required
+              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+        {% for method in payment_methods %}
+          <option value="{{ method }}" {% if form_data.payment_method == method %}selected{% endif %}>
+            {{ method_labels.get(method, method) }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label for="reference" class="block text-sm font-medium mb-1">Referencia</label>
+      <input id="reference" name="reference" maxlength="80" value="{{ form_data.reference }}"
+             placeholder="Nº de cheque, transferencia o recibo"
+             class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+    </div>
+
+    <div>
+      <label for="notes" class="block text-sm font-medium mb-1">Notas</label>
+      <textarea id="notes" name="notes" rows="3"
+                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">{{ form_data.notes }}</textarea>
+    </div>
+
+    <div class="flex flex-wrap gap-3 border-t pt-5">
+      <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 font-medium">
+        Guardar cambios
+      </button>
+      {% if back == 'cliente' and factura.customer_id %}
+        <a href="{{ url_for('clientes.detail', client_id=factura.customer_id) }}"
+           class="border px-6 py-2 rounded-lg hover:bg-slate-50">Cancelar</a>
+      {% else %}
+        <a href="{{ url_for('facturas.detail', invoice_id=factura.id) }}"
+           class="border px-6 py-2 rounded-lg hover:bg-slate-50">Cancelar</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}

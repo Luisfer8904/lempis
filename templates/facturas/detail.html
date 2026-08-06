@@ -232,11 +232,16 @@
                     <a href="{{ url_for('cobros.recibo_pdf', payment_id=p.id) }}"
                        class="text-indigo-600 hover:underline text-[10px]">📄 PDF</a>
                     {% if current_user.is_admin() %}
-                      <form method="POST" action="{{ url_for('cobros.revertir', payment_id=p.id) }}"
-                            onsubmit="return confirm('¿Eliminar este cobro? Se recalculará el saldo de la factura.');">
-                        <input type="hidden" name="back" value="factura" />
-                        <button class="text-rose-500 hover:text-rose-700">Eliminar</button>
-                      </form>
+                      <div class="flex items-center gap-2 whitespace-nowrap">
+                        <a href="{{ url_for('cobros.editar_pago', payment_id=p.id, back='factura') }}"
+                           class="text-indigo-600 hover:text-indigo-700">Editar</a>
+                        <span class="text-slate-300">·</span>
+                        <form method="POST" action="{{ url_for('cobros.revertir', payment_id=p.id) }}"
+                              onsubmit="return confirm('¿Eliminar este cobro? Se recalculará el saldo de la factura.');">
+                          <input type="hidden" name="back" value="factura" />
+                          <button class="text-rose-500 hover:text-rose-700">Eliminar</button>
+                        </form>
+                      </div>
                     {% endif %}
                   </div>
                 </div>

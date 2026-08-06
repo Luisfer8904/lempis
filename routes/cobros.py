@@ -3,6 +3,7 @@ Cuentas por cobrar:
 - /app/cobros                  → vista general: clientes con saldo + aging
 - /app/cobros/cliente/<id>     → detalle por cliente con todas sus facturas
 - /app/cobros/factura/<id>/abono   → registrar abono (también accesible desde detalle de factura)
+- /app/cobros/pago/<id>/editar → corregir un abono (solo administradores)
 """
 from __future__ import annotations
 
@@ -21,7 +22,7 @@ from models.catalog import Customer
 from services.tenant_context import current_tenant
 from services.permissions import admin_required, permission_required, tenant_required
 from services.receivables import (
-    record_invoice_payment, revert_payment,
+    record_invoice_payment, update_invoice_payment, revert_payment,
     customer_balances, aging_summary, update_overdue_invoices,
     ReceivableError,
 )
@@ -29,6 +30,7 @@ from services.receivables import (
 cobros_bp = Blueprint("cobros", __name__, url_prefix="/app/cobros")
 
 PAYMENT_METHODS = ("efectivo", "tarjeta", "transferencia", "cheque")
+EDITABLE_PAYMENT_METHODS = PAYMENT_METHODS + ("otro",)
 
 
 @cobros_bp.route("/")
@@ -145,6 +147,66 @@ def recibo_pdf(payment_id):
     )
 
 
+@cobros_bp.route("/pago/<int:payment_id>/editar", methods=["GET", "POST"])
+@login_required
+@tenant_required
+@admin_required
+def editar_pago(payment_id):
+    """Permite al administrador corregir un abono ya emitido."""
+    tenant = current_tenant()
+    payment = InvoicePayment.query.filter_by(
+        id=payment_id,
+        tenant_id=tenant.id,
+    ).first_or_404()
+    back = request.values.get("back")
+    if back not in ("factura", "cliente"):
+        back = "factura"
+
+    form_data = {
+        "amount": request.form.get("amount", f"{Decimal(payment.amount or 0):.2f}"),
+        "payment_method": request.form.get("payment_method", payment.payment_method),
+        "reference": request.form.get("reference", payment.reference or ""),
+        "notes": request.form.get("notes", payment.notes or ""),
+    }
+
+    if request.method == "POST":
+        try:
+            amount = Decimal(str(form_data["amount"] or "").strip()).quantize(Decimal("0.01"))
+            if form_data["payment_method"] not in EDITABLE_PAYMENT_METHODS:
+                raise ReceivableError("Selecciona un método de pago válido.")
+            update_invoice_payment(
+                payment,
+                amount=amount,
+                payment_method=form_data["payment_method"],
+                reference=form_data["reference"],
+                notes=form_data["notes"],
+            )
+            flash("Abono actualizado. Saldo y estado de la factura recalculados.", "success")
+            return _payment_back_redirect(payment.invoice, back)
+        except ReceivableError as exc:
+            db.session.rollback()
+            flash(str(exc), "danger")
+        except (ValueError, ArithmeticError):
+            db.session.rollback()
+            flash("Revisa el monto y los datos del abono.", "danger")
+
+    other_paid = sum(
+        (Decimal(item.amount or 0) for item in payment.invoice.payments if item.id != payment.id),
+        Decimal("0.00"),
+    )
+    max_amount = max(Decimal(payment.invoice.total or 0) - other_paid, Decimal("0.00"))
+    return render_template(
+        "cobros/editar_pago.html",
+        payment=payment,
+        factura=payment.invoice,
+        form_data=form_data,
+        max_amount=max_amount,
+        back=back,
+        tenant=tenant,
+        payment_methods=EDITABLE_PAYMENT_METHODS,
+    )
+
+
 @cobros_bp.route("/export-aging.csv")
 @login_required
 @tenant_required
@@ -232,8 +294,14 @@ def revertir(payment_id):
     if back == "factura":
         return redirect(url_for("facturas.detail", invoice_id=invoice_id))
     if back == "cliente" and customer_id:
-        return redirect(url_for("cobros.cliente", customer_id=customer_id))
+        return redirect(url_for("clientes.detail", client_id=customer_id))
     return redirect(url_for("cobros.index"))
+
+
+def _payment_back_redirect(invoice: Invoice, back: str):
+    if back == "cliente" and invoice.customer_id:
+        return redirect(url_for("clientes.detail", client_id=invoice.customer_id))
+    return redirect(url_for("facturas.detail", invoice_id=invoice.id))
 
 
 def _payment_breakdown_from_form() -> dict[str, Decimal]:
