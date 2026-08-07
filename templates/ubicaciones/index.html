@@ -99,7 +99,7 @@
           </thead>
           <tbody>
             {% for row in stock_rows %}
-              <tr>
+              <tr class="warehouse-stock-row">
                 <td>{{ row.branch_name }}</td>
                 <td>{{ row.warehouse_name }}</td>
                 <td>{{ row.product_name }}</td>
@@ -114,6 +114,14 @@
           </tbody>
         </table>
       </div>
+      {% if stock_rows %}
+        <div id="warehouse-stock-pagination" class="border-t px-4 py-4 flex flex-col items-center gap-3">
+          <p id="warehouse-stock-pagination-summary" class="text-sm text-slate-500 text-center"></p>
+          <nav id="warehouse-stock-pagination-controls"
+               aria-label="Paginación del inventario por bodega"
+               class="flex flex-wrap items-center justify-center gap-1.5"></nav>
+        </div>
+      {% endif %}
     </div>
   </div>
 
@@ -307,6 +315,72 @@
 </section>
 
 <script>
+const WAREHOUSE_STOCK_ROWS_PER_PAGE = 20;
+let warehouseStockPage = 1;
+
+function warehouseStockPaginationButton(label, page, { active = false, disabled = false } = {}) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = label;
+  button.disabled = disabled;
+  button.className = active
+    ? 'min-w-10 rounded-lg bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white'
+    : disabled
+      ? 'cursor-not-allowed rounded-lg border bg-slate-100 px-3 py-2 text-sm text-slate-400'
+      : 'rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 hover:border-indigo-300 hover:text-indigo-700';
+  if (active) button.setAttribute('aria-current', 'page');
+  if (!active && !disabled) {
+    button.addEventListener('click', () => showWarehouseStockPage(page));
+  }
+  return button;
+}
+
+function warehouseStockPaginationPages(totalPages, currentPage) {
+  const pages = new Set([1, totalPages]);
+  for (let page = currentPage - 2; page <= currentPage + 2; page += 1) {
+    if (page >= 1 && page <= totalPages) pages.add(page);
+  }
+  const sorted = [...pages].sort((a, b) => a - b);
+  const result = [];
+  sorted.forEach((page, index) => {
+    if (index && page - sorted[index - 1] > 1) result.push(null);
+    result.push(page);
+  });
+  return result;
+}
+
+function showWarehouseStockPage(requestedPage) {
+  const rows = Array.from(document.querySelectorAll('.warehouse-stock-row'));
+  const summary = document.getElementById('warehouse-stock-pagination-summary');
+  const controls = document.getElementById('warehouse-stock-pagination-controls');
+  if (!rows.length || !summary || !controls) return;
+
+  const totalPages = Math.ceil(rows.length / WAREHOUSE_STOCK_ROWS_PER_PAGE);
+  warehouseStockPage = Math.min(Math.max(requestedPage, 1), totalPages);
+  const firstIndex = (warehouseStockPage - 1) * WAREHOUSE_STOCK_ROWS_PER_PAGE;
+  const lastIndex = Math.min(firstIndex + WAREHOUSE_STOCK_ROWS_PER_PAGE, rows.length);
+  rows.forEach((row, index) => row.classList.toggle('hidden', index < firstIndex || index >= lastIndex));
+  summary.textContent = `Mostrando ${firstIndex + 1}–${lastIndex} de ${rows.length} registros`;
+  controls.replaceChildren();
+
+  if (totalPages <= 1) return;
+
+  controls.appendChild(warehouseStockPaginationButton('« Primera', 1, { disabled: warehouseStockPage === 1 }));
+  controls.appendChild(warehouseStockPaginationButton('‹ Anterior', warehouseStockPage - 1, { disabled: warehouseStockPage === 1 }));
+  warehouseStockPaginationPages(totalPages, warehouseStockPage).forEach(page => {
+    if (page === null) {
+      const ellipsis = document.createElement('span');
+      ellipsis.className = 'px-1 text-slate-400';
+      ellipsis.textContent = '…';
+      controls.appendChild(ellipsis);
+      return;
+    }
+    controls.appendChild(warehouseStockPaginationButton(String(page), page, { active: page === warehouseStockPage }));
+  });
+  controls.appendChild(warehouseStockPaginationButton('Siguiente ›', warehouseStockPage + 1, { disabled: warehouseStockPage === totalPages }));
+  controls.appendChild(warehouseStockPaginationButton('Última »', totalPages, { disabled: warehouseStockPage === totalPages }));
+}
+
 function enhanceSearchableProductSelect(select) {
   if (!select || select.dataset.enhanced === "1") return;
   select.dataset.enhanced = "1";
@@ -379,6 +453,7 @@ function enhanceSearchableProductSelect(select) {
 }
 
 document.querySelectorAll(".searchable-product-select").forEach(enhanceSearchableProductSelect);
+showWarehouseStockPage(1);
 
 const productSelect = document.querySelector('select[name="product_id"]');
 productSelect?.addEventListener('change', () => {
