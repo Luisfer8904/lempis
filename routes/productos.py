@@ -47,6 +47,8 @@ def list():
     q = (request.args.get("q") or "").strip()
     category_id = request.args.get("category_id", type=int)
     view = request.args.get("view", "grid")  # grid | table
+    page = max(request.args.get("page", 1, type=int), 1)
+    per_page = 35  # 7 filas de 5 tarjetas en escritorio
     sync_default_warehouse_stock(tenant)
 
     query = Product.query.filter_by(tenant_id=tenant.id)
@@ -60,7 +62,20 @@ def list():
     if category_id:
         query = query.filter_by(category_id=category_id)
 
-    productos = query.order_by(Product.name.asc()).all()
+    pagination = query.order_by(Product.name.asc(), Product.id.asc()).paginate(
+        page=page,
+        per_page=per_page,
+        error_out=False,
+    )
+    if pagination.pages and page > pagination.pages:
+        return redirect(url_for(
+            "productos.list",
+            q=q or None,
+            category_id=category_id,
+            view=view,
+            page=pagination.pages,
+        ))
+    productos = pagination.items
     visible_warehouses = visible_warehouses_for_user(tenant.id, current_user)
     visible_stock = stock_map_for_warehouses(tenant.id, [w.id for w in visible_warehouses])
     for product in productos:
@@ -69,7 +84,7 @@ def list():
     return render_template(
         "productos/list.html",
         productos=productos, categorias=categorias,
-        q=q, selected_category=category_id, view=view,
+        q=q, selected_category=category_id, view=view, pagination=pagination,
         stock_scope=current_user.branch.name if getattr(current_user, "branch", None) else "Toda la empresa",
     )
 
