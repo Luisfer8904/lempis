@@ -25,16 +25,16 @@
 </form>
 
 {% if clientes %}
-  <div class="space-y-3">
+  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
     {% for c in clientes %}
     {% set data = summaries.get(c.id) %}
     {% set s = data.summary %}
-    <article class="bg-white rounded-xl border shadow-sm p-4 hover:border-indigo-200 hover:shadow-md transition">
-      <div class="customer-card-grid">
+    <article class="bg-white rounded-xl border shadow-sm overflow-hidden hover:border-indigo-200 hover:shadow-md transition flex flex-col min-h-[280px]">
+      <div class="p-4 flex-1 flex flex-col">
         <div class="min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
             <a href="{{ url_for('clientes.detail', client_id=c.id) }}"
-               class="text-lg font-semibold text-slate-900 hover:text-indigo-700 hover:underline">
+               class="text-base font-semibold text-slate-900 hover:text-indigo-700 hover:underline line-clamp-2">
               {{ c.name }}
             </a>
             {% if c.is_active %}
@@ -54,48 +54,45 @@
           </div>
         </div>
 
-        <div class="text-sm text-slate-600">
+        <div class="mt-3 text-sm text-slate-600 min-h-[40px]">
           <p class="font-medium text-slate-800">{{ c.phone or 'Sin teléfono' }}</p>
-          <p class="text-xs text-slate-500 break-all">{{ c.email or 'Sin correo' }}</p>
+          <p class="text-xs text-slate-500 truncate" title="{{ c.email or 'Sin correo' }}">{{ c.email or 'Sin correo' }}</p>
         </div>
 
-        <div class="customer-summary-grid min-w-0">
+        <div class="mt-4 grid grid-cols-2 gap-2 min-w-0">
           <div class="rounded-lg bg-slate-50 px-3 py-2 min-w-0">
             <p class="text-xs text-slate-500">Contado</p>
-            <p class="font-mono text-sm 2xl:text-base font-semibold tracking-tight whitespace-nowrap text-slate-900">{{ s.cash_total|money }}</p>
+            <p class="font-mono text-sm font-semibold tracking-tight whitespace-nowrap text-slate-900">{{ s.cash_total|money }}</p>
           </div>
           <div class="rounded-lg bg-slate-50 px-3 py-2 min-w-0">
             <p class="text-xs text-slate-500">Pendiente</p>
-            <p class="font-mono text-sm 2xl:text-base font-semibold tracking-tight whitespace-nowrap {% if s.pending_balance > 0 %}text-rose-700{% else %}text-emerald-700{% endif %}">
+            <p class="font-mono text-sm font-semibold tracking-tight whitespace-nowrap {% if s.pending_balance > 0 %}text-rose-700{% else %}text-emerald-700{% endif %}">
               {{ s.pending_balance|money }}
             </p>
           </div>
-          <div class="rounded-lg bg-slate-50 px-3 py-2 min-w-0">
+          <div class="col-span-2 rounded-lg bg-slate-50 px-3 py-2 min-w-0">
             <p class="text-xs text-slate-500">Última factura</p>
             {% if s.last_invoice_number %}
-              <p class="font-mono font-semibold text-slate-900 truncate">{{ s.last_invoice_number }}</p>
-              <p class="text-xs text-slate-500">{{ s.last_invoice_date }}</p>
+              <div class="flex items-center justify-between gap-2">
+                <p class="font-mono font-semibold text-slate-900 truncate">{{ s.last_invoice_number }}</p>
+                <p class="text-xs text-slate-500 whitespace-nowrap">{{ s.last_invoice_date }}</p>
+              </div>
             {% else %}
               <p class="text-sm text-slate-400">Sin facturas</p>
             {% endif %}
           </div>
         </div>
-
-        <div class="customer-card-actions">
-          <a href="{{ url_for('clientes.detail', client_id=c.id) }}"
-             class="inline-flex justify-center rounded-lg border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Ver ficha
-          </a>
+      </div>
+      <div class="border-t bg-slate-50 px-3 py-2 flex items-center justify-between gap-2 text-xs">
+        <a href="{{ url_for('clientes.detail', client_id=c.id) }}"
+           class="text-slate-600 hover:text-indigo-600">Ver ficha</a>
+        <div class="flex items-center gap-3">
           {% if s.pending_balance > 0 %}
             <a href="{{ url_for('cobros.cliente', customer_id=c.id) }}"
-               class="inline-flex justify-center rounded-lg border border-emerald-200 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50">
-              Cobros
-            </a>
+               class="text-emerald-700 hover:underline">Cobros</a>
           {% endif %}
           <a href="{{ url_for('clientes.edit', client_id=c.id) }}"
-             class="inline-flex justify-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700">
-            Editar
-          </a>
+             class="text-indigo-600 hover:underline">Editar</a>
         </div>
       </div>
     </article>
