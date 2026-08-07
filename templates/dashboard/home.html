@@ -2,299 +2,307 @@
 {% block title %}Dashboard — {{ tenant.name }}{% endblock %}
 {% block heading %}Dashboard{% endblock %}
 
-{% macro money(value) -%}
-  {{ value|money }}
-{%- endmacro %}
-
-{% macro qty(value) -%}
-  {{ ('%.2f'|format(value or 0)).rstrip('0').rstrip('.') }}
-{%- endmacro %}
-
-{% macro status_badge(status) -%}
-  {% set styles = {
-    'draft': 'bg-slate-100 text-slate-700 ring-slate-200',
-    'issued': 'bg-sky-50 text-sky-700 ring-sky-200',
-    'paid': 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-    'partially_paid': 'bg-amber-50 text-amber-700 ring-amber-200',
-    'overdue': 'bg-rose-50 text-rose-700 ring-rose-200',
-    'void': 'bg-slate-200 text-slate-600 ring-slate-300',
-  } %}
-  {% set labels = {
-    'draft': 'Borrador',
-    'issued': 'Emitida',
-    'paid': 'Pagada',
-    'partially_paid': 'Parcial',
-    'overdue': 'Vencida',
-    'void': 'Anulada',
-  } %}
-  <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 {{ styles.get(status, 'bg-slate-100 text-slate-700 ring-slate-200') }}">
-    {{ labels.get(status, status) }}
-  </span>
-{%- endmacro %}
-
-{% macro usage_bar(label, data) -%}
-  <div>
-    <div class="mb-1.5 flex items-center justify-between gap-3 text-sm">
-      <span class="text-slate-600">{{ label }}</span>
-      <span class="font-mono text-xs {% if data.exceeded %}text-rose-600{% elif data.near_limit %}text-amber-600{% else %}text-slate-500{% endif %}">
-        {{ data.used }}/{{ data.max }}
-      </span>
-    </div>
-    <div class="h-2 overflow-hidden rounded-full bg-slate-100">
-      <div class="h-full rounded-full {% if data.exceeded %}bg-rose-500{% elif data.near_limit %}bg-amber-500{% else %}bg-indigo-500{% endif %}"
-           style="width: {{ data.pct }}%"></div>
-    </div>
-  </div>
-{%- endmacro %}
+{% block actions %}
+  {% if current_user.has_permission('sales.create') %}
+    <a href="{{ url_for('pos.index') }}" class="hidden sm:inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800">
+      Nueva venta
+    </a>
+  {% endif %}
+{% endblock %}
 
 {% block content %}
-<section class="mb-5 overflow-hidden rounded-2xl bg-slate-950 text-white shadow-sm">
-  <div class="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
-    <div>
-      <p class="text-sm font-medium text-slate-300">{{ tenant.name }} · {{ tenant.country_code }} · {{ tenant.currency }}</p>
-      <h2 class="mt-2 max-w-3xl text-2xl font-bold tracking-tight sm:text-3xl">
-        Hola, {{ user.full_name or user.email }}
-      </h2>
-      <p class="mt-2 max-w-2xl text-sm text-slate-300">
-        {{ invoice_today_count }} factura(s) hoy · {{ invoice_month_count }} este mes · {{ draft_count }} borrador(es)
-      </p>
-    </div>
-    <div class="flex flex-wrap gap-2">
-      <a href="{{ url_for('pos.index') }}" class="rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-400">
-        Nueva venta
-      </a>
-      <a href="{{ url_for('cobros.index') }}" class="rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold text-white ring-1 ring-white/15 hover:bg-white/15">
-        Por cobrar
-      </a>
-      <a href="{{ url_for('reportes.index') }}" class="rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold text-white ring-1 ring-white/15 hover:bg-white/15">
-        Reportes
-      </a>
-    </div>
-  </div>
-</section>
+{% set currency = tenant.currency %}
+{% set open_receivable = receivables.total_due or 0 %}
+{% set overdue_amount = receivables.overdue_amount or 0 %}
+{% set overdue_count = receivables.overdue_count or 0 %}
+{% set trend_class = 'text-emerald-600' if month_delta >= 0 else 'text-rose-600' %}
 
-<section class="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-  <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-    <div class="flex items-center justify-between gap-3">
-      <p class="text-sm font-medium text-slate-500">Ventas de hoy</p>
-      <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Día</span>
-    </div>
-    <p class="mt-3 text-3xl font-bold text-slate-950">{{ money(sales_today) }}</p>
-    <p class="mt-2 text-sm text-slate-500">{{ invoice_today_count }} factura(s) emitida(s)</p>
-  </article>
-
-  <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-    <div class="flex items-center justify-between gap-3">
-      <p class="text-sm font-medium text-slate-500">Ventas del mes</p>
-      <span class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">Mes</span>
-    </div>
-    <p class="mt-3 text-3xl font-bold text-slate-950">{{ money(sales_month) }}</p>
-    <p class="mt-2 text-sm text-slate-500">{{ invoice_month_count }} factura(s) este mes</p>
-  </article>
-
-  <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-    <div class="flex items-center justify-between gap-3">
-      <p class="text-sm font-medium text-slate-500">Crédito pendiente</p>
-      {% if receivables.overdue_count %}
-        <span class="rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700">{{ receivables.overdue_count }} vencida(s)</span>
-      {% else %}
-        <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">Al día</span>
-      {% endif %}
-    </div>
-    <p class="mt-3 text-3xl font-bold text-slate-950">{{ money(receivables.total_due) }}</p>
-    <p class="mt-2 text-sm text-slate-500">Vencido: {{ money(receivables.overdue_amount) }}</p>
-  </article>
-
-  <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-    <div class="flex items-center justify-between gap-3">
-      <p class="text-sm font-medium text-slate-500">Ticket promedio</p>
-      <span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">Mes</span>
-    </div>
-    <p class="mt-3 text-3xl font-bold text-slate-950">{{ money(avg_ticket_month) }}</p>
-    <p class="mt-2 text-sm text-slate-500">Ingresos 30 días: {{ money(revenue_30d) }}</p>
-  </article>
-</section>
-
-<section class="grid gap-5 xl:grid-cols-12">
-  <div class="xl:col-span-8">
-    <article class="rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-        <div>
-          <h3 class="text-lg font-semibold text-slate-950">Últimas facturas</h3>
-          <p class="text-sm text-slate-500">Actividad reciente de facturación</p>
-        </div>
-        <a href="{{ url_for('facturas.list') }}" class="text-sm font-semibold text-indigo-600 hover:text-indigo-700">Ver todas</a>
+<div class="lempis-dashboard space-y-5">
+  <section class="rounded-[1.35rem] border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">{{ tenant.country_code }} · {{ currency }}</p>
+        <h2 class="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+          Hola, {{ user.full_name or user.email }}
+        </h2>
+        <p class="mt-1 max-w-2xl text-sm text-slate-500">
+          Pulso comercial de {{ tenant.name }} con ventas, cartera, inventario y actividad reciente.
+        </p>
       </div>
-      {% if last_invoices %}
-        <div class="overflow-x-auto">
-          <table class="w-full min-w-[680px] text-left">
-            <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th class="px-5 py-3 font-semibold">Factura</th>
-                <th class="px-5 py-3 font-semibold">Cliente</th>
-                <th class="px-5 py-3 font-semibold">Fecha</th>
-                <th class="px-5 py-3 text-right font-semibold">Total</th>
-                <th class="px-5 py-3 font-semibold">Estado</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-              {% for f in last_invoices %}
-                <tr class="cursor-pointer hover:bg-slate-50" onclick="window.location='{{ url_for('facturas.detail', invoice_id=f.id) }}'">
-                  <td class="px-5 py-4 font-mono text-sm font-semibold text-slate-900">{{ f.number }}</td>
-                  <td class="px-5 py-4 text-sm text-slate-700">{{ f.receptor_name or 'Consumidor final' }}</td>
-                  <td class="px-5 py-4 text-sm text-slate-500">{{ f.issue_date|local_datetime('%d/%m/%Y · %H:%M') }}</td>
-                  <td class="px-5 py-4 text-right font-mono text-sm font-semibold text-slate-900">{{ money(f.total) }}</td>
-                  <td class="px-5 py-4">{{ status_badge(f.status) }}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+      <div class="flex flex-wrap gap-2">
+        {% if current_user.has_permission('sales.view') %}
+          <a href="{{ url_for('facturas.list') }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Facturas</a>
+        {% endif %}
+        {% if current_user.has_permission('receivables.view') %}
+          <a href="{{ url_for('cobros.index') }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Por cobrar</a>
+        {% endif %}
+        {% if current_user.has_permission('reports.view') %}
+          <a href="{{ url_for('reportes.index') }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Reportes</a>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <article class="dashboard-metric-card">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <p class="metric-label">Ventas 30 días</p>
+          <p class="metric-value">{{ revenue_30d|money }}</p>
         </div>
-      {% else %}
-        <div class="px-5 py-12 text-center">
-          <p class="text-sm font-medium text-slate-500">Todavía no hay facturas emitidas.</p>
-          <a href="{{ url_for('pos.index') }}" class="mt-3 inline-flex rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Crear factura</a>
-        </div>
-      {% endif %}
+        <span class="metric-icon bg-emerald-50 text-emerald-700">↗</span>
+      </div>
+      <p class="metric-foot">{{ invoices_30d_count }} facturas emitidas</p>
     </article>
-  </div>
-
-  <aside class="space-y-5 xl:col-span-4">
-    <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div class="mb-4 flex items-center justify-between">
+    <article class="dashboard-metric-card">
+      <div class="flex items-start justify-between gap-3">
         <div>
-          <h3 class="text-lg font-semibold text-slate-950">Más vendidos</h3>
-          <p class="text-sm text-slate-500">Este mes</p>
+          <p class="metric-label">Cartera abierta</p>
+          <p class="metric-value">{{ open_receivable|money }}</p>
         </div>
-        <a href="{{ url_for('reportes.index') }}" class="text-sm font-semibold text-indigo-600 hover:text-indigo-700">Reporte</a>
+        <span class="metric-icon bg-indigo-50 text-indigo-700">C</span>
       </div>
-      {% if top_products %}
-        <div class="space-y-3">
-          {% for p in top_products %}
-            <div class="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-3">
-              <div class="min-w-0">
-                <p class="truncate text-sm font-semibold text-slate-900">{{ p.name }}</p>
-                <p class="font-mono text-xs text-slate-500">{{ p.sku or 'Sin SKU' }} · {{ qty(p.units) }} und</p>
-              </div>
-              <p class="shrink-0 font-mono text-sm font-semibold text-slate-900">{{ money(p.revenue) }}</p>
+      <p class="metric-foot">{{ overdue_count }} vencidas · {{ overdue_amount|money }}</p>
+    </article>
+    <article class="dashboard-metric-card">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <p class="metric-label">Clientes</p>
+          <p class="metric-value">{{ customers_count }}</p>
+        </div>
+        <span class="metric-icon bg-sky-50 text-sky-700">◎</span>
+      </div>
+      <p class="metric-foot">{{ customers_30d_count }} nuevos en 30 días</p>
+    </article>
+    <article class="dashboard-metric-card">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <p class="metric-label">Inventario</p>
+          <p class="metric-value">{{ products_count }}</p>
+        </div>
+        <span class="metric-icon bg-amber-50 text-amber-700">▣</span>
+      </div>
+      <p class="metric-foot">{{ low_stock_count }} productos con stock bajo</p>
+    </article>
+  </section>
+
+  <section class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+    <div class="space-y-5">
+      <article class="rounded-[1.35rem] border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Resumen</p>
+            <h3 class="text-lg font-bold text-slate-950">Ventas de los últimos 6 meses</h3>
+          </div>
+          <div class="rounded-2xl bg-slate-50 px-4 py-2 text-right">
+            <p class="text-xs text-slate-500">Mes actual</p>
+            <p class="text-sm font-bold text-slate-950">{{ revenue_current_month|money }}</p>
+            <p class="text-xs font-semibold {{ trend_class }}">{{ '%+.1f'|format(month_delta or 0) }}% vs mes anterior</p>
+          </div>
+        </div>
+        <div class="dashboard-chart">
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="salesArea" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#14b8a6" stop-opacity="0.32" />
+                <stop offset="100%" stop-color="#14b8a6" stop-opacity="0.04" />
+              </linearGradient>
+            </defs>
+            <path d="M 8 20 H 92 M 8 38 H 92 M 8 56 H 92 M 8 74 H 92 M 8 92 H 92" class="chart-grid" />
+            <polygon points="{{ chart_area_points }}" fill="url(#salesArea)" />
+            <polyline points="{{ chart_line_points }}" class="chart-line" />
+          </svg>
+        </div>
+        <div class="mt-3 grid grid-cols-6 gap-2 text-center text-xs font-semibold text-slate-500">
+          {% for item in sales_trend %}
+            <div>
+              <p>{{ item.label }}</p>
+              <p class="mt-1 text-[11px] font-mono text-slate-400">{{ '%.0f'|format(item.value) }}</p>
             </div>
           {% endfor %}
         </div>
-      {% else %}
-        <p class="rounded-xl bg-slate-50 px-4 py-5 text-sm text-slate-500">Sin ventas de productos este mes.</p>
-      {% endif %}
-    </article>
+      </article>
 
-    <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div class="mb-4 flex items-center justify-between">
-        <div>
-          <h3 class="text-lg font-semibold text-slate-950">Tu plan</h3>
-          <p class="text-sm text-slate-500">{{ plan_usage.plan_name }}</p>
+      <article class="rounded-[1.35rem] border border-slate-200 bg-white shadow-sm">
+        <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Actividad</p>
+            <h3 class="text-lg font-bold text-slate-950">Últimas facturas</h3>
+          </div>
+          <a href="{{ url_for('facturas.list') }}" class="text-sm font-semibold text-indigo-600 hover:text-indigo-800">Ver todas</a>
         </div>
-        <a href="{{ url_for('billing.index') }}" class="rounded-lg bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100">Cambiar</a>
-      </div>
-      <div class="space-y-3">
-        {{ usage_bar('Facturas', plan_usage.invoices) }}
-        {{ usage_bar('Clientes', plan_usage.customers) }}
-        {{ usage_bar('Productos', plan_usage.products) }}
-        {{ usage_bar('Bodegas', plan_usage.warehouses) }}
-      </div>
-    </article>
-  </aside>
-</section>
-
-<section class="mt-5 grid gap-5 xl:grid-cols-3">
-  <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-    <div class="mb-4 flex items-center justify-between">
-      <div>
-        <h3 class="text-lg font-semibold text-slate-950">Inventario bajo</h3>
-        <p class="text-sm text-slate-500">Productos con 5 unidades o menos</p>
-      </div>
-      <a href="{{ url_for('productos.list') }}" class="text-sm font-semibold text-indigo-600 hover:text-indigo-700">Productos</a>
-    </div>
-    {% if low_stock_products %}
-      <div class="space-y-3">
-        {% for product in low_stock_products %}
-          <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
-            <div class="min-w-0">
-              <p class="truncate text-sm font-semibold text-slate-900">{{ product.name }}</p>
-              <p class="font-mono text-xs text-slate-500">{{ product.sku }}</p>
-            </div>
-            <span class="rounded-full {% if product.stock <= 0 %}bg-rose-50 text-rose-700{% else %}bg-amber-50 text-amber-700{% endif %} px-2.5 py-1 text-xs font-semibold">
-              {{ qty(product.stock) }} disp.
-            </span>
+        {% if last_invoices %}
+          <div class="overflow-x-auto">
+            <table class="dashboard-table min-w-full">
+              <thead>
+                <tr>
+                  <th>Número</th>
+                  <th>Cliente</th>
+                  <th>Total</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for f in last_invoices %}
+                  <tr onclick="window.location='{{ url_for('facturas.detail', invoice_id=f.id) }}'">
+                    <td class="font-mono text-xs text-slate-700">{{ f.number }}</td>
+                    <td>{{ f.receptor_name or 'Consumidor final' }}</td>
+                    <td class="font-mono">{{ f.total|money(f.currency) }}</td>
+                    <td>
+                      {% set labels = {'draft': 'Borrador', 'issued': 'Emitida', 'paid': 'Pagada', 'partially_paid': 'Parcial', 'overdue': 'Vencida', 'void': 'Anulada'} %}
+                      <span class="status-pill status-{{ f.status }}">{{ labels.get(f.status, f.status) }}</span>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
-        {% endfor %}
-      </div>
-    {% else %}
-      <p class="rounded-xl bg-emerald-50 px-4 py-5 text-sm font-medium text-emerald-700">No hay productos en nivel bajo.</p>
-    {% endif %}
-  </article>
-
-  <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-    <div class="mb-4 flex items-center justify-between">
-      <div>
-        <h3 class="text-lg font-semibold text-slate-950">Lotes</h3>
-        <p class="text-sm text-slate-500">Vencimientos y alertas</p>
-      </div>
-      <a href="{{ url_for('productos.list') }}" class="text-sm font-semibold text-indigo-600 hover:text-indigo-700">Revisar</a>
-    </div>
-    <div class="grid grid-cols-2 gap-3">
-      <div class="rounded-xl bg-rose-50 p-4">
-        <p class="text-sm font-medium text-rose-700">Vencidos</p>
-        <p class="mt-1 text-3xl font-bold text-rose-700">{{ lotes_status.expired_count }}</p>
-      </div>
-      <div class="rounded-xl bg-amber-50 p-4">
-        <p class="text-sm font-medium text-amber-700">Por vencer</p>
-        <p class="mt-1 text-3xl font-bold text-amber-700">{{ lotes_status.expiring_count }}</p>
-      </div>
-    </div>
-    {% set lote_preview = (lotes_status.expired + lotes_status.expiring)[:4] %}
-    {% if lote_preview %}
-      <div class="mt-4 space-y-3">
-        {% for lote in lote_preview %}
-          <a href="{{ url_for('lotes.list', product_id=lote.product_id) }}" class="block rounded-xl border border-slate-100 px-3 py-3 hover:bg-slate-50">
-            <p class="truncate text-sm font-semibold text-slate-900">{{ lote.product.name }}</p>
-            <p class="mt-1 text-xs text-slate-500">
-              {{ lote.batch_number }} ·
-              {% if lote.expiration_date %}
-                {{ lote.expiration_date.strftime('%d/%m/%Y') }}
-              {% else %}
-                sin vencimiento
-              {% endif %}
-              · {{ qty(lote.remaining_quantity) }} und
-            </p>
-          </a>
-        {% endfor %}
-      </div>
-    {% endif %}
-  </article>
-
-  <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-    <div class="mb-4 flex items-center justify-between">
-      <div>
-        <h3 class="text-lg font-semibold text-slate-950">Movimientos</h3>
-        <p class="text-sm text-slate-500">Inventario reciente</p>
-      </div>
-      <a href="{{ url_for('ubicaciones.index') }}" class="text-sm font-semibold text-indigo-600 hover:text-indigo-700">Bodegas</a>
-    </div>
-    {% if recent_movements %}
-      <div class="space-y-3">
-        {% for movement in recent_movements %}
-          <div class="rounded-xl bg-slate-50 px-3 py-3">
-            <div class="flex items-center justify-between gap-3">
-              <p class="truncate text-sm font-semibold text-slate-900">{{ movement.product.name if movement.product else 'Producto eliminado' }}</p>
-              <span class="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">{{ movement.movement_type }}</span>
-            </div>
-            <p class="mt-1 text-xs text-slate-500">
-              {{ qty(movement.quantity) }} und · {{ (movement.moved_at or movement.created_at).strftime('%d/%m/%Y %H:%M') if (movement.moved_at or movement.created_at) else 'sin fecha' }}
-            </p>
+        {% else %}
+          <div class="px-5 py-10 text-center text-slate-400">
+            <p class="text-4xl">▤</p>
+            <p class="mt-2 text-sm">Aún no tienes facturas.</p>
+            <a href="{{ url_for('pos.index') }}" class="mt-3 inline-flex rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">Crear primera venta</a>
           </div>
-        {% endfor %}
-      </div>
-    {% else %}
-      <p class="rounded-xl bg-slate-50 px-4 py-5 text-sm text-slate-500">Sin movimientos recientes.</p>
-    {% endif %}
-  </article>
-</section>
+        {% endif %}
+      </article>
+    </div>
+
+    <aside class="space-y-5">
+      <article class="rounded-[1.35rem] bg-gradient-to-br from-slate-950 via-indigo-950 to-cyan-700 p-5 text-white shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100">Centro de acción</p>
+        <h3 class="mt-2 text-xl font-black">Hola, {{ (user.full_name or user.email).split(' ')[0] }}</h3>
+        <div class="mt-5 grid gap-2 text-sm">
+          {% if current_user.has_permission('sales.create') %}
+            <a href="{{ url_for('pos.index') }}" class="quick-action">Nueva venta</a>
+          {% endif %}
+          {% if current_user.has_permission('customers.manage') %}
+            <a href="{{ url_for('clientes.new') }}" class="quick-action">Crear cliente</a>
+          {% endif %}
+          {% if current_user.has_permission('products.manage') %}
+            <a href="{{ url_for('productos.new') }}" class="quick-action">Crear producto</a>
+          {% endif %}
+          {% if current_user.has_permission('receivables.view') %}
+            <a href="{{ url_for('cobros.index') }}" class="quick-action">Gestionar cobros</a>
+          {% endif %}
+        </div>
+      </article>
+
+      <article class="rounded-[1.35rem] border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Inventario</p>
+            <h3 class="text-lg font-bold text-slate-950">Productos clave</h3>
+          </div>
+          <a href="{{ url_for('productos.list') }}" class="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">Ver inventario</a>
+        </div>
+
+        <div class="mt-4 space-y-4">
+          <div>
+            <div class="mb-2 flex items-center justify-between">
+              <p class="text-sm font-bold text-slate-900">Poco inventario</p>
+              <span class="rounded-full bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700">{{ low_stock_products|length }}</span>
+            </div>
+            {% if low_stock_products %}
+              <div class="space-y-2">
+                {% for product in low_stock_products %}
+                  <a href="{{ url_for('productos.detail', product_id=product.id) }}" class="block rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 hover:border-amber-200 hover:bg-amber-50">
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0">
+                        <p class="truncate text-sm font-semibold text-slate-900">{{ product.name }}</p>
+                        <p class="truncate text-xs text-slate-500">{{ product.sku }}</p>
+                      </div>
+                      <span class="shrink-0 rounded-lg bg-white px-2 py-1 text-xs font-mono font-bold text-amber-700">{{ product.stock or 0 }}</span>
+                    </div>
+                  </a>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="rounded-xl bg-slate-50 px-3 py-3 text-sm text-slate-500">Sin productos bajos.</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <div class="mb-2 flex items-center justify-between">
+              <p class="text-sm font-bold text-slate-900">Baja rotación</p>
+              <span class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600">90 días</span>
+            </div>
+            {% if low_rotation_products %}
+              <div class="space-y-2">
+                {% for product, sold_qty, sold_value in low_rotation_products %}
+                  <a href="{{ url_for('productos.detail', product_id=product.id) }}" class="block rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 hover:border-slate-300">
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0">
+                        <p class="truncate text-sm font-semibold text-slate-900">{{ product.name }}</p>
+                        <p class="truncate text-xs text-slate-500">Stock {{ product.stock or 0 }} · {{ product.sku }}</p>
+                      </div>
+                      <span class="shrink-0 text-right text-xs font-mono font-bold text-slate-700">{{ '%.0f'|format(sold_qty or 0) }} vend.</span>
+                    </div>
+                  </a>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="rounded-xl bg-slate-50 px-3 py-3 text-sm text-slate-500">Sin datos de rotación.</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <div class="mb-2 flex items-center justify-between">
+              <p class="text-sm font-bold text-slate-900">Alta rotación</p>
+              <span class="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700">Top ventas</span>
+            </div>
+            {% if high_rotation_products %}
+              <div class="space-y-2">
+                {% for product, sold_qty, sold_value in high_rotation_products %}
+                  <a href="{{ url_for('productos.detail', product_id=product.id) }}" class="block rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 hover:border-emerald-200 hover:bg-emerald-50">
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0">
+                        <p class="truncate text-sm font-semibold text-slate-900">{{ product.name }}</p>
+                        <p class="truncate text-xs text-slate-500">{{ sold_value|money }} · {{ product.sku }}</p>
+                      </div>
+                      <span class="shrink-0 text-right text-xs font-mono font-bold text-emerald-700">{{ '%.0f'|format(sold_qty or 0) }} vend.</span>
+                    </div>
+                  </a>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="rounded-xl bg-slate-50 px-3 py-3 text-sm text-slate-500">Sin ventas recientes.</p>
+            {% endif %}
+          </div>
+        </div>
+      </article>
+
+      {% if overdue_count or low_stock_count or lotes_status.expired_count or lotes_status.expiring_count %}
+        <article class="rounded-[1.35rem] border border-slate-200 bg-white p-5 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Alertas</p>
+          <div class="mt-3 space-y-3 text-sm">
+            {% if overdue_count %}
+              <a href="{{ url_for('cobros.index') }}" class="alert-row text-rose-700">
+                <span>{{ overdue_count }}</span>
+                Facturas vencidas
+              </a>
+            {% endif %}
+            {% if low_stock_count %}
+              <a href="{{ url_for('productos.list') }}" class="alert-row text-amber-700">
+                <span>{{ low_stock_count }}</span>
+                Productos con stock bajo
+              </a>
+            {% endif %}
+            {% if lotes_status.expired_count %}
+              <a href="{{ url_for('productos.list') }}" class="alert-row text-rose-700">
+                <span>{{ lotes_status.expired_count }}</span>
+                Lotes vencidos
+              </a>
+            {% endif %}
+            {% if lotes_status.expiring_count %}
+              <a href="{{ url_for('productos.list') }}" class="alert-row text-amber-700">
+                <span>{{ lotes_status.expiring_count }}</span>
+                Lotes por vencer
+              </a>
+            {% endif %}
+          </div>
+        </article>
+      {% endif %}
+    </aside>
+  </section>
+</div>
 {% endblock %}

@@ -30,7 +30,7 @@
     {% set data = summaries.get(c.id) %}
     {% set s = data.summary %}
     <article class="bg-white rounded-xl border shadow-sm p-4 hover:border-indigo-200 hover:shadow-md transition">
-      <div class="grid xl:grid-cols-[minmax(260px,1.2fr)_minmax(190px,.8fr)_minmax(340px,1.3fr)_auto] gap-4 items-center">
+      <div class="grid 2xl:grid-cols-[minmax(250px,1.05fr)_minmax(180px,.75fr)_minmax(480px,1.4fr)_minmax(100px,auto)] gap-4 items-center">
         <div class="min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
             <a href="{{ url_for('clientes.detail', client_id=c.id) }}"
@@ -59,18 +59,18 @@
           <p class="text-xs text-slate-500 break-all">{{ c.email or 'Sin correo' }}</p>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          <div class="rounded-lg bg-slate-50 px-3 py-2">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 min-w-0">
+          <div class="rounded-lg bg-slate-50 px-3 py-2 min-w-0">
             <p class="text-xs text-slate-500">Contado</p>
-            <p class="font-mono font-semibold text-slate-900">{{ s.cash_total|money }}</p>
+            <p class="font-mono text-sm 2xl:text-base font-semibold tracking-tight whitespace-nowrap text-slate-900">{{ s.cash_total|money }}</p>
           </div>
-          <div class="rounded-lg bg-slate-50 px-3 py-2">
+          <div class="rounded-lg bg-slate-50 px-3 py-2 min-w-0">
             <p class="text-xs text-slate-500">Pendiente</p>
-            <p class="font-mono font-semibold {% if s.pending_balance > 0 %}text-rose-700{% else %}text-emerald-700{% endif %}">
+            <p class="font-mono text-sm 2xl:text-base font-semibold tracking-tight whitespace-nowrap {% if s.pending_balance > 0 %}text-rose-700{% else %}text-emerald-700{% endif %}">
               {{ s.pending_balance|money }}
             </p>
           </div>
-          <div class="rounded-lg bg-slate-50 px-3 py-2 col-span-2 sm:col-span-1">
+          <div class="rounded-lg bg-slate-50 px-3 py-2 min-w-0">
             <p class="text-xs text-slate-500">Última factura</p>
             {% if s.last_invoice_number %}
               <p class="font-mono font-semibold text-slate-900 truncate">{{ s.last_invoice_number }}</p>
@@ -81,7 +81,7 @@
           </div>
         </div>
 
-        <div class="flex xl:flex-col gap-2 justify-end">
+        <div class="flex 2xl:flex-col gap-2 justify-end">
           <a href="{{ url_for('clientes.detail', client_id=c.id) }}"
              class="inline-flex justify-center rounded-lg border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Ver ficha
