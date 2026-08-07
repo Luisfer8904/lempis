@@ -42,6 +42,27 @@ AMBER_200 = colors.HexColor("#fde68a")
 AMBER_700 = colors.HexColor("#b45309")
 
 
+def _invoice_payment_method_label(invoice) -> str:
+    labels = {
+        "efectivo": "Efectivo",
+        "transferencia": "Transferencia",
+        "tarjeta": "Tarjeta",
+        "cheque": "Cheque",
+        "credito": "Crédito",
+    }
+    if invoice.payment_method == "credito":
+        return labels["credito"]
+    recorded_methods = list(dict.fromkeys(
+        payment.payment_method for payment in invoice.payments
+        if payment.payment_method
+    ))
+    if len(recorded_methods) == 1:
+        return labels.get(recorded_methods[0], recorded_methods[0].capitalize())
+    if len(recorded_methods) > 1:
+        return "Mixto"
+    return labels.get(invoice.payment_method, invoice.payment_method or "Efectivo")
+
+
 def generate_invoice_pdf(invoice, tenant) -> BytesIO:
     """
     Genera el PDF de la factura. Devuelve BytesIO listo para send_file.
@@ -137,8 +158,7 @@ def generate_invoice_pdf(invoice, tenant) -> BytesIO:
         body,
     )
 
-    metodos = {"efectivo": "Efectivo", "transferencia": "Transferencia", "tarjeta": "Tarjeta", "credito": "Crédito"}
-    metodo_text = metodos.get(invoice.payment_method, invoice.payment_method)
+    metodo_text = _invoice_payment_method_label(invoice)
     extra = ""
     if invoice.payment_method == "credito":
         extra = f"<br/><font size='8'>Plazo: {invoice.payment_terms_days} días"
@@ -618,8 +638,7 @@ def generate_simple_invoice_pdf(invoice, tenant) -> BytesIO:
         body,
     )
 
-    metodos = {"efectivo": "Efectivo", "transferencia": "Transferencia", "tarjeta": "Tarjeta", "credito": "Crédito"}
-    metodo = metodos.get(invoice.payment_method, invoice.payment_method)
+    metodo = _invoice_payment_method_label(invoice)
     extra = ""
     if invoice.payment_method == "credito":
         extra = f"<br/><font size='8'>Plazo: {invoice.payment_terms_days} días"

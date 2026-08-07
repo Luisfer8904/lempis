@@ -37,6 +37,7 @@
            class="flex-1 px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white" />
     <input type="hidden" name="status" value="{{ status or '' }}" />
     <input type="hidden" name="sale_type" value="{{ sale_type or '' }}" />
+    <input type="hidden" name="payment_method" value="{{ payment_method or '' }}" />
     <button class="bg-slate-700 text-white px-5 py-2 rounded-xl hover:bg-slate-800">Buscar</button>
   </div>
 </form>
@@ -51,7 +52,7 @@
     ('overdue',        'Vencidas',     'bg-rose-600'),
   ] %}
   {% for code, label, color in filters %}
-    <a href="{{ url_for('facturas.list', q=q or None, status=code or None, sale_type=sale_type or None) }}"
+    <a href="{{ url_for('facturas.list', q=q or None, status=code or None, sale_type=sale_type or None, payment_method=payment_method or None) }}"
        class="px-4 py-1.5 rounded-full text-sm whitespace-nowrap
               {% if (status or '') == code %}
                 {{ color }} text-white font-medium
@@ -69,9 +70,29 @@
     ('credito',  'Crédito', 'bg-sky-600'),
   ] %}
   {% for code, label, color in sale_type_filters %}
-    <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=code or None) }}"
+    <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=code or None, payment_method=payment_method or None) }}"
        class="px-4 py-1.5 rounded-full text-sm whitespace-nowrap
               {% if (sale_type or '') == code %}
+                {{ color }} text-white font-medium
+              {% else %}
+                bg-white border text-slate-600 hover:bg-slate-50
+              {% endif %}">
+      {{ label }}
+    </a>
+  {% endfor %}
+  <span class="mx-2 hidden h-7 border-l border-slate-300 sm:block" aria-hidden="true"></span>
+  <span class="ml-1 text-sm font-medium text-slate-500">Método:</span>
+  {% set payment_method_filters = [
+    ('',              'Todos',         'bg-slate-700'),
+    ('efectivo',      'Efectivo',      'bg-emerald-600'),
+    ('transferencia', 'Transferencia', 'bg-sky-600'),
+    ('tarjeta',       'Tarjeta',       'bg-indigo-600'),
+    ('cheque',        'Cheque',        'bg-amber-600'),
+  ] %}
+  {% for code, label, color in payment_method_filters %}
+    <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, payment_method=code or None) }}"
+       class="px-4 py-1.5 rounded-full text-sm whitespace-nowrap
+              {% if (payment_method or '') == code %}
                 {{ color }} text-white font-medium
               {% else %}
                 bg-white border text-slate-600 hover:bg-slate-50
@@ -105,8 +126,17 @@
 
           {# Método de pago — solo desktop #}
           <div class="hidden lg:block text-xs text-slate-600 w-32">
-            {% set methods = {'efectivo': '💵 Efectivo', 'transferencia': '🏦 Transferencia', 'tarjeta': '💳 Tarjeta', 'credito': '📋 Crédito'} %}
-            {{ methods.get(f.payment_method, f.payment_method) }}
+            {% set methods = {'efectivo': '💵 Efectivo', 'transferencia': '🏦 Transferencia', 'tarjeta': '💳 Tarjeta', 'cheque': '🧾 Cheque', 'credito': '📋 Crédito'} %}
+            {% set recorded_methods = f.payments|map(attribute='payment_method')|unique|list %}
+            {% if f.payment_method == 'credito' %}
+              {{ methods.credito }}
+            {% elif recorded_methods|length == 1 %}
+              {{ methods.get(recorded_methods[0], recorded_methods[0]) }}
+            {% elif recorded_methods|length > 1 %}
+              🔀 Mixto
+            {% else %}
+              {{ methods.get(f.payment_method, f.payment_method) }}
+            {% endif %}
             {% if f.payment_method == 'credito' and f.payment_terms_days %}
               <span class="text-slate-400">({{ f.payment_terms_days }}d)</span>
             {% endif %}
@@ -153,11 +183,11 @@
     {% if pagination.pages > 1 %}
       <nav aria-label="Paginación de ventas" class="flex flex-wrap items-center justify-center gap-1.5">
         {% if pagination.has_prev %}
-          <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, page=1) }}"
+          <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, payment_method=payment_method or None, page=1) }}"
              class="rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 hover:border-indigo-300 hover:text-indigo-700">
             « Primera
           </a>
-          <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, page=pagination.prev_num) }}"
+          <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, payment_method=payment_method or None, page=pagination.prev_num) }}"
              class="rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 hover:border-indigo-300 hover:text-indigo-700">
             ‹ Anterior
           </a>
@@ -174,7 +204,7 @@
                 {{ page_number }}
               </span>
             {% else %}
-              <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, page=page_number) }}"
+              <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, payment_method=payment_method or None, page=page_number) }}"
                  class="min-w-10 rounded-lg border bg-white px-3 py-2 text-center text-sm text-slate-700 hover:border-indigo-300 hover:text-indigo-700">
                 {{ page_number }}
               </a>
@@ -185,11 +215,11 @@
         {% endfor %}
 
         {% if pagination.has_next %}
-          <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, page=pagination.next_num) }}"
+          <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, payment_method=payment_method or None, page=pagination.next_num) }}"
              class="rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 hover:border-indigo-300 hover:text-indigo-700">
             Siguiente ›
           </a>
-          <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, page=pagination.pages) }}"
+          <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, payment_method=payment_method or None, page=pagination.pages) }}"
              class="rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 hover:border-indigo-300 hover:text-indigo-700">
             Última »
           </a>
@@ -205,7 +235,7 @@
   <div class="text-center py-20 bg-white rounded-xl border">
     <div class="text-6xl mb-3">🧾</div>
     <p class="text-lg text-slate-700 font-medium mb-1">
-      {% if q or status or sale_type %}
+      {% if q or status or sale_type or payment_method %}
         No encontramos facturas con esos filtros
       {% else %}
         Aún no has emitido facturas

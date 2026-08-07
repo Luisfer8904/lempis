@@ -366,6 +366,7 @@ def cobrar():
             flash("No puedes facturar desde una bodega de otra sede.", "warning")
             return redirect(url_for("pos.quick_sale"))
         payment_breakdown = _payment_breakdown_from_form() if action == "charge" else _empty_payment_breakdown()
+        payment_method = _primary_invoice_payment_method(sale_type, payment_breakdown)
         notes = _notes_with_payment_details(request.form.get("notes", ""), payment_breakdown)
         status = "draft" if action == "draft" else "issued"
         payment_terms_days = int(request.form.get("payment_terms_days") or 0)
@@ -489,6 +490,22 @@ def _payment_breakdown_from_form() -> dict[str, Decimal]:
 
 def _payment_total(breakdown: dict[str, Decimal]) -> Decimal:
     return sum((amount for amount in breakdown.values()), Decimal("0.00")).quantize(CENT)
+
+
+def _primary_invoice_payment_method(
+    sale_type: str,
+    breakdown: dict[str, Decimal],
+) -> str:
+    """Conserva en la factura el método único real; los pagos guardan el desglose completo."""
+    if sale_type == "credito":
+        return "credito"
+    used_methods = [
+        method for method, amount in breakdown.items()
+        if _money_or_zero(amount) > 0
+    ]
+    if len(used_methods) == 1 and used_methods[0] in {"efectivo", "transferencia", "tarjeta"}:
+        return used_methods[0]
+    return "efectivo"
 
 
 def _cart_total(items_data: list[dict]) -> Decimal:

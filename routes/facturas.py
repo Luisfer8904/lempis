@@ -13,10 +13,11 @@ from flask import (
     Blueprint, render_template, request, redirect, url_for, flash, abort, send_file
 )
 from flask_login import login_required, current_user
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
+from sqlalchemy.orm import selectinload
 
 from models import db
-from models.invoice import Invoice, InvoiceItem
+from models.invoice import Invoice, InvoiceItem, InvoicePayment
 from models.catalog import Customer, Product, ProductBatch
 from models.country import TaxConfig
 from models.printing import TenantPrintSettings
@@ -72,10 +73,13 @@ def list():
     sale_type = request.args.get("sale_type")
     if sale_type not in {"contado", "credito"}:
         sale_type = None
+    payment_method = request.args.get("payment_method")
+    if payment_method not in {"efectivo", "transferencia", "tarjeta", "cheque"}:
+        payment_method = None
     page = max(request.args.get("page", 1, type=int), 1)
     per_page = 30
 
-    query = Invoice.query.filter_by(tenant_id=tenant.id)
+    query = Invoice.query.options(selectinload(Invoice.payments)).filter_by(tenant_id=tenant.id)
     if q:
         like = f"%{q}%"
         query = query.filter(or_(
@@ -89,6 +93,18 @@ def list():
         query = query.filter(Invoice.payment_method == "credito")
     elif sale_type == "contado":
         query = query.filter(Invoice.payment_method != "credito")
+    if payment_method:
+        recorded_payment = Invoice.payments.any(
+            InvoicePayment.payment_method == payment_method
+        )
+        if payment_method == "cheque":
+            query = query.filter(recorded_payment)
+        else:
+            legacy_payment = and_(
+                ~Invoice.payments.any(),
+                Invoice.payment_method == payment_method,
+            )
+            query = query.filter(or_(recorded_payment, legacy_payment))
 
     pagination = query.order_by(Invoice.issue_date.desc(), Invoice.id.desc()).paginate(
         page=page,
@@ -101,6 +117,7 @@ def list():
             q=q or None,
             status=status or None,
             sale_type=sale_type,
+            payment_method=payment_method,
             page=pagination.pages,
         ))
 
@@ -113,7 +130,8 @@ def list():
 
     return render_template(
         "facturas/list.html",
-        facturas=pagination.items, pagination=pagination, q=q, status=status, sale_type=sale_type,
+        facturas=pagination.items, pagination=pagination, q=q, status=status,
+        sale_type=sale_type, payment_method=payment_method,
         cai_ok=can_emit_now,
     )
 

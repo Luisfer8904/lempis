@@ -164,8 +164,21 @@
         </div>
       </div>
       <div class="mt-4 pt-4 border-t text-sm space-y-1">
-        {% set methods = {'efectivo': 'Efectivo', 'transferencia': 'Transferencia', 'tarjeta': 'Tarjeta', 'credito': 'Crédito'} %}
-        <p><span class="text-slate-500">Método:</span> <strong>{{ methods.get(factura.payment_method) }}</strong></p>
+        {% set methods = {'efectivo': 'Efectivo', 'transferencia': 'Transferencia', 'tarjeta': 'Tarjeta', 'cheque': 'Cheque', 'credito': 'Crédito'} %}
+        {% set recorded_methods = factura.payments|map(attribute='payment_method')|unique|list %}
+        <p><span class="text-slate-500">Método:</span>
+          <strong>
+            {% if factura.payment_method == 'credito' %}
+              {{ methods.get('credito') }}
+            {% elif recorded_methods|length == 1 %}
+              {{ methods.get(recorded_methods[0], recorded_methods[0]|capitalize) }}
+            {% elif recorded_methods|length > 1 %}
+              Mixto
+            {% else %}
+              {{ methods.get(factura.payment_method) }}
+            {% endif %}
+          </strong>
+        </p>
         {% if factura.payment_method == 'credito' %}
           <p><span class="text-slate-500">Plazo:</span> {{ factura.payment_terms_days }} días</p>
           {% if factura.due_date %}
