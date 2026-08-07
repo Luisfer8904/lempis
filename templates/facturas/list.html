@@ -42,15 +42,13 @@
 </form>
 
 {# Pills de filtro por estado (estilo Treinta) #}
-<div class="flex flex-wrap gap-2 mb-6 overflow-x-auto pb-1">
+<div class="flex flex-wrap items-center gap-2 mb-6 overflow-x-auto pb-1">
   {% set filters = [
     ('',               'Todas',        'bg-slate-700'),
-    ('draft',          'Borradores',   'bg-slate-500'),
     ('issued',         'Emitidas',     'bg-sky-600'),
     ('paid',           'Pagadas',      'bg-green-600'),
     ('partially_paid', 'Pago parcial', 'bg-amber-600'),
     ('overdue',        'Vencidas',     'bg-rose-600'),
-    ('void',           'Anuladas',     'bg-slate-400'),
   ] %}
   {% for code, label, color in filters %}
     <a href="{{ url_for('facturas.list', q=q or None, status=code or None, sale_type=sale_type or None) }}"
@@ -63,11 +61,8 @@
       {{ label }}
     </a>
   {% endfor %}
-</div>
-
-{# Pills de filtro por tipo de venta #}
-<div class="flex flex-wrap items-center gap-2 mb-6 overflow-x-auto pb-1">
-  <span class="mr-1 text-sm font-medium text-slate-500">Tipo de venta:</span>
+  <span class="mx-2 hidden h-7 border-l border-slate-300 sm:block" aria-hidden="true"></span>
+  <span class="ml-1 text-sm font-medium text-slate-500">Tipo de venta:</span>
   {% set sale_type_filters = [
     ('',         'Todos',   'bg-slate-700'),
     ('contado',  'Contado', 'bg-emerald-600'),
