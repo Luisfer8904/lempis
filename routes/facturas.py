@@ -68,6 +68,8 @@ def list():
     tenant = current_tenant()
     q = (request.args.get("q") or "").strip()
     status = request.args.get("status")
+    page = max(request.args.get("page", 1, type=int), 1)
+    per_page = 30
 
     query = Invoice.query.filter_by(tenant_id=tenant.id)
     if q:
@@ -80,7 +82,18 @@ def list():
     if status:
         query = query.filter_by(status=status)
 
-    facturas = query.order_by(Invoice.issue_date.desc()).all()
+    pagination = query.order_by(Invoice.issue_date.desc(), Invoice.id.desc()).paginate(
+        page=page,
+        per_page=per_page,
+        error_out=False,
+    )
+    if pagination.pages and page > pagination.pages:
+        return redirect(url_for(
+            "facturas.list",
+            q=q or None,
+            status=status or None,
+            page=pagination.pages,
+        ))
 
     # ¿Puede emitir según su modo? (CAI para SAR, plan limits para simple)
     can_emit_now = True
@@ -91,7 +104,7 @@ def list():
 
     return render_template(
         "facturas/list.html",
-        facturas=facturas, q=q, status=status,
+        facturas=pagination.items, pagination=pagination, q=q, status=status,
         cai_ok=can_emit_now,
     )
 
