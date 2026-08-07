@@ -28,6 +28,7 @@ from services.invoice_service import (
     validate_can_emit, CAIError, _resolve_batch,
 )
 from services.pdf_generator import _number_to_letters
+from services.stock_validation import InventoryAvailabilityError, validate_sale_inventory
 from services.inventory import consume_from_batch, recompute_product_stock
 from services.locations import (
     add_stock,
@@ -111,8 +112,13 @@ def new():
             flash(f"Factura {inv.number} {label}.", "success")
             return redirect(_invoice_detail_url(inv))
         except CAIError as e:
+            db.session.rollback()
             flash(str(e), "danger")
             return redirect(url_for("configuracion.facturacion"))
+        except InventoryAvailabilityError as e:
+            db.session.rollback()
+            flash(str(e), "danger")
+            return redirect(url_for("facturas.new"))
 
     clientes = Customer.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Customer.name).all()
     productos = Product.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Product.name).all()
@@ -190,7 +196,7 @@ def edit(invoice_id):
                 _emit_draft(inv, tenant)
             flash(f"Factura {inv.number} actualizada.", "success")
             return redirect(_invoice_detail_url(inv))
-        except CAIError as e:
+        except (CAIError, InventoryAvailabilityError) as e:
             db.session.rollback()
             flash(str(e), "danger")
 
@@ -444,6 +450,8 @@ def _create_from_form(tenant) -> Invoice:
     warehouse_id = request.form.get("warehouse_id", type=int)
     if status == "issued" and not can_user_sell_from_warehouse(tenant.id, current_user, warehouse_id):
         raise CAIError("No puedes facturar desde una bodega de otra sede.")
+    if status == "issued":
+        validate_sale_inventory(tenant.id, warehouse_id, items)
 
     return issue_invoice(
         tenant=tenant,
@@ -583,6 +591,7 @@ def _admin_update_issued_invoice(inv: Invoice, tenant, items_data: list[dict], w
         raise CAIError("Debes agregar al menos una línea a la factura.")
 
     _restore_invoice_stock(inv)
+    validate_sale_inventory(tenant.id, warehouse_id, items_data)
     _apply_invoice_header_from_form(inv, tenant, warehouse_id)
     _replace_invoice_items_and_consume(inv, tenant, items_data)
     inv.recalc_totals()
@@ -593,6 +602,17 @@ def _admin_update_issued_invoice(inv: Invoice, tenant, items_data: list[dict], w
 def _emit_draft(inv: Invoice, tenant) -> None:
     """Convierte un draft a emitido: asigna número definitivo + congela CAI."""
     validate_can_emit(tenant)
+    inventory_items = [
+        {
+            "product_id": item.product_id,
+            "batch_id": item.batch_id,
+            "quantity": item.quantity,
+        }
+        for item in inv.items
+    ]
+    validate_sale_inventory(tenant.id, inv.warehouse_id, inventory_items)
+    for item, inventory_data in zip(inv.items, inventory_items):
+        item.batch_id = inventory_data.get("batch_id")
     correlativo, formatted = next_invoice_number(tenant)
     inv.number = formatted
     inv.status = "issued"

@@ -29,6 +29,7 @@ from services.invoice_service import (
     _resolve_batch,
 )
 from services.pdf_generator import generate_quote_pdf
+from services.stock_validation import InventoryAvailabilityError, validate_sale_inventory
 from services.locations import (
     can_user_sell_from_warehouse,
     sale_warehouses_for_user,
@@ -127,6 +128,17 @@ def _apply_pos_header_to_draft(
 
 def _emit_pos_draft(inv: Invoice, tenant) -> None:
     validate_can_emit(tenant)
+    inventory_items = [
+        {
+            "product_id": item.product_id,
+            "batch_id": item.batch_id,
+            "quantity": item.quantity,
+        }
+        for item in inv.items
+    ]
+    validate_sale_inventory(tenant.id, inv.warehouse_id, inventory_items)
+    for item, inventory_data in zip(inv.items, inventory_items):
+        item.batch_id = inventory_data.get("batch_id")
     correlativo, formatted = next_invoice_number(tenant)
     inv.number = formatted
     inv.status = "issued"
@@ -356,6 +368,7 @@ def cobrar():
 
         if status != "draft":
             _validate_pos_payment(payment_breakdown, _cart_total(items_data), sale_type)
+            validate_sale_inventory(tenant.id, warehouse_id, items_data)
 
         if draft_invoice:
             inv = update_invoice(
@@ -406,7 +419,8 @@ def cobrar():
             sale_id=inv.id,
             change=request.form.get("cash_change") or "0.00",
         ))
-    except CAIError as e:
+    except (CAIError, InventoryAvailabilityError) as e:
+        db.session.rollback()
         flash(str(e), "danger")
         return redirect(url_for("pos.quick_sale"))
 
