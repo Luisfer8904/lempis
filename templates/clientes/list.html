@@ -30,7 +30,7 @@
     {% set data = summaries.get(c.id) %}
     {% set s = data.summary %}
     <article class="bg-white rounded-xl border shadow-sm p-4 hover:border-indigo-200 hover:shadow-md transition">
-      <div class="grid 2xl:grid-cols-[minmax(250px,1.05fr)_minmax(180px,.75fr)_minmax(480px,1.4fr)_minmax(100px,auto)] gap-4 items-center">
+      <div class="customer-card-grid">
         <div class="min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
             <a href="{{ url_for('clientes.detail', client_id=c.id) }}"
@@ -59,7 +59,7 @@
           <p class="text-xs text-slate-500 break-all">{{ c.email or 'Sin correo' }}</p>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 min-w-0">
+        <div class="customer-summary-grid min-w-0">
           <div class="rounded-lg bg-slate-50 px-3 py-2 min-w-0">
             <p class="text-xs text-slate-500">Contado</p>
             <p class="font-mono text-sm 2xl:text-base font-semibold tracking-tight whitespace-nowrap text-slate-900">{{ s.cash_total|money }}</p>
@@ -81,7 +81,7 @@
           </div>
         </div>
 
-        <div class="flex 2xl:flex-col gap-2 justify-end">
+        <div class="customer-card-actions">
           <a href="{{ url_for('clientes.detail', client_id=c.id) }}"
              class="inline-flex justify-center rounded-lg border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Ver ficha
