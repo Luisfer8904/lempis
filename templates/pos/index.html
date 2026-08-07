@@ -189,6 +189,12 @@
           </button>
         {% endfor %}
       </div>
+      <div id="product-pagination" class="mt-6 flex flex-col items-center gap-3">
+        <p id="product-pagination-summary" class="text-sm text-slate-500 text-center"></p>
+        <nav id="product-pagination-controls"
+             aria-label="Paginación de productos"
+             class="flex flex-wrap items-center justify-center gap-1.5"></nav>
+      </div>
     {% else %}
       <div class="bg-white rounded-xl border p-12 text-center">
         <div class="text-5xl mb-3">📦</div>
@@ -489,6 +495,8 @@ let pendingNavigationUrl = null;
 let pendingNavigationForm = null;
 let pendingSubmitter = null;
 let selectedCategory = "{{ selected_category or '' }}";
+const PRODUCTS_PER_PAGE = 28;
+let productPage = 1;
 
 function fmt(n) { return TENANT_CURRENCY + " " + Number(n).toFixed(2); }
 function hasUnsavedSale() {
@@ -892,24 +900,101 @@ function loadDraftPayload() {
   customerSelect?.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-function filterProducts() {
+function productPaginationButton(label, page, { active = false, disabled = false } = {}) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = label;
+  button.disabled = disabled;
+  button.className = active
+    ? 'min-w-10 rounded-lg bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white'
+    : disabled
+      ? 'cursor-not-allowed rounded-lg border bg-slate-100 px-3 py-2 text-sm text-slate-400'
+      : 'rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 hover:border-indigo-300 hover:text-indigo-700';
+  if (active) button.setAttribute('aria-current', 'page');
+  if (!disabled && !active) {
+    button.addEventListener('click', () => {
+      productPage = page;
+      filterProducts(false);
+      document.getElementById('products-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+  return button;
+}
+
+function productPaginationPages(totalPages, currentPage) {
+  const pages = new Set([1, totalPages]);
+  for (let page = currentPage - 2; page <= currentPage + 2; page += 1) {
+    if (page >= 1 && page <= totalPages) pages.add(page);
+  }
+  const sorted = [...pages].sort((a, b) => a - b);
+  const result = [];
+  sorted.forEach((page, index) => {
+    if (index && page - sorted[index - 1] > 1) result.push(null);
+    result.push(page);
+  });
+  return result;
+}
+
+function renderProductPagination(totalProducts) {
+  const wrapper = document.getElementById('product-pagination');
+  const summary = document.getElementById('product-pagination-summary');
+  const controls = document.getElementById('product-pagination-controls');
+  if (!wrapper || !summary || !controls) return;
+
+  if (!totalProducts) {
+    wrapper.classList.add('hidden');
+    return;
+  }
+
+  wrapper.classList.remove('hidden');
+  const totalPages = Math.ceil(totalProducts / PRODUCTS_PER_PAGE);
+  productPage = Math.min(Math.max(productPage, 1), totalPages);
+  const firstItem = ((productPage - 1) * PRODUCTS_PER_PAGE) + 1;
+  const lastItem = Math.min(productPage * PRODUCTS_PER_PAGE, totalProducts);
+  summary.textContent = `Mostrando ${firstItem}–${lastItem} de ${totalProducts} productos`;
+  controls.replaceChildren();
+
+  if (totalPages <= 1) return;
+
+  controls.appendChild(productPaginationButton('« Primera', 1, { disabled: productPage === 1 }));
+  controls.appendChild(productPaginationButton('‹ Anterior', productPage - 1, { disabled: productPage === 1 }));
+  productPaginationPages(totalPages, productPage).forEach(page => {
+    if (page === null) {
+      const ellipsis = document.createElement('span');
+      ellipsis.className = 'px-1 text-slate-400';
+      ellipsis.textContent = '…';
+      controls.appendChild(ellipsis);
+      return;
+    }
+    controls.appendChild(productPaginationButton(String(page), page, { active: page === productPage }));
+  });
+  controls.appendChild(productPaginationButton('Siguiente ›', productPage + 1, { disabled: productPage === totalPages }));
+  controls.appendChild(productPaginationButton('Última »', totalPages, { disabled: productPage === totalPages }));
+}
+
+function filterProducts(resetPage = true) {
   const input = document.getElementById('product-search');
   const term = (input?.value || '').trim().toLowerCase();
-  let visible = 0;
-  document.querySelectorAll('.product-card').forEach(card => {
+  if (resetPage) productPage = 1;
+  const cards = Array.from(document.querySelectorAll('.product-card'));
+  const matchingCards = cards.filter(card => {
     const haystack = card.dataset.search || '';
     const categoryMatch = !selectedCategory || card.dataset.categoryId === selectedCategory;
     const searchMatch = !term || haystack.includes(term);
-    const match = categoryMatch && searchMatch;
-    card.classList.toggle('hidden', !match);
-    if (match) visible += 1;
+    return categoryMatch && searchMatch;
   });
+  const totalPages = Math.max(1, Math.ceil(matchingCards.length / PRODUCTS_PER_PAGE));
+  productPage = Math.min(productPage, totalPages);
+  const firstIndex = (productPage - 1) * PRODUCTS_PER_PAGE;
+  const visibleCards = new Set(matchingCards.slice(firstIndex, firstIndex + PRODUCTS_PER_PAGE));
+  cards.forEach(card => card.classList.toggle('hidden', !visibleCards.has(card)));
+  renderProductPagination(matchingCards.length);
   // botón limpiar
   const clearBtn = document.getElementById('clear-search');
   if (clearBtn) clearBtn.classList.toggle('hidden', !term);
   // mensaje "sin resultados"
   const emptyMsg = document.getElementById('search-empty');
-  if (emptyMsg) emptyMsg.classList.toggle('hidden', visible !== 0 || (!term && !selectedCategory));
+  if (emptyMsg) emptyMsg.classList.toggle('hidden', matchingCards.length !== 0 || (!term && !selectedCategory));
 }
 
 function setCategoryFilter(categoryId) {
