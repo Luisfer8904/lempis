@@ -24,6 +24,7 @@ from models.printing import TenantPrintSettings
 from models.user import User
 from services.tenant_context import current_tenant
 from services.currency import format_money
+from services.datetime_utils import local_date_range_to_utc
 from services.permissions import admin_required, permission_required, tenant_required
 from services.invoice_service import (
     issue_invoice, update_invoice, next_invoice_number,
@@ -76,6 +77,12 @@ def list():
     payment_method = request.args.get("payment_method")
     if payment_method not in {"efectivo", "transferencia", "tarjeta", "cheque"}:
         payment_method = None
+    start_date = _parse_filter_date(request.args.get("desde"))
+    end_date = _parse_filter_date(request.args.get("hasta"))
+    if start_date and end_date and start_date > end_date:
+        start_date, end_date = end_date, start_date
+    desde = start_date.isoformat() if start_date else ""
+    hasta = end_date.isoformat() if end_date else ""
     page = max(request.args.get("page", 1, type=int), 1)
     per_page = 30
 
@@ -105,6 +112,12 @@ def list():
                 Invoice.payment_method == payment_method,
             )
             query = query.filter(or_(recorded_payment, legacy_payment))
+    if start_date:
+        period_start, _ = local_date_range_to_utc(start_date, start_date, tenant)
+        query = query.filter(Invoice.issue_date >= period_start)
+    if end_date:
+        _, period_end = local_date_range_to_utc(end_date, end_date, tenant)
+        query = query.filter(Invoice.issue_date < period_end)
 
     pagination = query.order_by(Invoice.issue_date.desc(), Invoice.id.desc()).paginate(
         page=page,
@@ -118,6 +131,8 @@ def list():
             status=status or None,
             sale_type=sale_type,
             payment_method=payment_method,
+            desde=desde or None,
+            hasta=hasta or None,
             page=pagination.pages,
         ))
 
@@ -131,9 +146,16 @@ def list():
     return render_template(
         "facturas/list.html",
         facturas=pagination.items, pagination=pagination, q=q, status=status,
-        sale_type=sale_type, payment_method=payment_method,
+        sale_type=sale_type, payment_method=payment_method, desde=desde, hasta=hasta,
         cai_ok=can_emit_now,
     )
+
+
+def _parse_filter_date(value):
+    try:
+        return datetime.strptime((value or "").strip(), "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        return None
 
 
 # ---------------- CREAR ----------------

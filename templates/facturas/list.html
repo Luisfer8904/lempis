@@ -31,14 +31,32 @@
 
 {# ===== Búsqueda + filtros pills ===== #}
 <form method="GET" class="mb-4">
-  <div class="flex gap-2 mb-3">
+  <div class="flex flex-col gap-3 lg:flex-row lg:items-end">
     <input type="search" name="q" value="{{ q }}"
            placeholder="🔍 Buscar por número, cliente o RTN..."
-           class="flex-1 px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white" />
+           class="min-w-0 flex-1 px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white" />
     <input type="hidden" name="status" value="{{ status or '' }}" />
     <input type="hidden" name="sale_type" value="{{ sale_type or '' }}" />
     <input type="hidden" name="payment_method" value="{{ payment_method or '' }}" />
+    <div class="grid grid-cols-2 gap-2 sm:flex sm:items-end">
+      <label class="text-xs font-medium text-slate-500">
+        <span class="mb-1 block">Desde</span>
+        <input type="date" name="desde" value="{{ desde }}"
+               class="w-full rounded-xl border bg-white px-3 py-2 text-sm text-slate-700 focus:ring-2 focus:ring-indigo-500" />
+      </label>
+      <label class="text-xs font-medium text-slate-500">
+        <span class="mb-1 block">Hasta</span>
+        <input type="date" name="hasta" value="{{ hasta }}"
+               class="w-full rounded-xl border bg-white px-3 py-2 text-sm text-slate-700 focus:ring-2 focus:ring-indigo-500" />
+      </label>
+    </div>
     <button class="bg-slate-700 text-white px-5 py-2 rounded-xl hover:bg-slate-800">Buscar</button>
+    {% if desde or hasta %}
+      <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, payment_method=payment_method or None) }}"
+         class="rounded-xl border bg-white px-4 py-2 text-center text-sm text-slate-600 hover:bg-slate-50">
+        Limpiar fecha
+      </a>
+    {% endif %}
   </div>
 </form>
 
@@ -52,7 +70,7 @@
     ('overdue',        'Vencidas',     'bg-rose-600'),
   ] %}
   {% for code, label, color in filters %}
-    <a href="{{ url_for('facturas.list', q=q or None, status=code or None, sale_type=sale_type or None, payment_method=payment_method or None) }}"
+    <a href="{{ url_for('facturas.list', q=q or None, status=code or None, sale_type=sale_type or None, payment_method=payment_method or None, desde=desde or None, hasta=hasta or None) }}"
        class="px-4 py-1.5 rounded-full text-sm whitespace-nowrap
               {% if (status or '') == code %}
                 {{ color }} text-white font-medium
@@ -70,7 +88,7 @@
     ('credito',  'Crédito', 'bg-sky-600'),
   ] %}
   {% for code, label, color in sale_type_filters %}
-    <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=code or None, payment_method=payment_method or None) }}"
+    <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=code or None, payment_method=payment_method or None, desde=desde or None, hasta=hasta or None) }}"
        class="px-4 py-1.5 rounded-full text-sm whitespace-nowrap
               {% if (sale_type or '') == code %}
                 {{ color }} text-white font-medium
@@ -90,7 +108,7 @@
     ('cheque',        'Cheque',        'bg-amber-600'),
   ] %}
   {% for code, label, color in payment_method_filters %}
-    <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, payment_method=code or None) }}"
+    <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, payment_method=code or None, desde=desde or None, hasta=hasta or None) }}"
        class="px-4 py-1.5 rounded-full text-sm whitespace-nowrap
               {% if (payment_method or '') == code %}
                 {{ color }} text-white font-medium
@@ -183,11 +201,11 @@
     {% if pagination.pages > 1 %}
       <nav aria-label="Paginación de ventas" class="flex flex-wrap items-center justify-center gap-1.5">
         {% if pagination.has_prev %}
-          <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, payment_method=payment_method or None, page=1) }}"
+          <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, payment_method=payment_method or None, desde=desde or None, hasta=hasta or None, page=1) }}"
              class="rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 hover:border-indigo-300 hover:text-indigo-700">
             « Primera
           </a>
-          <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, payment_method=payment_method or None, page=pagination.prev_num) }}"
+          <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, payment_method=payment_method or None, desde=desde or None, hasta=hasta or None, page=pagination.prev_num) }}"
              class="rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 hover:border-indigo-300 hover:text-indigo-700">
             ‹ Anterior
           </a>
@@ -204,7 +222,7 @@
                 {{ page_number }}
               </span>
             {% else %}
-              <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, payment_method=payment_method or None, page=page_number) }}"
+              <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, payment_method=payment_method or None, desde=desde or None, hasta=hasta or None, page=page_number) }}"
                  class="min-w-10 rounded-lg border bg-white px-3 py-2 text-center text-sm text-slate-700 hover:border-indigo-300 hover:text-indigo-700">
                 {{ page_number }}
               </a>
@@ -215,11 +233,11 @@
         {% endfor %}
 
         {% if pagination.has_next %}
-          <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, payment_method=payment_method or None, page=pagination.next_num) }}"
+          <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, payment_method=payment_method or None, desde=desde or None, hasta=hasta or None, page=pagination.next_num) }}"
              class="rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 hover:border-indigo-300 hover:text-indigo-700">
             Siguiente ›
           </a>
-          <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, payment_method=payment_method or None, page=pagination.pages) }}"
+          <a href="{{ url_for('facturas.list', q=q or None, status=status or None, sale_type=sale_type or None, payment_method=payment_method or None, desde=desde or None, hasta=hasta or None, page=pagination.pages) }}"
              class="rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 hover:border-indigo-300 hover:text-indigo-700">
             Última »
           </a>
@@ -235,7 +253,7 @@
   <div class="text-center py-20 bg-white rounded-xl border">
     <div class="text-6xl mb-3">🧾</div>
     <p class="text-lg text-slate-700 font-medium mb-1">
-      {% if q or status or sale_type or payment_method %}
+      {% if q or status or sale_type or payment_method or desde or hasta %}
         No encontramos facturas con esos filtros
       {% else %}
         Aún no has emitido facturas
