@@ -68,6 +68,9 @@ def list():
     tenant = current_tenant()
     q = (request.args.get("q") or "").strip()
     status = request.args.get("status")
+    sale_type = request.args.get("sale_type")
+    if sale_type not in {"contado", "credito"}:
+        sale_type = None
     page = max(request.args.get("page", 1, type=int), 1)
     per_page = 30
 
@@ -81,6 +84,10 @@ def list():
         ))
     if status:
         query = query.filter_by(status=status)
+    if sale_type == "credito":
+        query = query.filter(Invoice.payment_method == "credito")
+    elif sale_type == "contado":
+        query = query.filter(Invoice.payment_method != "credito")
 
     pagination = query.order_by(Invoice.issue_date.desc(), Invoice.id.desc()).paginate(
         page=page,
@@ -92,6 +99,7 @@ def list():
             "facturas.list",
             q=q or None,
             status=status or None,
+            sale_type=sale_type,
             page=pagination.pages,
         ))
 
@@ -104,7 +112,7 @@ def list():
 
     return render_template(
         "facturas/list.html",
-        facturas=pagination.items, pagination=pagination, q=q, status=status,
+        facturas=pagination.items, pagination=pagination, q=q, status=status, sale_type=sale_type,
         cai_ok=can_emit_now,
     )
 
