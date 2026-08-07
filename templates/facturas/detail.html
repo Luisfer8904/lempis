@@ -16,6 +16,7 @@
     📄 Descargar PDF
   </a>
   <a href="{{ url_for('facturas.orden_carga', invoice_id=factura.id) }}"
+     onclick="return openLoadOrderWindow(event, this.href)"
      class="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 text-sm">
     Orden de carga
   </a>
@@ -295,4 +296,12 @@
     window.addEventListener('afterprint', () => setTimeout(goNextAfterPrint, 300));
   </script>
 {% endif %}
+<script>
+  function openLoadOrderWindow(event, url) {
+    event.preventDefault();
+    const printWindow = window.open(url, '_blank', 'popup=yes,width=520,height=820');
+    if (!printWindow) window.location.href = url;
+    return false;
+  }
+</script>
 {% endblock %}

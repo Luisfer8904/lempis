@@ -457,12 +457,12 @@
         <span class="font-mono text-xl font-bold text-emerald-700">{{ tenant.currency }} {{ sale_result.change }}</span>
       </div>
       <div class="grid gap-2">
-        <a href="{{ sale_result.ticket_url }}" target="_blank" rel="noopener"
-           class="w-full rounded-lg bg-emerald-600 px-4 py-3 text-center text-sm font-bold text-white hover:bg-emerald-700">
+        <a href="{{ sale_result.ticket_url }}"
+           class="print-window-link w-full rounded-lg bg-emerald-600 px-4 py-3 text-center text-sm font-bold text-white hover:bg-emerald-700">
           Imprimir factura
         </a>
-        <a href="{{ sale_result.load_order_url }}" target="_blank" rel="noopener"
-           class="w-full rounded-lg bg-amber-600 px-4 py-3 text-center text-sm font-bold text-white hover:bg-amber-700">
+        <a href="{{ sale_result.load_order_url }}"
+           class="print-window-link w-full rounded-lg bg-amber-600 px-4 py-3 text-center text-sm font-bold text-white hover:bg-amber-700">
           Imprimir orden de carga
         </a>
       </div>
@@ -1099,6 +1099,14 @@ document.getElementById('sale-result-close')?.addEventListener('click', () => {
   url.searchParams.delete('sale_id');
   url.searchParams.delete('change');
   window.history.replaceState({}, '', url.toString());
+});
+
+document.querySelectorAll('.print-window-link').forEach(link => {
+  link.addEventListener('click', event => {
+    event.preventDefault();
+    const printWindow = window.open(link.href, '_blank', 'popup=yes,width=520,height=820');
+    if (!printWindow) window.location.href = link.href;
+  });
 });
 document.getElementById('checkout-form').addEventListener('submit', e => {
   const action = e.submitter?.value || 'charge';

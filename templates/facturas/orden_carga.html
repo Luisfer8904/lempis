@@ -241,6 +241,8 @@
   </main>
 
   <script>
+    const RETURN_URL = {{ url_for('facturas.detail', invoice_id=factura.id)|tojson }};
+
     function prepareLoadOrderPrint() {
       const ticket = document.querySelector('.ticket');
       if (!ticket) return;
@@ -262,12 +264,23 @@
     }
 
     function closePrintWindow() {
-      window.close();
-      setTimeout(() => {
-        if (!window.closed) {
-          alert('Puedes cerrar esta pestaña desde la X del navegador.');
-        }
-      }, 200);
+      if (window.opener && !window.opener.closed) {
+        window.opener.focus();
+        window.close();
+        setTimeout(() => {
+          if (!window.closed) returnToInvoice();
+        }, 200);
+        return;
+      }
+      returnToInvoice();
+    }
+
+    function returnToInvoice() {
+      if (window.history.length > 1) {
+        window.history.back();
+      } else {
+        window.location.replace(RETURN_URL);
+      }
     }
 
     window.addEventListener('beforeprint', prepareLoadOrderPrint);
