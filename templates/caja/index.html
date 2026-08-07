@@ -4,9 +4,9 @@
 
 {% block actions %}
 {% if current_user.has_permission('cash.manage') %}
-  <a href="{{ url_for('caja.new_closure') }}"
+  <a href="{{ url_for('caja.new_closure', fecha=desde if is_single_day else None) }}"
      class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
-    + Nuevo cierre
+    + Cerrar fecha
   </a>
 {% endif %}
 {% endblock %}
@@ -159,6 +159,51 @@
       {% else %}
         <p class="mt-3 text-xs text-amber-700/80">Aún no hay gastos ni retiros registrados hoy.</p>
       {% endif %}
+    </div>
+  {% endif %}
+{% endif %}
+
+{% if is_single_day and not is_today_view %}
+  {% if selected_closure and selected_closure.status == 'closed' %}
+    <div class="mb-5 rounded-2xl border-2 border-emerald-200 bg-gradient-to-r from-emerald-50 to-white p-5">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] text-emerald-700 font-bold">✓ Caja cerrada</p>
+          <h2 class="mt-1 text-xl font-bold text-slate-900">{{ selected_date.strftime('%d/%m/%Y') }}</h2>
+          <p class="mt-1 text-sm text-slate-500">Esta fecha ya cuenta con un cierre registrado.</p>
+        </div>
+        {% if current_user.has_permission('cash.edit_closure') %}
+          <a href="{{ url_for('caja.edit_closure', closure_id=selected_closure.id) }}"
+             class="rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">
+            Editar cierre
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    {% set old_cash = selected_summary.cash_sales_amount + selected_summary.receivable_cash_amount %}
+    {% set old_transfer = selected_summary.transfer_sales_amount + selected_summary.receivable_transfer_amount %}
+    {% set old_card = selected_summary.card_sales_amount + selected_summary.receivable_card_amount %}
+    {% set old_check = selected_summary.check_sales_amount + selected_summary.receivable_check_amount %}
+    <div class="mb-5 rounded-2xl border-2 border-amber-200 bg-gradient-to-r from-amber-50 to-white p-5">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] text-amber-700 font-bold">Pendiente de cierre</p>
+          <h2 class="mt-1 text-xl font-bold text-slate-900">Caja del {{ selected_date.strftime('%d/%m/%Y') }}</h2>
+          <p class="mt-1 text-sm text-slate-600">
+            Efectivo: <strong>{{ old_cash|money }}</strong>
+            · Transferencias: <strong>{{ old_transfer|money }}</strong>
+            · Tarjeta: <strong>{{ old_card|money }}</strong>
+            · Cheques: <strong>{{ old_check|money }}</strong>
+          </p>
+        </div>
+        {% if current_user.has_permission('cash.manage') %}
+          <a href="{{ url_for('caja.new_closure', fecha=selected_date.isoformat()) }}"
+             class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow hover:bg-indigo-700">
+            Cerrar esta fecha
+          </a>
+        {% endif %}
+      </div>
     </div>
   {% endif %}
 {% endif %}

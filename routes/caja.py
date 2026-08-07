@@ -91,6 +91,20 @@ def index():
     )
     today_summary = _suggested_closure_values(tenant.id, today)
     is_single_day = (start_date == end_date)
+    selected_date = start_date if is_single_day else None
+    selected_closure = (
+        CashClosure.query
+        .filter(
+            CashClosure.tenant_id == tenant.id,
+            CashClosure.closure_date == selected_date,
+        )
+        .first()
+        if selected_date is not None else None
+    )
+    selected_summary = (
+        _suggested_closure_values(tenant.id, selected_date)
+        if selected_date is not None else None
+    )
     summary = _cash_summary(
         tenant.id,
         period_start,
@@ -144,6 +158,9 @@ def index():
         today_summary=today_summary,
         is_single_day=is_single_day,
         is_today_view=(start_date == today and end_date == today),
+        selected_date=selected_date,
+        selected_closure=selected_closure,
+        selected_summary=selected_summary,
         warehouses=_active_warehouses(tenant.id),
         yesterday_iso=yesterday.isoformat(),
         week_start_iso=week_start.isoformat(),
@@ -159,7 +176,13 @@ def index():
 @permission_required("cash.manage")
 def new_closure():
     tenant = current_tenant()
-    closure_date = _parse_date(request.values.get("fecha")) or tenant_today(tenant)
+    today = tenant_today(tenant)
+    closure_date = _parse_date(
+        request.values.get("closure_date") or request.values.get("fecha")
+    ) or today
+    if closure_date > today:
+        flash("No puedes cerrar una fecha futura.", "warning")
+        return redirect(url_for("caja.index"))
 
     existing = (
         CashClosure.query
@@ -200,6 +223,7 @@ def new_closure():
         branches=branches,
         warehouses=warehouses,
         fecha=closure_date.isoformat(),
+        today=today.isoformat(),
     )
 
 
@@ -250,6 +274,7 @@ def open_day():
 @permission_required("cash.edit_closure")
 def edit_closure(closure_id):
     tenant = current_tenant()
+    today = tenant_today(tenant)
     closure = CashClosure.query.filter_by(id=closure_id, tenant_id=tenant.id).first_or_404()
     suggested = _suggested_closure_values(tenant.id, closure.closure_date)
     branches = _active_branches(tenant.id)
@@ -272,6 +297,7 @@ def edit_closure(closure_id):
         branches=branches,
         warehouses=warehouses,
         fecha=closure.closure_date.isoformat(),
+        today=today.isoformat(),
     )
 
 

@@ -18,7 +18,13 @@
     <div class="grid md:grid-cols-3 gap-4 mt-5">
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-1">Fecha</label>
-        <input type="date" name="closure_date" value="{{ fecha }}" class="w-full rounded-lg border px-3 py-2" />
+        <input type="date" name="closure_date" value="{{ fecha }}" max="{{ today }}"
+               {% if closure %}readonly{% endif %}
+               {% if not closure %}onchange="window.location.href='{{ url_for('caja.new_closure') }}?fecha=' + encodeURIComponent(this.value)"{% endif %}
+               class="w-full rounded-lg border px-3 py-2 {% if closure %}bg-slate-100 text-slate-500{% endif %}" />
+        {% if not closure %}
+          <p class="mt-1 text-xs text-slate-500">Puedes seleccionar cualquier fecha anterior que todavía no tenga cierre.</p>
+        {% endif %}
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-1">Sede</label>
