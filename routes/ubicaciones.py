@@ -49,13 +49,19 @@ def index():
     warehouses = Warehouse.query.filter_by(tenant_id=tenant.id).order_by(Warehouse.is_default.desc(), Warehouse.name.asc()).all()
     products = Product.query.filter_by(tenant_id=tenant.id, is_active=True, kind="product").order_by(Product.name.asc()).all()
     stock_rows = _stock_rows(tenant.id)
-    movements = (
+    movement_page = max(request.args.get("movement_page", 1, type=int), 1)
+    movement_pagination = (
         StockMovement.query
         .filter(StockMovement.tenant_id == tenant.id)
         .order_by(StockMovement.created_at.desc(), StockMovement.id.desc())
-        .limit(12)
-        .all()
+        .paginate(page=movement_page, per_page=15, error_out=False)
     )
+    if movement_pagination.pages and movement_page > movement_pagination.pages:
+        return redirect(url_for(
+            "ubicaciones.index",
+            movement_page=movement_pagination.pages,
+            _anchor="movimientos-recientes",
+        ))
     return render_template(
         "ubicaciones/index.html",
         tenant=tenant,
@@ -63,7 +69,8 @@ def index():
         warehouses=warehouses,
         products=products,
         stock_rows=stock_rows,
-        movements=movements,
+        movements=movement_pagination.items,
+        movement_pagination=movement_pagination,
     )
 
 

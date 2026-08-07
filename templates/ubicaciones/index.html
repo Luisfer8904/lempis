@@ -11,10 +11,20 @@
           <h2 class="text-lg font-semibold text-slate-900">Ubicaciones de inventario</h2>
           <p class="text-sm text-slate-500">Cada sede puede tener una o varias bodegas.</p>
         </div>
-        <a href="{{ url_for('reportes.detallado', tipo='inventario') }}"
-           class="rounded-lg border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Ver reporte
-        </a>
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" onclick="openLocationModal('branch-modal')"
+                  class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900">
+            + Nueva sede
+          </button>
+          <button type="button" onclick="openLocationModal('warehouse-modal')"
+                  class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">
+            + Nueva bodega
+          </button>
+          <a href="{{ url_for('reportes.detallado', tipo='inventario') }}"
+             class="rounded-lg border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Ver reporte
+          </a>
+        </div>
       </div>
       <div class="divide-y">
         {% for branch in branches %}
@@ -236,34 +246,90 @@
       </button>
     </form>
 
-    <form method="POST" class="bg-white rounded-xl border shadow-sm p-5 space-y-4">
-      <input type="hidden" name="action" value="branch" />
-      <h2 class="font-semibold text-slate-900">Nueva sede</h2>
-      <input name="branch_name" required class="w-full px-3 py-2 border rounded-lg" placeholder="Sede Catacamas" />
-      <div class="grid grid-cols-2 gap-3">
-        <input name="branch_code" class="w-full px-3 py-2 border rounded-lg" placeholder="Código" />
-        <input name="branch_city" class="w-full px-3 py-2 border rounded-lg" placeholder="Ciudad" />
-      </div>
-      <textarea name="branch_address" rows="2" class="w-full px-3 py-2 border rounded-lg" placeholder="Dirección"></textarea>
-      <button class="w-full bg-slate-800 text-white py-2 rounded-lg font-medium hover:bg-slate-900">Crear sede</button>
-    </form>
-
-    <form method="POST" class="bg-white rounded-xl border shadow-sm p-5 space-y-4">
-      <input type="hidden" name="action" value="warehouse" />
-      <h2 class="font-semibold text-slate-900">Nueva bodega</h2>
-      <select name="warehouse_branch_id" required class="w-full px-3 py-2 border rounded-lg bg-white">
-        {% for branch in branches if branch.is_active %}
-          <option value="{{ branch.id }}">{{ branch.name }}</option>
-        {% endfor %}
-      </select>
-      <input name="warehouse_name" required class="w-full px-3 py-2 border rounded-lg" placeholder="Tienda" />
-      <input name="warehouse_code" class="w-full px-3 py-2 border rounded-lg" placeholder="Código" />
-      <button class="w-full bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700">Crear bodega</button>
-    </form>
   </aside>
 </section>
 
-<section class="mt-6 bg-white rounded-xl border shadow-sm overflow-hidden">
+<div id="branch-modal" data-location-modal class="hidden fixed inset-0 z-50 items-center justify-center bg-slate-900/50 p-4"
+     role="dialog" aria-modal="true" aria-labelledby="branch-modal-title">
+  <div class="w-full max-w-md rounded-xl bg-white shadow-2xl" data-modal-panel>
+    <div class="flex items-center justify-between border-b px-5 py-4">
+      <div>
+        <h2 id="branch-modal-title" class="font-semibold text-slate-900">Nueva sede</h2>
+        <p class="text-xs text-slate-500">Registra una nueva ubicación de la empresa.</p>
+      </div>
+      <button type="button" onclick="closeLocationModal('branch-modal')"
+              class="rounded-lg px-2 py-1 text-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              aria-label="Cerrar">×</button>
+    </div>
+    <form method="POST" class="space-y-3 p-5">
+      <input type="hidden" name="action" value="branch" />
+      <div>
+        <label class="mb-1 block text-sm font-medium">Nombre *</label>
+        <input name="branch_name" required class="w-full rounded-lg border px-3 py-2" placeholder="Sede Catacamas" />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="mb-1 block text-sm font-medium">Código</label>
+          <input name="branch_code" class="w-full rounded-lg border px-3 py-2" placeholder="CAT" />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">Ciudad</label>
+          <input name="branch_city" class="w-full rounded-lg border px-3 py-2" placeholder="Catacamas" />
+        </div>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium">Dirección</label>
+        <textarea name="branch_address" rows="2" class="w-full rounded-lg border px-3 py-2" placeholder="Dirección"></textarea>
+      </div>
+      <div class="flex justify-end gap-2 pt-1">
+        <button type="button" onclick="closeLocationModal('branch-modal')"
+                class="rounded-lg border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancelar</button>
+        <button class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900">Crear sede</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="warehouse-modal" data-location-modal class="hidden fixed inset-0 z-50 items-center justify-center bg-slate-900/50 p-4"
+     role="dialog" aria-modal="true" aria-labelledby="warehouse-modal-title">
+  <div class="w-full max-w-md rounded-xl bg-white shadow-2xl" data-modal-panel>
+    <div class="flex items-center justify-between border-b px-5 py-4">
+      <div>
+        <h2 id="warehouse-modal-title" class="font-semibold text-slate-900">Nueva bodega</h2>
+        <p class="text-xs text-slate-500">Agrégala dentro de una sede existente.</p>
+      </div>
+      <button type="button" onclick="closeLocationModal('warehouse-modal')"
+              class="rounded-lg px-2 py-1 text-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              aria-label="Cerrar">×</button>
+    </div>
+    <form method="POST" class="space-y-3 p-5">
+      <input type="hidden" name="action" value="warehouse" />
+      <div>
+        <label class="mb-1 block text-sm font-medium">Sede *</label>
+        <select name="warehouse_branch_id" required class="w-full rounded-lg border bg-white px-3 py-2">
+          {% for branch in branches if branch.is_active %}
+            <option value="{{ branch.id }}">{{ branch.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium">Nombre *</label>
+        <input name="warehouse_name" required class="w-full rounded-lg border px-3 py-2" placeholder="Tienda" />
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium">Código</label>
+        <input name="warehouse_code" class="w-full rounded-lg border px-3 py-2" placeholder="Código" />
+      </div>
+      <div class="flex justify-end gap-2 pt-1">
+        <button type="button" onclick="closeLocationModal('warehouse-modal')"
+                class="rounded-lg border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancelar</button>
+        <button class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">Crear bodega</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<section id="movimientos-recientes" class="mt-6 bg-white rounded-xl border shadow-sm overflow-hidden">
   <div class="px-6 py-5 border-b">
     <h2 class="text-lg font-semibold text-slate-900">Movimientos recientes</h2>
     <p class="text-sm text-slate-500">Registro de sobrantes, faltantes y transferencias que afectan inventario.</p>
@@ -312,9 +378,82 @@
       </tbody>
     </table>
   </div>
+  {% if movements %}
+    {% set first_movement = ((movement_pagination.page - 1) * movement_pagination.per_page) + 1 %}
+    {% set last_movement = first_movement + (movements|length) - 1 %}
+    <div class="border-t px-4 py-4 flex flex-col items-center gap-3">
+      <p class="text-sm text-slate-500 text-center">
+        Mostrando {{ first_movement }}–{{ last_movement }} de {{ movement_pagination.total }} movimientos
+      </p>
+      {% if movement_pagination.pages > 1 %}
+        <nav aria-label="Paginación de movimientos recientes" class="flex flex-wrap items-center justify-center gap-1.5">
+          {% if movement_pagination.has_prev %}
+            <a href="{{ url_for('ubicaciones.index', movement_page=1, _anchor='movimientos-recientes') }}"
+               class="rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 hover:border-indigo-300 hover:text-indigo-700">« Primera</a>
+            <a href="{{ url_for('ubicaciones.index', movement_page=movement_pagination.prev_num, _anchor='movimientos-recientes') }}"
+               class="rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 hover:border-indigo-300 hover:text-indigo-700">‹ Anterior</a>
+          {% else %}
+            <span class="cursor-not-allowed rounded-lg border bg-slate-100 px-3 py-2 text-sm text-slate-400">« Primera</span>
+            <span class="cursor-not-allowed rounded-lg border bg-slate-100 px-3 py-2 text-sm text-slate-400">‹ Anterior</span>
+          {% endif %}
+
+          {% for page_number in movement_pagination.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
+            {% if page_number %}
+              {% if page_number == movement_pagination.page %}
+                <span aria-current="page" class="min-w-10 rounded-lg bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white">{{ page_number }}</span>
+              {% else %}
+                <a href="{{ url_for('ubicaciones.index', movement_page=page_number, _anchor='movimientos-recientes') }}"
+                   class="min-w-10 rounded-lg border bg-white px-3 py-2 text-center text-sm text-slate-700 hover:border-indigo-300 hover:text-indigo-700">{{ page_number }}</a>
+              {% endif %}
+            {% else %}
+              <span class="px-1 text-slate-400">…</span>
+            {% endif %}
+          {% endfor %}
+
+          {% if movement_pagination.has_next %}
+            <a href="{{ url_for('ubicaciones.index', movement_page=movement_pagination.next_num, _anchor='movimientos-recientes') }}"
+               class="rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 hover:border-indigo-300 hover:text-indigo-700">Siguiente ›</a>
+            <a href="{{ url_for('ubicaciones.index', movement_page=movement_pagination.pages, _anchor='movimientos-recientes') }}"
+               class="rounded-lg border bg-white px-3 py-2 text-sm text-slate-700 hover:border-indigo-300 hover:text-indigo-700">Última »</a>
+          {% else %}
+            <span class="cursor-not-allowed rounded-lg border bg-slate-100 px-3 py-2 text-sm text-slate-400">Siguiente ›</span>
+            <span class="cursor-not-allowed rounded-lg border bg-slate-100 px-3 py-2 text-sm text-slate-400">Última »</span>
+          {% endif %}
+        </nav>
+      {% endif %}
+    </div>
+  {% endif %}
 </section>
 
 <script>
+function openLocationModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  document.body.classList.add('overflow-hidden');
+  window.setTimeout(() => modal.querySelector('input:not([type="hidden"]), select')?.focus(), 0);
+}
+
+function closeLocationModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+  document.body.classList.remove('overflow-hidden');
+}
+
+document.querySelectorAll('[data-location-modal]').forEach(modal => {
+  modal.addEventListener('mousedown', event => {
+    if (event.target === modal) closeLocationModal(modal.id);
+  });
+});
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape') return;
+  const openModal = document.querySelector('[data-location-modal].flex');
+  if (openModal) closeLocationModal(openModal.id);
+});
+
 const WAREHOUSE_STOCK_ROWS_PER_PAGE = 20;
 let warehouseStockPage = 1;
 
