@@ -13,6 +13,44 @@ class InventoryAvailabilityError(Exception):
     """La venta solicita más inventario del disponible en la bodega."""
 
 
+def sale_stock_map_for_warehouse(tenant_id: int, warehouse_id: int) -> dict[int, Decimal]:
+    """Existencia realmente vendible por producto desde una bodega.
+
+    Los productos con lotes usan la mayor cantidad disponible en un solo lote,
+    porque cada línea de factura se vincula a un lote específico.
+    """
+    products = Product.query.filter_by(tenant_id=tenant_id, is_active=True).all()
+    rows = WarehouseStock.query.filter_by(
+        tenant_id=tenant_id,
+        warehouse_id=warehouse_id,
+    ).all()
+    rows_by_product: dict[int, list[WarehouseStock]] = defaultdict(list)
+    for row in rows:
+        rows_by_product[row.product_id].append(row)
+
+    result: dict[int, Decimal] = {}
+    for product in products:
+        product_rows = rows_by_product.get(product.id, [])
+        batch_rows = [row for row in product_rows if row.batch_id and row.batch is not None]
+        if product.track_batches and batch_rows:
+            result[product.id] = max(
+                (
+                    max(
+                        min(Decimal(row.quantity or 0), Decimal(row.batch.remaining_quantity or 0)),
+                        Decimal("0.00"),
+                    )
+                    for row in batch_rows
+                ),
+                default=Decimal("0.00"),
+            )
+        else:
+            result[product.id] = sum(
+                (Decimal(row.quantity or 0) for row in product_rows if row.batch_id is None),
+                Decimal("0.00"),
+            )
+    return result
+
+
 def validate_sale_inventory(tenant_id: int, warehouse_id: int | None, items_data: list[dict]) -> None:
     """Bloquea existencias y valida cada línea antes de descontar inventario.
 

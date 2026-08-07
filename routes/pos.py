@@ -29,12 +29,15 @@ from services.invoice_service import (
     _resolve_batch,
 )
 from services.pdf_generator import generate_quote_pdf
-from services.stock_validation import InventoryAvailabilityError, validate_sale_inventory
+from services.stock_validation import (
+    InventoryAvailabilityError,
+    sale_stock_map_for_warehouse,
+    validate_sale_inventory,
+)
 from services.locations import (
     can_user_sell_from_warehouse,
     sale_warehouses_for_user,
     subtract_stock,
-    stock_map_for_warehouse,
     sync_default_warehouse_stock,
 )
 
@@ -63,7 +66,7 @@ def _get_draft_for_pos(tenant, draft_id: int | None) -> Invoice | None:
     ).first()
 
 
-def _draft_payload(inv: Invoice | None) -> dict | None:
+def _draft_payload(inv: Invoice | None, stock_map: dict[int, Decimal] | None = None) -> dict | None:
     if inv is None:
         return None
 
@@ -86,6 +89,7 @@ def _draft_payload(inv: Invoice | None) -> dict | None:
             "tax": float(item.tax_rate or 0),
             "image": product.image_url if product else "",
             "qty": float(item.quantity or 1),
+            "stock": float((stock_map or {}).get(item.product_id, 0)) if product and product.track_stock else None,
             "customPrice": True,
         })
 
@@ -208,7 +212,7 @@ def quick_sale():
             Product.sku.ilike(like),
         ))
     productos = productos_q.order_by(Product.name.asc()).all()
-    stock_map = stock_map_for_warehouse(tenant.id, selected_warehouse_id)
+    stock_map = sale_stock_map_for_warehouse(tenant.id, selected_warehouse_id)
     for product in productos:
         product.warehouse_stock = Decimal(stock_map.get(product.id, 0))
 
@@ -258,7 +262,7 @@ def quick_sale():
         can_emit=can_emit, reason=reason,
         warehouses=warehouses, selected_warehouse_id=selected_warehouse_id,
         draft_invoice=draft_invoice,
-        draft_payload=_draft_payload(draft_invoice),
+        draft_payload=_draft_payload(draft_invoice, stock_map),
         open_drafts=open_drafts,
         sale_result=sale_result,
     )

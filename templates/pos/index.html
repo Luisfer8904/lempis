@@ -161,7 +161,8 @@
                   data-search="{{ (p.name ~ ' ' ~ p.sku ~ ' ' ~ (p.category.name if p.category else '')) | lower }}"
                   onclick="addToCart(this)"
                   class="bg-white rounded-xl border hover:border-indigo-400 hover:shadow-md transition
-                         text-left overflow-hidden flex flex-col cursor-pointer product-card"
+                         text-left overflow-hidden flex flex-col cursor-pointer product-card
+                         disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none disabled:hover:border-slate-200"
                   {% if p.track_stock and p.warehouse_stock <= 0 %}disabled{% endif %}>
             <div class="aspect-square bg-slate-50 flex items-center justify-center overflow-hidden">
               {% if p.image_url %}
@@ -212,6 +213,7 @@
       <button type="button" onclick="clearCart()"
               class="text-xs text-rose-600 hover:underline">Vaciar</button>
     </div>
+    <div id="cart-stock-warning" class="hidden mx-4 mt-3 rounded-lg bg-amber-100 px-3 py-2 text-sm font-medium text-amber-800"></div>
 
     <form method="POST" action="{{ url_for('pos.cobrar') }}" id="checkout-form"
           class="flex-1 flex flex-col">
@@ -575,16 +577,50 @@ function getPriceForTier(source, tier) {
   return general;
 }
 
+let stockWarningTimer = null;
+
+function parseAvailableStock(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : null;
+}
+
+function showStockWarning(item, requestedQty = null) {
+  const warning = document.getElementById('cart-stock-warning');
+  if (!warning) return;
+  const available = Number(item.stock || 0);
+  warning.textContent = available <= 0
+    ? `${item.name} está agotado en esta bodega.`
+    : `Solo hay ${available.toFixed(2)} disponibles de ${item.name}${requestedQty ? `; no se agregó la cantidad ${Number(requestedQty).toFixed(2)}` : ''}.`;
+  warning.classList.remove('hidden');
+  clearTimeout(stockWarningTimer);
+  stockWarningTimer = setTimeout(() => warning.classList.add('hidden'), 5000);
+}
+
+function exceedsAvailableStock(item, quantity) {
+  return item.stock !== null && quantity > item.stock + 0.000001;
+}
+
 function addToCart(btn) {
   const id = btn.dataset.id;
   const tier = getSelectedTier();
   const existing = cart.get(id);
+  const availableStock = parseAvailableStock(btn.dataset.stock);
   if (existing) {
+    if (exceedsAvailableStock(existing, existing.qty + 1)) {
+      showStockWarning(existing, existing.qty + 1);
+      return;
+    }
     existing.qty += 1;
     if (!existing.customPrice) {
       existing.price = getPriceForTier(existing.basePrices, tier);
     }
   } else {
+    const initialQty = availableStock === null ? 1 : Math.min(1, availableStock);
+    if (initialQty <= 0) {
+      showStockWarning({name: btn.dataset.name, stock: availableStock});
+      return;
+    }
     cart.set(id, {
       id,
       name: btn.dataset.name,
@@ -597,7 +633,8 @@ function addToCart(btn) {
       price: getPriceForTier(btn, tier),
       tax: Number.parseFloat(btn.dataset.tax || '0'),
       image: btn.dataset.image,
-      qty: 1,
+      qty: initialQty,
+      stock: availableStock,
       customPrice: false,
     });
   }
@@ -607,7 +644,12 @@ function addToCart(btn) {
 function changeQty(id, delta) {
   const item = cart.get(id);
   if (!item) return;
-  item.qty = Math.max(0, item.qty + delta);
+  const nextQty = Math.max(0, item.qty + delta);
+  if (exceedsAvailableStock(item, nextQty)) {
+    showStockWarning(item, nextQty);
+    return;
+  }
+  item.qty = nextQty;
   if (item.qty === 0) cart.delete(id);
   renderCart();
 }
@@ -617,7 +659,9 @@ function setQty(id, value) {
   if (!item) return;
   const v = parseFloat(value);
   if (isNaN(v) || v <= 0) { cart.delete(id); }
-  else { item.qty = v; }
+  else if (exceedsAvailableStock(item, v)) {
+    showStockWarning(item, v);
+  } else { item.qty = v; }
   renderCart();
 }
 
@@ -825,6 +869,12 @@ function loadDraftPayload() {
 
   (DRAFT_PAYLOAD.items || []).forEach(item => {
     if (!item.id) return;
+    const stock = parseAvailableStock(item.stock);
+    const requestedQty = Number.parseFloat(item.qty || 1);
+    if (stock !== null && stock <= 0) {
+      showStockWarning({...item, stock});
+      return;
+    }
     cart.set(String(item.id), {
       id: String(item.id),
       name: item.name || '',
@@ -833,7 +883,8 @@ function loadDraftPayload() {
       price: Number.parseFloat(item.price || 0),
       tax: Number.parseFloat(item.tax || 0),
       image: item.image || '',
-      qty: Number.parseFloat(item.qty || 1),
+      qty: stock === null ? requestedQty : Math.min(requestedQty, stock),
+      stock,
       customPrice: true,
     });
   });
@@ -923,15 +974,17 @@ function renderCart() {
           ${fmt(item.price)} c/u
         </button>
         ${item.customPrice ? '<span class="ml-1 text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">Manual</span>' : ''}
+        ${item.stock === null ? '' : `<p class="text-[11px] text-slate-500">Disponible: ${Number(item.stock).toFixed(2)}</p>`}
       </div>
       <div class="flex items-center gap-1">
         <button type="button" onclick="changeQty('${item.id}', -1)"
                 class="w-7 h-7 bg-white border rounded hover:bg-slate-100">−</button>
-        <input type="number" min="0" step="0.01" value="${item.qty}"
+        <input type="number" min="0" ${item.stock === null ? '' : `max="${item.stock}"`} step="0.01" value="${item.qty}"
                onchange="setQty('${item.id}', this.value)"
                class="w-12 text-center text-sm border rounded py-1" />
         <button type="button" onclick="changeQty('${item.id}', 1)"
-                class="w-7 h-7 bg-white border rounded hover:bg-slate-100">+</button>
+                ${item.stock !== null && item.qty >= item.stock ? 'disabled' : ''}
+                class="w-7 h-7 bg-white border rounded hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40">+</button>
         <button type="button" onclick="removeCartItem('${item.id}')"
                 class="ml-1 w-7 h-7 rounded border border-rose-100 bg-white text-rose-600 font-bold hover:bg-rose-50"
                 title="Quitar producto">×</button>
