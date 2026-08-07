@@ -27,6 +27,7 @@ from reportlab.platypus import (
 )
 
 from services.datetime_utils import format_local_datetime
+from services.currency import format_money
 
 
 # Paleta
@@ -174,9 +175,9 @@ def generate_invoice_pdf(invoice, tenant) -> BytesIO:
             str(i),
             Paragraph(desc, body),
             f"{Decimal(item.quantity):.2f}",
-            f"{Decimal(item.unit_price):.2f}",
+            format_money(item.unit_price, invoice.currency),
             f"{Decimal(item.tax_rate):.2f}%",
-            f"{Decimal(item.subtotal):.2f}",
+            format_money(item.subtotal, invoice.currency),
         ])
 
     items_table = Table(
@@ -204,12 +205,11 @@ def generate_invoice_pdf(invoice, tenant) -> BytesIO:
     story.append(Spacer(1, 5 * mm))
 
     # ====== TOTALES ======
-    cur = invoice.currency
     totals_data = [
-        ["Subtotal:", f"{cur} {Decimal(invoice.subtotal):.2f}"],
-        ["Descuento:", f"{cur} {Decimal(invoice.discount_total):.2f}"],
-        ["ISV:", f"{cur} {Decimal(invoice.tax_total):.2f}"],
-        ["TOTAL:", f"{cur} {Decimal(invoice.total):.2f}"],
+        ["Subtotal:", format_money(invoice.subtotal, invoice.currency)],
+        ["Descuento:", format_money(invoice.discount_total, invoice.currency)],
+        ["ISV:", format_money(invoice.tax_total, invoice.currency)],
+        ["TOTAL:", format_money(invoice.total, invoice.currency)],
     ]
     totals_table = Table(totals_data, colWidths=[40 * mm, 40 * mm], hAlign="RIGHT")
     totals_table.setStyle(TableStyle([
@@ -479,9 +479,9 @@ def generate_quote_pdf(tenant, items_data: list[dict], customer_name: str, custo
             str(idx),
             Paragraph(escape(item.get("description") or ""), body),
             f"{qty:.2f}",
-            f"{price:.2f}",
+            format_money(price, tenant.currency),
             f"{tax_rate:.2f}%",
-            f"{line_subtotal:.2f}",
+            format_money(line_subtotal, tenant.currency),
         ])
 
     table = Table(
@@ -507,13 +507,12 @@ def generate_quote_pdf(tenant, items_data: list[dict], customer_name: str, custo
     story.append(table)
     story.append(Spacer(1, 5 * mm))
 
-    currency = tenant.currency or "HNL"
     total = subtotal + tax_total
     totals = Table(
         [
-            ["Subtotal:", f"{currency} {subtotal:.2f}"],
-            ["ISV:", f"{currency} {tax_total:.2f}"],
-            ["TOTAL COTIZADO:", f"{currency} {total:.2f}"],
+            ["Subtotal:", format_money(subtotal, tenant.currency)],
+            ["ISV:", format_money(tax_total, tenant.currency)],
+            ["TOTAL COTIZADO:", format_money(total, tenant.currency)],
         ],
         colWidths=[42 * mm, 42 * mm],
         hAlign="RIGHT",
@@ -651,9 +650,9 @@ def generate_simple_invoice_pdf(invoice, tenant) -> BytesIO:
             str(i),
             Paragraph(desc, body),
             f"{Decimal(item.quantity):.2f}",
-            f"{Decimal(item.unit_price):.2f}",
+            format_money(item.unit_price, invoice.currency),
             f"{Decimal(item.tax_rate):.2f}%",
-            f"{Decimal(item.subtotal):.2f}",
+            format_money(item.subtotal, invoice.currency),
         ])
 
     items_table = Table(
@@ -680,12 +679,11 @@ def generate_simple_invoice_pdf(invoice, tenant) -> BytesIO:
     story.append(Spacer(1, 5 * mm))
 
     # Totales
-    cur = invoice.currency
     totals = [
-        ["Subtotal:", f"{cur} {Decimal(invoice.subtotal):.2f}"],
-        ["Descuento:", f"{cur} {Decimal(invoice.discount_total):.2f}"],
-        ["Impuestos:", f"{cur} {Decimal(invoice.tax_total):.2f}"],
-        ["TOTAL:", f"{cur} {Decimal(invoice.total):.2f}"],
+        ["Subtotal:", format_money(invoice.subtotal, invoice.currency)],
+        ["Descuento:", format_money(invoice.discount_total, invoice.currency)],
+        ["Impuestos:", format_money(invoice.tax_total, invoice.currency)],
+        ["TOTAL:", format_money(invoice.total, invoice.currency)],
     ]
     totals_table = Table(totals, colWidths=[40 * mm, 40 * mm], hAlign="RIGHT")
     totals_table.setStyle(TableStyle([

@@ -22,6 +22,7 @@ from models.invoice import Invoice, InvoicePayment
 from models.catalog import Customer
 from services.tenant_context import current_tenant
 from services.datetime_utils import to_local_datetime, to_utc_datetime
+from services.currency import format_money
 from services.permissions import admin_required, permission_required, tenant_required
 from services.receivables import (
     record_invoice_payment, update_invoice_payment, revert_payment,
@@ -118,7 +119,7 @@ def abonar(invoice_id):
                 notes=request.form.get("notes") or "",
                 user_id=current_user.id,
             )
-        msg = f"Abono registrado. Saldo: {tenant.currency} {inv.amount_due:.2f}"
+        msg = f"Abono registrado. Saldo: {format_money(inv.amount_due, inv.currency)}"
         flash(msg, "success")
     except ReceivableError as e:
         flash(str(e), "danger")

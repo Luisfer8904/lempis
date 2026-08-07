@@ -16,6 +16,7 @@ from sqlalchemy import func, and_
 from models import db
 from models.invoice import Invoice, InvoicePayment
 from models.catalog import Customer
+from services.currency import format_money
 
 
 class ReceivableError(Exception):
@@ -98,7 +99,8 @@ def update_invoice_payment(
     available = Decimal(invoice.total or 0) - Decimal(other_payments or 0)
     if amt > available + Decimal("0.005"):
         raise ReceivableError(
-            f"El abono ({amt:.2f}) excede el monto disponible ({max(available, Decimal('0')):.2f})."
+            f"El abono ({format_money(amt, invoice.currency)}) excede el monto disponible "
+            f"({format_money(max(available, Decimal('0')), invoice.currency)})."
         )
 
     payment.amount = amt

@@ -22,6 +22,7 @@ from models.country import TaxConfig
 from models.printing import TenantPrintSettings
 from models.user import User
 from services.tenant_context import current_tenant
+from services.currency import format_money
 from services.permissions import admin_required, permission_required, tenant_required
 from services.invoice_service import (
     issue_invoice, update_invoice, next_invoice_number,
@@ -692,9 +693,10 @@ def _notes_with_cash_details(notes: str, payment_method: str) -> str:
     if received is None:
         return base
 
-    cash_lines = [f"Efectivo recibido: {received:.2f}"]
+    currency = current_tenant().currency
+    cash_lines = [f"Efectivo recibido: {format_money(received, currency)}"]
     if change is not None:
-        cash_lines.append(f"Cambio entregado: {change:.2f}")
+        cash_lines.append(f"Cambio entregado: {format_money(change, currency)}")
 
     cash_note = "\n".join(cash_lines)
     return f"{base}\n\n{cash_note}" if base else cash_note

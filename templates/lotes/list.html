@@ -74,7 +74,7 @@
           <td class="text-right font-mono font-semibold">
             {{ '%.0f'|format(l.remaining_quantity) }}
           </td>
-          <td class="text-right font-mono">{{ '%.2f'|format(l.cost) }}</td>
+          <td class="text-right font-mono">{{ l.cost|money }}</td>
           <td class="text-sm">{{ l.supplier or '—' }}</td>
           <td>
             {% set st = l.status_label() %}

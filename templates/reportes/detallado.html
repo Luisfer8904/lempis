@@ -103,7 +103,7 @@
               {% for key, label, kind in columns %}
                 <td class="{% if kind in ['money', 'number'] %}text-right font-mono{% endif %}">
                   {% if kind == 'money' %}
-                    {{ tenant.currency }} {{ '%.2f'|format(row[key]) }}
+                    {{ row[key]|money }}
                   {% elif kind == 'number' %}
                     {{ '%.2f'|format(row[key])|replace('.00', '') }}
                   {% else %}
@@ -126,7 +126,7 @@
               {% for key, label, kind in columns %}
                 <td class="{% if kind in ['money', 'number'] %}text-right font-mono{% endif %}">
                   {% if key in totals and kind == 'money' %}
-                    {{ tenant.currency }} {{ '%.2f'|format(totals[key]) }}
+                    {{ totals[key]|money }}
                   {% elif key in totals and kind == 'number' %}
                     {{ '%.2f'|format(totals[key])|replace('.00', '') }}
                   {% elif loop.first %}

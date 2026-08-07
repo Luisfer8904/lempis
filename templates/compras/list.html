@@ -75,9 +75,9 @@
             </span>
           </div>
           <div class="flex-shrink-0 text-right ml-auto">
-            <p class="text-lg font-bold text-slate-900">{{ '%.2f'|format(c.total) }}</p>
+            <p class="text-lg font-bold text-slate-900">{{ c.total|money(c.currency) }}</p>
             {% if c.amount_due > 0 and c.status == 'received' %}
-              <p class="text-xs text-rose-600">Saldo: {{ '%.2f'|format(c.amount_due) }}</p>
+              <p class="text-xs text-rose-600">Saldo: {{ c.amount_due|money(c.currency) }}</p>
             {% else %}
               <p class="text-xs text-slate-500">{{ c.currency }}</p>
             {% endif %}

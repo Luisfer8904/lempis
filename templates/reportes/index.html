@@ -13,11 +13,11 @@
 <section class="grid md:grid-cols-3 gap-4 mb-6">
   <div class="bg-white rounded-xl border shadow-sm p-5">
     <p class="text-sm text-slate-500">Ingresos del mes</p>
-    <p class="mt-1 text-2xl font-black text-indigo-600">{{ tenant.currency }} {{ '%.2f'|format(total_revenue) }}</p>
+    <p class="mt-1 text-2xl font-black text-indigo-600">{{ total_revenue|money }}</p>
   </div>
   <div class="bg-white rounded-xl border shadow-sm p-5">
     <p class="text-sm text-slate-500">Utilidad bruta estimada</p>
-    <p class="mt-1 text-2xl font-black text-emerald-600">{{ tenant.currency }} {{ '%.2f'|format(total_profit) }}</p>
+    <p class="mt-1 text-2xl font-black text-emerald-600">{{ total_profit|money }}</p>
   </div>
   <div class="bg-white rounded-xl border shadow-sm p-5">
     <p class="text-sm text-slate-500">Margen bruto</p>
@@ -48,11 +48,11 @@
               <div class="flex justify-between gap-3">
                 <span class="font-medium text-slate-800">{{ item.category }}</span>
                 <span class="font-mono font-semibold text-emerald-700">
-                  {{ tenant.currency }} {{ '%.2f'|format(item.profit) }}
+                  {{ item.profit|money }}
                 </span>
               </div>
               <div class="mt-1 text-xs text-slate-500">
-                Ingresos {{ tenant.currency }} {{ '%.2f'|format(item.revenue) }} · Costo {{ tenant.currency }} {{ '%.2f'|format(item.cost) }}
+                Ingresos {{ item.revenue|money }} · Costo {{ item.cost|money }}
               </div>
             </div>
           {% endfor %}
@@ -71,11 +71,11 @@
           <div class="flex justify-between gap-3">
             <span class="font-medium text-slate-800">{{ item.category }}</span>
             <span class="font-mono font-semibold text-emerald-700">
-              {{ tenant.currency }} {{ '%.2f'|format(item.profit) }}
+              {{ item.profit|money }}
             </span>
           </div>
           <div class="mt-1 text-xs text-slate-500">
-            Ingresos {{ tenant.currency }} {{ '%.2f'|format(item.revenue) }} · Costo {{ tenant.currency }} {{ '%.2f'|format(item.cost) }}
+            Ingresos {{ item.revenue|money }} · Costo {{ item.cost|money }}
           </div>
         </div>
       {% else %}
@@ -106,8 +106,8 @@
                 <div class="text-xs text-slate-500 font-mono">{{ p.sku }}</div>
               </td>
               <td class="text-right">{{ '%.0f'|format(p.units) }}</td>
-              <td class="text-right font-mono font-semibold">{{ '%.2f'|format(p.revenue) }}</td>
-              <td class="text-right font-mono font-semibold text-emerald-700">{{ '%.2f'|format(p.profit) }}</td>
+              <td class="text-right font-mono font-semibold">{{ p.revenue|money }}</td>
+              <td class="text-right font-mono font-semibold text-emerald-700">{{ p.profit|money }}</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -136,7 +136,7 @@
                 {% if c.tax_id %}<div class="text-xs text-slate-500 font-mono">{{ c.tax_id }}</div>{% endif %}
               </td>
               <td class="text-right">{{ c.count }}</td>
-              <td class="text-right font-mono font-semibold">{{ '%.2f'|format(c.revenue) }}</td>
+              <td class="text-right font-mono font-semibold">{{ c.revenue|money }}</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -165,7 +165,7 @@
               <span class="font-medium">{{ labels.get(pm.method, pm.method) }}</span>
               <div class="text-right">
                 <div class="text-sm text-slate-500">{{ pm.count }} factura(s)</div>
-                <div class="font-mono font-semibold">{{ '%.2f'|format(pm.total) }}</div>
+                <div class="font-mono font-semibold">{{ pm.total|money }}</div>
               </div>
             </div>
           {% endfor %}
@@ -192,7 +192,7 @@
               <span class="font-medium">{{ category.category }}</span>
               <div class="text-right">
                 <div class="text-sm text-slate-500">{{ '%.0f'|format(category.units) }} unidad(es)</div>
-                <div class="font-mono font-semibold">{{ '%.2f'|format(category.total) }}</div>
+                <div class="font-mono font-semibold">{{ category.total|money }}</div>
               </div>
             </div>
           {% endfor %}
@@ -225,7 +225,7 @@ new Chart(document.getElementById('profitPie'), {
       legend: { position: 'bottom' },
       tooltip: {
         callbacks: {
-          label: ctx => `${ctx.label}: {{ tenant.currency }} ${Number(ctx.raw || 0).toLocaleString()}`
+          label: ctx => `${ctx.label}: {{ currency_symbol }} ${Number(ctx.raw || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
         }
       }
     }

@@ -271,13 +271,13 @@
         {% for it in factura.items %}
           <tr>
             <td class="desc">
-              <span class="mono">{{ '%.2f'|format(it.quantity) }} X {{ '%.2f'|format(it.unit_price) }}</span>
+              <span class="mono">{{ '%.2f'|format(it.quantity) }} X {{ it.unit_price|money(factura.currency) }}</span>
               <span class="uppercase">{{ it.description }}</span>
               {% if it.tax_rate %}
                 <span class="line-meta">ISV {{ '%.0f'|format(it.tax_rate) }}%</span>
               {% endif %}
             </td>
-            <td class="total mono">{{ '%.2f'|format(it.subtotal) }}</td>
+            <td class="total mono">{{ it.subtotal|money(factura.currency) }}</td>
           </tr>
         {% endfor %}
       </tbody>
@@ -286,15 +286,15 @@
     <div class="divider"></div>
 
     <section class="uppercase">
-      <div class="amount-row"><span>DESCUENTOS Y REBAJAS</span><span>{{ '%.2f'|format(factura.discount_total or 0) }}</span></div>
-      <div class="amount-row"><span>SUBTOTAL</span><span>{{ '%.2f'|format(factura.subtotal or 0) }}</span></div>
-      <div class="amount-row"><span>IMPORTE EXENTO</span><span>{{ '%.2f'|format(ns.exento) }}</span></div>
+      <div class="amount-row"><span>DESCUENTOS Y REBAJAS</span><span>{{ (factura.discount_total or 0)|money(factura.currency) }}</span></div>
+      <div class="amount-row"><span>SUBTOTAL</span><span>{{ (factura.subtotal or 0)|money(factura.currency) }}</span></div>
+      <div class="amount-row"><span>IMPORTE EXENTO</span><span>{{ ns.exento|money(factura.currency) }}</span></div>
       <div class="amount-row"><span>IMPORTE EXONERADO</span><span>0.00</span></div>
-      <div class="amount-row"><span>IMPORTE GRAVADO 15%</span><span>{{ '%.2f'|format(ns.gravado15) }}</span></div>
-      <div class="amount-row"><span>IMPORTE GRAVADO 18%</span><span>{{ '%.2f'|format(ns.gravado18) }}</span></div>
-      <div class="amount-row"><span>ISV 15.00%</span><span>{{ '%.2f'|format(ns.isv15) }}</span></div>
-      <div class="amount-row"><span>ISV 18.00%</span><span>{{ '%.2f'|format(ns.isv18) }}</span></div>
-      <div class="amount-row grand-total"><span>TOTAL A PAGAR</span><span>{{ factura.currency }} {{ '%.2f'|format(factura.total or 0) }}</span></div>
+      <div class="amount-row"><span>IMPORTE GRAVADO 15%</span><span>{{ ns.gravado15|money(factura.currency) }}</span></div>
+      <div class="amount-row"><span>IMPORTE GRAVADO 18%</span><span>{{ ns.gravado18|money(factura.currency) }}</span></div>
+      <div class="amount-row"><span>ISV 15.00%</span><span>{{ ns.isv15|money(factura.currency) }}</span></div>
+      <div class="amount-row"><span>ISV 18.00%</span><span>{{ ns.isv18|money(factura.currency) }}</span></div>
+      <div class="amount-row grand-total"><span>TOTAL A PAGAR</span><span>{{ (factura.total or 0)|money(factura.currency) }}</span></div>
     </section>
 
     {% if total_letras %}
@@ -306,10 +306,10 @@
     <section class="uppercase">
       {% if factura.payments %}
         {% for pago in factura.payments %}
-          <div class="amount-row"><span>{{ methods.get(pago.payment_method, pago.payment_method)|upper }}</span><span>{{ '%.2f'|format(pago.amount or 0) }}</span></div>
+          <div class="amount-row"><span>{{ methods.get(pago.payment_method, pago.payment_method)|upper }}</span><span>{{ (pago.amount or 0)|money(factura.currency) }}</span></div>
         {% endfor %}
       {% else %}
-        <div class="amount-row"><span>{{ methods.get(factura.payment_method, factura.payment_method)|upper }}</span><span>{{ '%.2f'|format(factura.total or 0) }}</span></div>
+        <div class="amount-row"><span>{{ methods.get(factura.payment_method, factura.payment_method)|upper }}</span><span>{{ (factura.total or 0)|money(factura.currency) }}</span></div>
       {% endif %}
       {% if cash_received %}
         <div class="amount-row"><span>EFECTIVO RECIBIDO</span><span>{{ cash_received }}</span></div>

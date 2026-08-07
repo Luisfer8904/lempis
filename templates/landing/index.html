@@ -44,14 +44,14 @@
         <div class="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur">
           <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Plan Pro</p>
           <p class="mt-2 text-2xl font-black text-slate-900">
-            {% if pro_plan %}${{ '%.0f'|format(pro_plan.price_monthly) }}{% else %}$30{% endif %}
+            {% if pro_plan %}{{ pro_plan.price_monthly|money(pro_plan.currency) }}{% else %}$ 30.00{% endif %}
           </p>
           <p class="mt-1 text-sm text-slate-500">para equipos pequeños que ya necesitan control real.</p>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur">
           <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Plan Business</p>
           <p class="mt-2 text-2xl font-black text-slate-900">
-            {% if business_plan %}${{ '%.0f'|format(business_plan.price_monthly) }}{% else %}$65{% endif %}
+            {% if business_plan %}{{ business_plan.price_monthly|money(business_plan.currency) }}{% else %}$ 65.00{% endif %}
           </p>
           <p class="mt-1 text-sm text-slate-500">para empresas con más usuarios, más volumen y más marca.</p>
         </div>
@@ -264,7 +264,7 @@
             {% elif plan.price_monthly == 0 %}
               Gratis
             {% else %}
-              ${{ '%.0f'|format(plan.price_monthly) }}<span class="text-base font-medium text-slate-500">/mes</span>
+              {{ plan.price_monthly|money(plan.currency) }}<span class="text-base font-medium text-slate-500">/mes</span>
             {% endif %}
           </div>
           <p class="mt-2 text-sm text-slate-500">
@@ -273,7 +273,7 @@
             {% elif plan.price_monthly == 0 %}
               Ideal para probar el flujo básico.
             {% else %}
-              o ${{ '%.0f'|format(plan.price_yearly) }}/año con pago anual.
+              o {{ plan.price_yearly|money(plan.currency) }}/año con pago anual.
             {% endif %}
           </p>
           <ul class="mt-5 space-y-2 text-sm text-slate-600">

@@ -128,15 +128,15 @@
       <div class="space-y-2 text-sm">
         <div class="flex justify-between">
           <span class="text-slate-500">Subtotal</span>
-          <span class="font-mono" id="sum-subtotal">0.00</span>
+          <span class="font-mono" id="sum-subtotal">{{ 0|money }}</span>
         </div>
         <div class="flex justify-between">
           <span class="text-slate-500">Impuestos</span>
-          <span class="font-mono" id="sum-tax">0.00</span>
+          <span class="font-mono" id="sum-tax">{{ 0|money }}</span>
         </div>
         <div class="flex justify-between border-t pt-2 text-lg font-bold">
           <span>Total</span>
-          <span class="font-mono text-indigo-600" id="sum-total">{{ tenant.currency }} 0.00</span>
+          <span class="font-mono text-indigo-600" id="sum-total">{{ 0|money }}</span>
         </div>
       </div>
     </div>
@@ -205,7 +205,13 @@
 </template>
 
 <script>
-const TENANT_CURRENCY = "{{ tenant.currency }}";
+const TENANT_CURRENCY_SYMBOL = {{ currency_symbol|tojson }};
+function formatPurchaseMoney(value) {
+  return `${TENANT_CURRENCY_SYMBOL} ${Number(value || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
 const itemsBody = document.getElementById("items-body");
 
 function addLine() {
@@ -334,13 +340,13 @@ function recalc() {
     const tax = parseFloat(row.querySelector(".item-tax").value) || 0;
     const lineSub = qty * cost;
     const lineTax = lineSub * (tax / 100);
-    row.querySelector(".item-subtotal").textContent = lineSub.toFixed(2);
+    row.querySelector(".item-subtotal").textContent = formatPurchaseMoney(lineSub);
     subtotal += lineSub;
     taxTotal += lineTax;
   });
-  document.getElementById("sum-subtotal").textContent = subtotal.toFixed(2);
-  document.getElementById("sum-tax").textContent = taxTotal.toFixed(2);
-  document.getElementById("sum-total").textContent = TENANT_CURRENCY + " " + (subtotal + taxTotal).toFixed(2);
+  document.getElementById("sum-subtotal").textContent = formatPurchaseMoney(subtotal);
+  document.getElementById("sum-tax").textContent = formatPurchaseMoney(taxTotal);
+  document.getElementById("sum-total").textContent = formatPurchaseMoney(subtotal + taxTotal);
 }
 
 if (!itemsBody.children.length) {

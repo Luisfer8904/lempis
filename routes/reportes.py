@@ -29,6 +29,7 @@ from models.invoice import Invoice, InvoiceItem
 from models.catalog import Product, Customer, Category, ProductBatch
 from models.locations import Branch, Warehouse, WarehouseStock
 from services.datetime_utils import format_local_datetime, local_date_range_to_utc, local_now, tenant_today
+from services.currency import format_money
 from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
 from services.locations import active_warehouses, sync_default_warehouse_stock
@@ -834,8 +835,8 @@ def _build_pdf_report(context):
         Spacer(1, 8),
     ]
     summary_data = [
-        ["Ingresos", f"{context['tenant'].currency} {context['revenue_period']:.2f}"],
-        ["Utilidad bruta estimada", f"{context['tenant'].currency} {context['profit_total']:.2f}"],
+        ["Ingresos", format_money(context["revenue_period"], context["tenant"].currency)],
+        ["Utilidad bruta estimada", format_money(context["profit_total"], context["tenant"].currency)],
         ["Margen bruto", f"{context['margin']:.1f}%"],
         ["Facturas", str(context["invoices_period"])],
     ]
@@ -846,14 +847,14 @@ def _build_pdf_report(context):
         product_rows.append([
             p.name[:36],
             f"{float(p.units or 0):.0f}",
-            f"{float(p.revenue or 0):.2f}",
-            f"{float(p.profit or 0):.2f}",
+            format_money(p.revenue, context["tenant"].currency),
+            format_money(p.profit, context["tenant"].currency),
         ])
     story.append(_pdf_table(product_rows, [70 * mm, 25 * mm, 35 * mm, 35 * mm], header=True))
     story += [Spacer(1, 12), Paragraph("Top clientes", styles["Heading2"])]
     customer_rows = [["Cliente", "Facturas", "Total"]]
     for c in context["top_customers"]:
-        customer_rows.append([c.name[:42], str(c.count), f"{float(c.revenue or 0):.2f}"])
+        customer_rows.append([c.name[:42], str(c.count), format_money(c.revenue, context["tenant"].currency)])
     story.append(_pdf_table(customer_rows, [90 * mm, 30 * mm, 45 * mm], header=True))
     doc.build(story)
     stream.seek(0)
@@ -937,7 +938,7 @@ def _totals(rows, keys):
 
 def _format_report_value(value, kind, currency):
     if kind == "money":
-        return f"{currency} {float(value or 0):.2f}"
+        return format_money(value, currency)
     if kind == "number":
         return f"{float(value or 0):.2f}".rstrip("0").rstrip(".")
     return "" if value is None else str(value)

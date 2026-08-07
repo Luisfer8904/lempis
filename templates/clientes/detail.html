@@ -67,28 +67,28 @@
   </div>
   <div class="bg-white p-4 sm:p-5 rounded-xl border shadow-sm">
     <p class="text-slate-500 text-xs sm:text-sm">Saldo pendiente</p>
-    <p class="text-xl sm:text-3xl font-bold text-amber-700">{{ tenant.currency }} {{ "{:,.2f}".format(s.pending_balance) }}</p>
+    <p class="text-xl sm:text-3xl font-bold text-amber-700">{{ s.pending_balance|money }}</p>
   </div>
   <div class="bg-white p-4 sm:p-5 rounded-xl border shadow-sm">
     <p class="text-slate-500 text-xs sm:text-sm">Compras contado</p>
-    <p class="text-xl sm:text-3xl font-bold text-emerald-700">{{ tenant.currency }} {{ "{:,.2f}".format(s.cash_total) }}</p>
+    <p class="text-xl sm:text-3xl font-bold text-emerald-700">{{ s.cash_total|money }}</p>
   </div>
 </section>
 
 <section class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
   <div class="bg-white p-4 rounded-xl border shadow-sm">
     <p class="text-slate-500 text-sm">Efectivo</p>
-    <p class="font-mono text-2xl font-bold">{{ tenant.currency }} {{ "{:,.2f}".format(m.efectivo.total) }}</p>
+    <p class="font-mono text-2xl font-bold">{{ m.efectivo.total|money }}</p>
     <p class="text-xs text-slate-500">{{ m.efectivo.count }} factura(s)</p>
   </div>
   <div class="bg-white p-4 rounded-xl border shadow-sm">
     <p class="text-slate-500 text-sm">Transferencia</p>
-    <p class="font-mono text-2xl font-bold">{{ tenant.currency }} {{ "{:,.2f}".format(m.transferencia.total) }}</p>
+    <p class="font-mono text-2xl font-bold">{{ m.transferencia.total|money }}</p>
     <p class="text-xs text-slate-500">{{ m.transferencia.count }} factura(s)</p>
   </div>
   <div class="bg-white p-4 rounded-xl border shadow-sm">
     <p class="text-slate-500 text-sm">Tarjeta</p>
-    <p class="font-mono text-2xl font-bold">{{ tenant.currency }} {{ "{:,.2f}".format(m.tarjeta.total) }}</p>
+    <p class="font-mono text-2xl font-bold">{{ m.tarjeta.total|money }}</p>
     <p class="text-xs text-slate-500">{{ m.tarjeta.count }} factura(s)</p>
   </div>
 </section>
@@ -124,8 +124,8 @@
               <a href="{{ url_for('facturas.detail', invoice_id=inv.id) }}" class="hover:underline">{{ inv.number }}</a>
             </td>
             <td class="text-sm align-middle">{{ methods.get(inv.payment_method, inv.payment_method) }}</td>
-            <td class="text-right font-semibold align-middle">{{ tenant.currency }} {{ "{:,.2f}".format(inv.total or 0) }}</td>
-            <td class="text-right font-semibold text-amber-700 align-middle">{{ tenant.currency }} {{ "{:,.2f}".format(inv.amount_due or 0) }}</td>
+            <td class="text-right font-semibold align-middle">{{ (inv.total or 0)|money(inv.currency) }}</td>
+            <td class="text-right font-semibold text-amber-700 align-middle">{{ (inv.amount_due or 0)|money(inv.currency) }}</td>
             <td class="align-middle">
               <span class="inline-block text-xs px-2 py-1 rounded {% if inv.status == 'overdue' %}bg-rose-100 text-rose-700{% elif inv.status == 'partially_paid' %}bg-indigo-100 text-indigo-700{% else %}bg-slate-200 text-slate-700{% endif %}">
                 {{ statuses.get(inv.status, inv.status) }}
@@ -147,7 +147,7 @@
       <div class="rounded-xl border px-4 py-3">
         <p class="font-medium text-slate-900">{{ inv.number }}</p>
         <p class="text-xs text-slate-500 mt-1">Crédito · vence {{ inv.due_date.strftime('%d/%m/%Y') if inv.due_date else 'sin fecha' }}</p>
-        <p class="text-lg font-bold text-amber-700 mt-2">{{ tenant.currency }} {{ "{:,.2f}".format(inv.amount_due or 0) }}</p>
+        <p class="text-lg font-bold text-amber-700 mt-2">{{ (inv.amount_due or 0)|money(inv.currency) }}</p>
       </div>
       {% else %}
       <p class="text-sm text-slate-500">Este cliente no tiene cobros pendientes.</p>
@@ -185,7 +185,7 @@
             <a href="{{ url_for('facturas.detail', invoice_id=inv.id) }}" class="hover:underline">{{ inv.number }}</a>
           </td>
           <td class="text-sm align-middle">{{ methods.get(inv.payment_method, inv.payment_method) }}</td>
-          <td class="text-right font-semibold align-middle">{{ tenant.currency }} {{ "{:,.2f}".format(inv.total or 0) }}</td>
+          <td class="text-right font-semibold align-middle">{{ (inv.total or 0)|money(inv.currency) }}</td>
           <td class="align-middle"><span class="inline-block text-xs px-2 py-1 rounded bg-emerald-100 text-emerald-700">{{ statuses.get(inv.status, inv.status) }}</span></td>
         </tr>
         {% else %}
@@ -224,8 +224,8 @@
           <td class="font-mono text-xs text-indigo-600 align-middle">
             <a href="{{ url_for('facturas.detail', invoice_id=inv.id) }}" class="hover:underline">{{ inv.number }}</a>
           </td>
-          <td class="text-right font-semibold align-middle">{{ tenant.currency }} {{ "{:,.2f}".format(inv.total or 0) }}</td>
-          <td class="text-right font-semibold text-slate-500 align-middle">{{ tenant.currency }} {{ "{:,.2f}".format(inv.amount_due or 0) }}</td>
+          <td class="text-right font-semibold align-middle">{{ (inv.total or 0)|money(inv.currency) }}</td>
+          <td class="text-right font-semibold text-slate-500 align-middle">{{ (inv.amount_due or 0)|money(inv.currency) }}</td>
           <td class="align-middle"><span class="inline-block text-xs px-2 py-1 rounded bg-emerald-100 text-emerald-700">Pagada</span></td>
         </tr>
         {% else %}
@@ -273,7 +273,7 @@
           </td>
           <td class="text-sm align-middle">{{ methods.get(payment.payment_method, payment.payment_method) }}</td>
           <td class="text-sm text-slate-500 align-middle">{{ payment.reference or '—' }}</td>
-          <td class="text-right font-semibold text-emerald-700 align-middle">{{ tenant.currency }} {{ "{:,.2f}".format(payment.amount or 0) }}</td>
+          <td class="text-right font-semibold text-emerald-700 align-middle">{{ (payment.amount or 0)|money }}</td>
           {% if current_user.is_admin() %}
             <td class="text-right align-middle">
               <div class="flex items-center justify-end gap-3">

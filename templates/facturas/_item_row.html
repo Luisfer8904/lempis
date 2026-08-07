@@ -53,7 +53,7 @@
            value="{{ '%.2f'|format(item.discount_amount) }}"
            class="item-disc w-full px-2 py-1 border rounded text-sm text-right" oninput="recalc()" />
   </td>
-  <td class="px-2 py-2 w-28 text-right font-mono item-subtotal">{{ '%.2f'|format(item.subtotal) }}</td>
+  <td class="px-2 py-2 w-28 text-right font-mono item-subtotal">{{ item.subtotal|money }}</td>
   <td class="px-2 py-2">
     <button type="button" onclick="removeLine(this)" class="text-rose-500 hover:text-rose-700">✕</button>
   </td>

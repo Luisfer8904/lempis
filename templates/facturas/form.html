@@ -178,19 +178,19 @@
       <div class="space-y-2 text-sm">
         <div class="flex justify-between">
           <span class="text-slate-500">Subtotal</span>
-          <span class="font-mono" id="sum-subtotal">0.00</span>
+          <span class="font-mono" id="sum-subtotal">{{ 0|money }}</span>
         </div>
         <div class="flex justify-between">
           <span class="text-slate-500">Descuento</span>
-          <span class="font-mono" id="sum-discount">0.00</span>
+          <span class="font-mono" id="sum-discount">{{ 0|money }}</span>
         </div>
         <div class="flex justify-between">
           <span class="text-slate-500">ISV / Impuestos</span>
-          <span class="font-mono" id="sum-tax">0.00</span>
+          <span class="font-mono" id="sum-tax">{{ 0|money }}</span>
         </div>
         <div class="flex justify-between border-t pt-2 text-lg font-bold">
           <span>Total</span>
-          <span class="font-mono text-indigo-600" id="sum-total">{{ tenant.currency }} 0.00</span>
+          <span class="font-mono text-indigo-600" id="sum-total">{{ 0|money }}</span>
         </div>
       </div>
     </div>
@@ -230,7 +230,7 @@
     <div class="px-5 py-4 space-y-4">
       <div class="flex justify-between items-center rounded-lg bg-slate-50 px-4 py-3">
         <span class="text-sm text-slate-500">Total a cobrar</span>
-        <span class="font-mono text-xl font-bold text-indigo-600" id="checkout-modal-total">{{ tenant.currency }} 0.00</span>
+        <span class="font-mono text-xl font-bold text-indigo-600" id="checkout-modal-total">{{ 0|money }}</span>
       </div>
       <div id="checkout-cash-fields" class="space-y-2">
         <label class="block text-sm font-medium text-slate-700">Efectivo recibido</label>
@@ -239,7 +239,7 @@
                placeholder="0.00" />
         <div class="flex justify-between rounded-lg border px-4 py-3">
           <span class="text-sm text-slate-500">Cambio</span>
-          <span id="cash-change-modal" class="font-mono font-bold text-emerald-700">{{ tenant.currency }} 0.00</span>
+          <span id="cash-change-modal" class="font-mono font-bold text-emerald-700">{{ 0|money }}</span>
         </div>
         <p id="cash-warning" class="hidden text-sm text-rose-600">El efectivo recibido no cubre el total.</p>
       </div>
@@ -310,7 +310,15 @@
 </template>
 
 <script>
-const tenantCurrency = "{{ tenant.currency }}";
+const tenantCurrencySymbol = {{ currency_symbol|tojson }};
+let calculatedInvoiceTotal = 0;
+
+function formatInvoiceMoney(value) {
+  return `${tenantCurrencySymbol} ${Number(value || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
 const itemsBody = document.getElementById("items-body");
 const isEditMode = {{ 'true' if factura else 'false' }};
 let checkoutConfirmed = false;
@@ -628,23 +636,23 @@ function recalc() {
     const disc  = parseFloat(row.querySelector(".item-disc").value)  || 0;
     const lineSubtotal = qty * price;
     const lineTax = lineSubtotal * (tax / 100);
-    row.querySelector(".item-subtotal").textContent = lineSubtotal.toFixed(2);
+    row.querySelector(".item-subtotal").textContent = formatInvoiceMoney(lineSubtotal);
     subtotal += lineSubtotal;
     taxTotal += lineTax;
     discTotal += disc;
   });
   const total = subtotal + taxTotal - discTotal;
-  document.getElementById("sum-subtotal").textContent = subtotal.toFixed(2);
-  document.getElementById("sum-tax").textContent      = taxTotal.toFixed(2);
-  document.getElementById("sum-discount").textContent = discTotal.toFixed(2);
-  document.getElementById("sum-total").textContent    = tenantCurrency + " " + total.toFixed(2);
+  calculatedInvoiceTotal = total;
+  document.getElementById("sum-subtotal").textContent = formatInvoiceMoney(subtotal);
+  document.getElementById("sum-tax").textContent      = formatInvoiceMoney(taxTotal);
+  document.getElementById("sum-discount").textContent = formatInvoiceMoney(discTotal);
+  document.getElementById("sum-total").textContent    = formatInvoiceMoney(total);
   updatePaymentFields();
 }
 
 // Mostrar/ocultar plazo de crédito
 function currentInvoiceTotal() {
-  const raw = document.getElementById("sum-total").textContent.replace(tenantCurrency, "").trim();
-  return parseFloat(raw) || 0;
+  return calculatedInvoiceTotal;
 }
 
 function updatePaymentFields() {
@@ -657,7 +665,7 @@ function cashChangeFromModal() {
   const receivedInput = document.getElementById("cash-received-modal");
   const received = parseFloat(receivedInput.value) || 0;
   const change = Math.max(received - total, 0);
-  document.getElementById("cash-change-modal").textContent = tenantCurrency + " " + change.toFixed(2);
+  document.getElementById("cash-change-modal").textContent = formatInvoiceMoney(change);
   document.getElementById("cash-warning").classList.toggle("hidden", !receivedInput.value || received >= total);
   return { received, change, total };
 }
@@ -671,7 +679,7 @@ function openCheckoutModal() {
     credito: "Crédito",
   };
   document.getElementById("checkout-modal-method").textContent = methods[method] || "Método de pago";
-  document.getElementById("checkout-modal-total").textContent = tenantCurrency + " " + currentInvoiceTotal().toFixed(2);
+  document.getElementById("checkout-modal-total").textContent = formatInvoiceMoney(currentInvoiceTotal());
   document.getElementById("checkout-cash-fields").classList.toggle("hidden", method !== "efectivo");
   document.getElementById("print-invoice-modal").checked = true;
   document.getElementById("checkout-modal").classList.remove("hidden");

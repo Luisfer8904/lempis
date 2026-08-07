@@ -36,7 +36,7 @@
         {% elif plan.price_monthly == 0 %}
           Gratis
         {% else %}
-          ${{ '%.0f'|format(plan.price_monthly) }}<span class="text-sm font-medium text-slate-500">/mes</span>
+          {{ plan.price_monthly|money(plan.currency) }}<span class="text-sm font-medium text-slate-500">/mes</span>
         {% endif %}
       </p>
       <div class="text-xs text-slate-500 mb-3">{{ role_summary_for(plan.code) }}</div>

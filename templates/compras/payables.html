@@ -19,17 +19,17 @@
 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
   <div class="bg-white rounded-xl border p-4 shadow-sm">
     <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold">Pendiente total</p>
-    <p class="text-2xl font-black text-slate-900 mt-2">HNL {{ '%.2f'|format(total_pending) }}</p>
+    <p class="text-2xl font-black text-slate-900 mt-2">{{ total_pending|money }}</p>
     <p class="text-sm text-slate-500 mt-1">Compras a crédito recibidas</p>
   </div>
   <div class="bg-white rounded-xl border p-4 shadow-sm">
     <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold">Vencidas</p>
-    <p class="text-2xl font-black text-rose-600 mt-2">HNL {{ '%.2f'|format(total_overdue) }}</p>
+    <p class="text-2xl font-black text-rose-600 mt-2">{{ total_overdue|money }}</p>
     <p class="text-sm text-slate-500 mt-1">{{ overdue_count }} compra(s)</p>
   </div>
   <div class="bg-white rounded-xl border p-4 shadow-sm">
     <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold">Próximos 7 días</p>
-    <p class="text-2xl font-black text-amber-600 mt-2">HNL {{ '%.2f'|format(total_soon) }}</p>
+    <p class="text-2xl font-black text-amber-600 mt-2">{{ total_soon|money }}</p>
     <p class="text-sm text-slate-500 mt-1">{{ soon_count }} por vencer</p>
   </div>
   <div class="bg-white rounded-xl border p-4 shadow-sm">
@@ -104,9 +104,9 @@
             {% endif %}
           </div>
           <div class="lg:text-right">
-            <p class="text-xs text-slate-500">Total {{ c.currency }} {{ '%.2f'|format(c.total) }}</p>
-            <p class="text-xs text-slate-500">Pagado {{ c.currency }} {{ '%.2f'|format(c.amount_paid) }}</p>
-            <p class="text-xl font-black text-rose-600">{{ c.currency }} {{ '%.2f'|format(c.amount_due) }}</p>
+            <p class="text-xs text-slate-500">Total {{ c.total|money(c.currency) }}</p>
+            <p class="text-xs text-slate-500">Pagado {{ c.amount_paid|money(c.currency) }}</p>
+            <p class="text-xl font-black text-rose-600">{{ c.amount_due|money(c.currency) }}</p>
           </div>
           <div class="flex flex-col sm:flex-row lg:justify-end gap-2">
             <a href="{{ url_for('compras.detail', purchase_id=c.id) }}"

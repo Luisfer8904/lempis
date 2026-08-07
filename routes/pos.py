@@ -17,6 +17,7 @@ from models.catalog import Product, Category, Customer
 from models.invoice import Invoice, InvoicePayment
 from models.printing import TenantPrintSettings
 from services.tenant_context import current_tenant
+from services.currency import format_money
 from services.permissions import permission_required, tenant_required
 from services.inventory import consume_from_batch, recompute_product_stock
 from services.invoice_mode import get_provider
@@ -464,9 +465,10 @@ def _notes_with_cash_details(notes: str, payment_method: str) -> str:
     if received is None:
         return base
 
-    cash_lines = [f"Efectivo recibido: {received:.2f}"]
+    currency = current_tenant().currency
+    cash_lines = [f"Efectivo recibido: {format_money(received, currency)}"]
     if change is not None:
-        cash_lines.append(f"Cambio entregado: {change:.2f}")
+        cash_lines.append(f"Cambio entregado: {format_money(change, currency)}")
 
     cash_note = "\n".join(cash_lines)
     return f"{base}\n\n{cash_note}" if base else cash_note
@@ -543,13 +545,14 @@ def _replace_invoice_payments(inv: Invoice, breakdown: dict[str, Decimal], user_
 def _notes_with_payment_details(notes: str, breakdown: dict[str, Decimal]) -> str:
     base = (notes or "").strip()
     lines = []
+    currency = current_tenant().currency
 
     received = _money_or_none(request.form.get("cash_received"))
     change = _money_or_none(request.form.get("cash_change"))
     if received is not None and received > 0:
-        lines.append(f"Efectivo recibido: {received:.2f}")
+        lines.append(f"Efectivo recibido: {format_money(received, currency)}")
     if change is not None and change > 0:
-        lines.append(f"Cambio entregado: {change:.2f}")
+        lines.append(f"Cambio entregado: {format_money(change, currency)}")
 
     labels = {
         "efectivo": "Efectivo aplicado",
@@ -560,7 +563,7 @@ def _notes_with_payment_details(notes: str, breakdown: dict[str, Decimal]) -> st
     for method in PAYMENT_METHODS:
         amount = breakdown.get(method, Decimal("0.00"))
         if amount > 0:
-            lines.append(f"{labels[method]}: {amount:.2f}")
+            lines.append(f"{labels[method]}: {format_money(amount, currency)}")
 
     payment_note = "\n".join(lines)
     if not payment_note:

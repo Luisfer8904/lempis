@@ -17,6 +17,7 @@ from reportlab.platypus import (
 )
 
 from services.datetime_utils import format_local_datetime
+from services.currency import format_money
 
 INDIGO = colors.HexColor("#4f46e5")
 EMERALD = colors.HexColor("#10b981")
@@ -77,7 +78,7 @@ def generate_payment_receipt_pdf(payment, tenant) -> BytesIO:
 
     # ====== Banda monto recibido ======
     monto_box = Table(
-        [[Paragraph(f"MONTO RECIBIDO<br/><b>{inv.currency} {Decimal(payment.amount):,.2f}</b>", huge)]],
+        [[Paragraph(f"MONTO RECIBIDO<br/><b>{format_money(payment.amount, inv.currency)}</b>", huge)]],
         colWidths=[170 * mm],
     )
     monto_box.setStyle(TableStyle([
@@ -120,10 +121,10 @@ def generate_payment_receipt_pdf(payment, tenant) -> BytesIO:
 
     # ====== ESTADO DE CUENTA DE LA FACTURA ======
     estado_data = [
-        ["Total factura:",   f"{inv.currency} {Decimal(inv.total):,.2f}"],
-        ["Pagado antes:",    f"{inv.currency} {(Decimal(inv.amount_paid) - Decimal(payment.amount)):,.2f}"],
-        ["Pagado ahora:",    f"{inv.currency} {Decimal(payment.amount):,.2f}"],
-        ["Saldo restante:",  f"{inv.currency} {Decimal(inv.amount_due):,.2f}"],
+        ["Total factura:",   format_money(inv.total, inv.currency)],
+        ["Pagado antes:",    format_money(Decimal(inv.amount_paid) - Decimal(payment.amount), inv.currency)],
+        ["Pagado ahora:",    format_money(payment.amount, inv.currency)],
+        ["Saldo restante:",  format_money(inv.amount_due, inv.currency)],
     ]
     estado_table = Table(estado_data, colWidths=[50 * mm, 50 * mm], hAlign="RIGHT")
     estado_table.setStyle(TableStyle([

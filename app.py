@@ -8,6 +8,7 @@ from config import config
 from models import db, login_manager, migrate
 from services.tenant_context import resolve_tenant
 from services.datetime_utils import format_local_datetime
+from services.currency import currency_symbol, format_money
 from services.security import csrf_token, validate_csrf
 
 
@@ -77,11 +78,20 @@ def create_app(config_name: str | None = None) -> Flask:
     # Variables globales para los templates
     @app.context_processor
     def _inject_globals():
+        tenant = getattr(g, "tenant", None)
+        tenant_currency = getattr(tenant, "currency", None) or app.config["DEFAULT_CURRENCY"]
         return {
             "APP_NAME": app.config["APP_NAME"],
-            "tenant": getattr(g, "tenant", None),
+            "tenant": tenant,
+            "currency_symbol": currency_symbol(tenant_currency),
             "csrf_token": csrf_token,
         }
+
+    @app.template_filter("money")
+    def _money_filter(value, currency_code=None):
+        tenant = getattr(g, "tenant", None)
+        code = currency_code or getattr(tenant, "currency", None) or app.config["DEFAULT_CURRENCY"]
+        return format_money(value, code)
 
     @app.template_filter("local_datetime")
     def _local_datetime_filter(value, fmt="%d/%m/%Y %H:%M"):

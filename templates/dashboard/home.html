@@ -3,7 +3,7 @@
 {% block heading %}Dashboard{% endblock %}
 
 {% macro money(value) -%}
-  {{ tenant.currency }} {{ '%.2f'|format(value or 0) }}
+  {{ value|money }}
 {%- endmacro %}
 
 {% macro qty(value) -%}

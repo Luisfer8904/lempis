@@ -36,7 +36,7 @@
   </div>
   <div class="bg-gradient-to-br from-rose-700 to-pink-800 p-4 rounded-xl border border-rose-600">
     <p class="text-xs text-rose-100/80">Ingresos totales</p>
-    <p class="text-2xl font-bold text-white">{{ tenant.currency }} {{ '%.2f'|format(stats.revenue) }}</p>
+    <p class="text-2xl font-bold text-white">{{ stats.revenue|money(tenant.currency) }}</p>
   </div>
 </section>
 
@@ -103,7 +103,7 @@
       <dl class="text-sm space-y-2">
         <div><dt class="text-slate-400 inline">Plan:</dt> <dd class="inline font-semibold">{{ tenant.subscription.plan.name }}</dd></div>
         <div><dt class="text-slate-400 inline">Estado:</dt> <dd class="inline">{{ tenant.subscription.status }}</dd></div>
-        <div><dt class="text-slate-400 inline">Precio:</dt> <dd class="inline">${{ tenant.subscription.plan.price_monthly }}/mes</dd></div>
+        <div><dt class="text-slate-400 inline">Precio:</dt> <dd class="inline">{{ tenant.subscription.plan.price_monthly|money(tenant.subscription.plan.currency) }}/mes</dd></div>
         {% if tenant.subscription.current_period_end %}
           <div><dt class="text-slate-400 inline">Periodo vence:</dt> <dd class="inline">{{ tenant.subscription.current_period_end.strftime('%d/%m/%Y') }}</dd></div>
         {% endif %}
@@ -170,7 +170,7 @@
         <tr class="border-b border-slate-700/50">
           <td class="py-2 font-mono text-xs">{{ f.number }}</td>
           <td class="py-2">{{ f.receptor_name or 'Consumidor final' }}</td>
-          <td class="py-2 text-right font-mono">{{ f.currency }} {{ '%.2f'|format(f.total) }}</td>
+          <td class="py-2 text-right font-mono">{{ f.total|money(f.currency) }}</td>
           <td class="py-2 text-xs">{{ f.status }}</td>
           <td class="py-2 text-right text-xs text-slate-400">{{ f.issue_date.strftime('%d/%m/%Y') }}</td>
         </tr>

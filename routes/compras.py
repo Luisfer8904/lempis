@@ -20,6 +20,7 @@ from models.purchases import Purchase, PurchaseItem
 from models.catalog import Product
 from models.country import TaxConfig
 from services.tenant_context import current_tenant
+from services.currency import format_money
 from services.permissions import permission_required, tenant_required
 from services.purchase_service import (
     create_purchase, update_purchase_draft, finalize_purchase,
@@ -302,7 +303,7 @@ def payment(purchase_id):
     next_view = request.form.get("next") or request.args.get("next")
     try:
         register_payment(inv, amount)
-        flash(f"Pago registrado. Saldo pendiente: {inv.currency} {inv.amount_due:.2f}", "success")
+        flash(f"Pago registrado. Saldo pendiente: {format_money(inv.amount_due, inv.currency)}", "success")
     except PurchaseError as e:
         flash(str(e), "danger")
     if next_view == "payables":

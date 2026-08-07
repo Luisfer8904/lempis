@@ -80,59 +80,59 @@
     <div class="mt-4 space-y-2.5 text-sm">
       <div class="flex justify-between gap-3">
         <span class="text-slate-500">Apertura de caja</span>
-        <span class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(closure.opening_amount if closure else 0) }}</span>
+        <span class="font-mono">{{ (closure.opening_amount if closure else 0)|money }}</span>
       </div>
       <div class="flex justify-between gap-3">
         <span class="text-slate-500">Ventas en efectivo</span>
-        <span class="font-mono text-emerald-700">{{ tenant.currency }} {{ '%.2f'|format(suggested.cash_sales_amount) }}</span>
+        <span class="font-mono text-emerald-700">{{ suggested.cash_sales_amount|money }}</span>
       </div>
       <div class="flex justify-between gap-3">
         <span class="text-slate-500">Ventas en transferencia</span>
-        <span class="font-mono text-indigo-700">{{ tenant.currency }} {{ '%.2f'|format(suggested.transfer_sales_amount) }}</span>
+        <span class="font-mono text-indigo-700">{{ suggested.transfer_sales_amount|money }}</span>
       </div>
       <div class="flex justify-between gap-3">
         <span class="text-slate-500">Ventas por tarjeta</span>
-        <span class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(suggested.card_sales_amount) }}</span>
+        <span class="font-mono">{{ suggested.card_sales_amount|money }}</span>
       </div>
       <div class="flex justify-between gap-3">
         <span class="text-slate-500">Ventas por cheque</span>
-        <span class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(suggested.check_sales_amount) }}</span>
+        <span class="font-mono">{{ suggested.check_sales_amount|money }}</span>
       </div>
       <div class="flex justify-between gap-3 border-t pt-2.5">
         <span class="text-slate-700 font-semibold">Ventas de contado</span>
-        <span class="font-mono font-semibold">{{ tenant.currency }} {{ '%.2f'|format(suggested.contado_sales_amount) }}</span>
+        <span class="font-mono font-semibold">{{ suggested.contado_sales_amount|money }}</span>
       </div>
       <div class="flex justify-between gap-3">
         <span class="text-slate-500">Ventas a crédito</span>
-        <span class="font-mono text-slate-500">{{ tenant.currency }} {{ '%.2f'|format(suggested.credit_sales_amount) }}</span>
+        <span class="font-mono text-slate-500">{{ suggested.credit_sales_amount|money }}</span>
       </div>
       <div class="border-t pt-2.5 flex justify-between gap-3">
         <span class="text-slate-500">Abonos en efectivo</span>
-        <span class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(suggested.receivable_cash_amount) }}</span>
+        <span class="font-mono">{{ suggested.receivable_cash_amount|money }}</span>
       </div>
       <div class="flex justify-between gap-3">
         <span class="text-slate-500">Abonos por transferencia</span>
-        <span class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(suggested.receivable_transfer_amount) }}</span>
+        <span class="font-mono">{{ suggested.receivable_transfer_amount|money }}</span>
       </div>
       <div class="flex justify-between gap-3">
         <span class="text-slate-500">Abonos por tarjeta</span>
-        <span class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(suggested.receivable_card_amount) }}</span>
+        <span class="font-mono">{{ suggested.receivable_card_amount|money }}</span>
       </div>
       <div class="flex justify-between gap-3">
         <span class="text-slate-500">Abonos por cheque</span>
-        <span class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(suggested.receivable_check_amount) }}</span>
+        <span class="font-mono">{{ suggested.receivable_check_amount|money }}</span>
       </div>
       <div class="flex justify-between gap-3">
         <span class="text-slate-500">Gastos en efectivo</span>
-        <span class="font-mono text-rose-700">- {{ tenant.currency }} {{ '%.2f'|format(suggested.expenses_amount) }}</span>
+        <span class="font-mono text-rose-700">- {{ suggested.expenses_amount|money }}</span>
       </div>
       <div class="flex justify-between gap-3">
         <span class="text-slate-500">Retiros parciales</span>
-        <span class="font-mono text-amber-700">- {{ tenant.currency }} {{ '%.2f'|format(suggested.withdrawals_amount) }}</span>
+        <span class="font-mono text-amber-700">- {{ suggested.withdrawals_amount|money }}</span>
       </div>
       <div class="border-t pt-2.5 flex justify-between gap-3 font-semibold text-slate-900">
         <span>Efectivo esperado en caja</span>
-        <span class="font-mono">{{ tenant.currency }} {{ '%.2f'|format((closure.opening_amount if closure else 0) + suggested.cash_sales_amount + suggested.receivable_cash_amount - suggested.expenses_amount - suggested.withdrawals_amount) }}</span>
+        <span class="font-mono">{{ ((closure.opening_amount if closure else 0) + suggested.cash_sales_amount + suggested.receivable_cash_amount - suggested.expenses_amount - suggested.withdrawals_amount)|money }}</span>
       </div>
     </div>
   </aside>

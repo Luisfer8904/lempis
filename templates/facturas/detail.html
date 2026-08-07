@@ -124,9 +124,9 @@
             <tr>
               <td>{{ it.description }}</td>
               <td class="text-right">{{ '%.2f'|format(it.quantity) }}</td>
-              <td class="text-right font-mono">{{ '%.2f'|format(it.unit_price) }}</td>
+              <td class="text-right font-mono">{{ it.unit_price|money(factura.currency) }}</td>
               <td class="text-right">{{ '%.2f'|format(it.tax_rate) }}%</td>
-              <td class="text-right font-mono">{{ '%.2f'|format(it.subtotal) }}</td>
+              <td class="text-right font-mono">{{ it.subtotal|money(factura.currency) }}</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -148,19 +148,19 @@
       <div class="space-y-2 text-sm">
         <div class="flex justify-between">
           <span class="text-slate-500">Subtotal</span>
-          <span class="font-mono">{{ '%.2f'|format(factura.subtotal) }}</span>
+          <span class="font-mono">{{ factura.subtotal|money(factura.currency) }}</span>
         </div>
         <div class="flex justify-between">
           <span class="text-slate-500">Descuento</span>
-          <span class="font-mono">{{ '%.2f'|format(factura.discount_total) }}</span>
+          <span class="font-mono">{{ factura.discount_total|money(factura.currency) }}</span>
         </div>
         <div class="flex justify-between">
           <span class="text-slate-500">ISV</span>
-          <span class="font-mono">{{ '%.2f'|format(factura.tax_total) }}</span>
+          <span class="font-mono">{{ factura.tax_total|money(factura.currency) }}</span>
         </div>
         <div class="flex justify-between border-t pt-2 text-lg font-bold">
           <span>Total</span>
-          <span class="font-mono text-indigo-600">{{ factura.currency }} {{ '%.2f'|format(factura.total) }}</span>
+          <span class="font-mono text-indigo-600">{{ factura.total|money(factura.currency) }}</span>
         </div>
       </div>
       <div class="mt-4 pt-4 border-t text-sm space-y-1">
@@ -181,13 +181,13 @@
         <h3 class="text-lg font-semibold mb-3">💰 Cuenta por cobrar</h3>
         <div class="space-y-2 text-sm mb-3">
           <div class="flex justify-between"><span class="text-slate-500">Total</span>
-            <span class="font-mono">{{ '%.2f'|format(factura.total) }}</span></div>
+            <span class="font-mono">{{ factura.total|money(factura.currency) }}</span></div>
           <div class="flex justify-between"><span class="text-slate-500">Pagado</span>
-            <span class="font-mono text-green-700">{{ '%.2f'|format(factura.amount_paid) }}</span></div>
+            <span class="font-mono text-green-700">{{ factura.amount_paid|money(factura.currency) }}</span></div>
           <div class="flex justify-between text-lg font-bold border-t pt-2">
             <span>Saldo</span>
             <span class="font-mono {% if factura.amount_due > 0 %}text-rose-700{% else %}text-green-700{% endif %}">
-              {{ '%.2f'|format(factura.amount_due) }}
+              {{ factura.amount_due|money(factura.currency) }}
             </span>
           </div>
           {% if factura.is_overdue %}
@@ -225,7 +225,7 @@
               {% for p in factura.payments %}
                 <div class="text-xs bg-slate-50 p-2 rounded flex justify-between gap-2">
                   <div>
-                    <p class="font-mono text-green-700 font-semibold">+ {{ '%.2f'|format(p.amount) }}</p>
+                    <p class="font-mono text-green-700 font-semibold">+ {{ p.amount|money(factura.currency) }}</p>
                     <p class="text-slate-500">{{ p.paid_at|local_datetime('%d/%m/%Y %H:%M') }} · {{ p.payment_method }}</p>
                     {% if p.reference %}<p class="text-slate-400">Ref: {{ p.reference }}</p>{% endif %}
                   </div>

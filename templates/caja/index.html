@@ -43,13 +43,13 @@
           <h2 class="text-xl font-bold text-slate-900 mt-1">Hoy {{ today }}</h2>
           <p class="text-sm text-slate-600 mt-1">
             Ventas del día:
-            <strong class="text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(t_contado) }}</strong>
-            · Gastos: <strong class="text-rose-700">{{ tenant.currency }} {{ '%.2f'|format(today_summary.expenses_amount) }}</strong>
-            · Retiros: <strong class="text-amber-700">{{ tenant.currency }} {{ '%.2f'|format(today_summary.withdrawals_amount) }}</strong>
+            <strong class="text-slate-900">{{ t_contado|money }}</strong>
+            · Gastos: <strong class="text-rose-700">{{ today_summary.expenses_amount|money }}</strong>
+            · Retiros: <strong class="text-amber-700">{{ today_summary.withdrawals_amount|money }}</strong>
           </p>
           {% if today_closure %}
             <p class="mt-2 text-xs font-semibold text-amber-800">
-              Apertura registrada: {{ tenant.currency }} {{ '%.2f'|format(today_closure.opening_amount) }}
+              Apertura registrada: {{ today_closure.opening_amount|money }}
             </p>
           {% endif %}
         </div>
@@ -102,7 +102,7 @@
             <div class="rounded-xl bg-white border border-amber-100 overflow-hidden">
               <div class="px-4 py-2.5 border-b border-amber-100 flex items-center justify-between bg-amber-50/50">
                 <p class="text-xs font-semibold uppercase tracking-wide text-amber-800">Gastos en efectivo de hoy ({{ today_expenses|length }})</p>
-                <p class="text-sm font-bold text-rose-700 font-mono">- {{ tenant.currency }} {{ '%.2f'|format(today_summary.expenses_amount) }}</p>
+                <p class="text-sm font-bold text-rose-700 font-mono">- {{ today_summary.expenses_amount|money }}</p>
               </div>
               <ul class="divide-y divide-amber-100/60">
                 {% for e in today_expenses %}
@@ -115,7 +115,7 @@
                       </p>
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
-                      <span class="font-mono text-rose-700 font-semibold">- {{ tenant.currency }} {{ '%.2f'|format(e.amount) }}</span>
+                      <span class="font-mono text-rose-700 font-semibold">- {{ e.amount|money }}</span>
                       {% if current_user.has_permission('cash.delete_expense') %}
                         <form method="POST"
                               action="{{ url_for('caja.delete_expense', expense_id=e.id) }}"
@@ -137,7 +137,7 @@
             <div class="rounded-xl bg-white border border-amber-100 overflow-hidden">
               <div class="px-4 py-2.5 border-b border-amber-100 flex items-center justify-between bg-amber-50/50">
                 <p class="text-xs font-semibold uppercase tracking-wide text-amber-800">Retiros parciales de hoy ({{ today_withdrawals|length }})</p>
-                <p class="text-sm font-bold text-amber-700 font-mono">- {{ tenant.currency }} {{ '%.2f'|format(today_summary.withdrawals_amount) }}</p>
+                <p class="text-sm font-bold text-amber-700 font-mono">- {{ today_summary.withdrawals_amount|money }}</p>
               </div>
               <ul class="divide-y divide-amber-100/60">
                 {% for r in today_withdrawals %}
@@ -149,7 +149,7 @@
                         {% if r.user %} · {{ r.user.full_name or r.user.email }}{% endif %}
                       </p>
                     </div>
-                    <span class="font-mono text-amber-700 font-semibold">- {{ tenant.currency }} {{ '%.2f'|format(r.amount) }}</span>
+                    <span class="font-mono text-amber-700 font-semibold">- {{ r.amount|money }}</span>
                   </li>
                 {% endfor %}
               </ul>
@@ -166,22 +166,22 @@
 <section class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
   <div class="bg-white rounded-xl border shadow-sm p-5">
     <p class="text-sm text-slate-500">Efectivo cobrado</p>
-    <p class="mt-2 text-2xl font-black text-emerald-700">{{ tenant.currency }} {{ '%.2f'|format(summary.sales.get('efectivo', 0) + summary.payments.get('efectivo', 0)) }}</p>
+    <p class="mt-2 text-2xl font-black text-emerald-700">{{ (summary.sales.get('efectivo', 0) + summary.payments.get('efectivo', 0))|money }}</p>
     <p class="text-xs text-slate-400 mt-1">Ventas y cobros en efectivo</p>
   </div>
   <div class="bg-white rounded-xl border shadow-sm p-5">
     <p class="text-sm text-slate-500">Transferencias</p>
-    <p class="mt-2 text-2xl font-black text-indigo-700">{{ tenant.currency }} {{ '%.2f'|format(summary.sales.get('transferencia', 0) + summary.payments.get('transferencia', 0)) }}</p>
+    <p class="mt-2 text-2xl font-black text-indigo-700">{{ (summary.sales.get('transferencia', 0) + summary.payments.get('transferencia', 0))|money }}</p>
     <p class="text-xs text-slate-400 mt-1">Ventas y abonos del periodo</p>
   </div>
   <div class="bg-white rounded-xl border shadow-sm p-5">
     <p class="text-sm text-slate-500">Tarjeta</p>
-    <p class="mt-2 text-2xl font-black text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(summary.sales.get('tarjeta', 0) + summary.payments.get('tarjeta', 0)) }}</p>
+    <p class="mt-2 text-2xl font-black text-slate-900">{{ (summary.sales.get('tarjeta', 0) + summary.payments.get('tarjeta', 0))|money }}</p>
     <p class="text-xs text-slate-400 mt-1">Ventas y abonos del periodo</p>
   </div>
   <div class="bg-white rounded-xl border shadow-sm p-5">
     <p class="text-sm text-slate-500">Efectivo esperado</p>
-    <p class="mt-2 text-2xl font-black text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(summary.expected_cash) }}</p>
+    <p class="mt-2 text-2xl font-black text-slate-900">{{ summary.expected_cash|money }}</p>
     <p class="text-xs text-slate-400 mt-1">Dinero que debe haber en caja ahora</p>
   </div>
 </section>
@@ -189,22 +189,22 @@
 <section class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
   <div class="bg-white rounded-xl border shadow-sm p-5">
     <p class="text-sm text-slate-500">Cobrado del periodo</p>
-    <p class="mt-2 text-2xl font-black text-emerald-700">{{ tenant.currency }} {{ '%.2f'|format(summary.contado_total) }}</p>
+    <p class="mt-2 text-2xl font-black text-emerald-700">{{ summary.contado_total|money }}</p>
     <p class="text-xs text-slate-400 mt-1">Efectivo + transferencia + tarjeta + cheque</p>
   </div>
   <div class="bg-white rounded-xl border shadow-sm p-5">
     <p class="text-sm text-slate-500">Apertura acumulada</p>
-    <p class="mt-2 text-2xl font-black text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(summary.opening_total) }}</p>
+    <p class="mt-2 text-2xl font-black text-slate-900">{{ summary.opening_total|money }}</p>
     <p class="text-xs text-slate-400 mt-1">Aperturas registradas en el periodo</p>
   </div>
   <div class="bg-white rounded-xl border shadow-sm p-5">
     <p class="text-sm text-slate-500">Gastos en efectivo</p>
-    <p class="mt-2 text-2xl font-black text-rose-700">{{ tenant.currency }} {{ '%.2f'|format(summary.expenses.get('efectivo', 0)) }}</p>
-    <p class="text-xs text-slate-400 mt-1">Otros métodos: {{ tenant.currency }} {{ '%.2f'|format((summary.expenses.get('transferencia', 0) + summary.expenses.get('tarjeta', 0) + summary.expenses.get('otro', 0))) }}</p>
+    <p class="mt-2 text-2xl font-black text-rose-700">{{ summary.expenses.get('efectivo', 0)|money }}</p>
+    <p class="text-xs text-slate-400 mt-1">Otros métodos: {{ (summary.expenses.get('transferencia', 0) + summary.expenses.get('tarjeta', 0) + summary.expenses.get('otro', 0))|money }}</p>
   </div>
   <div class="bg-white rounded-xl border shadow-sm p-5">
     <p class="text-sm text-slate-500">Retiros parciales</p>
-    <p class="mt-2 text-2xl font-black text-amber-700">{{ tenant.currency }} {{ '%.2f'|format(summary.withdrawals_total) }}</p>
+    <p class="mt-2 text-2xl font-black text-amber-700">{{ summary.withdrawals_total|money }}</p>
     <p class="text-xs text-slate-400 mt-1">Entregas o retiros de efectivo del periodo</p>
   </div>
 </section>
@@ -305,39 +305,39 @@
             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-3 px-5 py-4 text-sm">
               <div>
                 <p class="text-xs uppercase tracking-wide text-slate-500">Apertura</p>
-                <p class="font-mono text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(c.opening_amount) }}</p>
+                <p class="font-mono text-slate-900">{{ c.opening_amount|money }}</p>
               </div>
               <div>
                 <p class="text-xs uppercase tracking-wide text-slate-500">Efectivo</p>
-                <p class="font-mono text-emerald-700">{{ tenant.currency }} {{ '%.2f'|format(cash_total) }}</p>
+                <p class="font-mono text-emerald-700">{{ cash_total|money }}</p>
               </div>
               <div>
                 <p class="text-xs uppercase tracking-wide text-slate-500">Transferencia</p>
-                <p class="font-mono text-indigo-700">{{ tenant.currency }} {{ '%.2f'|format(transfer_total) }}</p>
+                <p class="font-mono text-indigo-700">{{ transfer_total|money }}</p>
               </div>
               <div>
                 <p class="text-xs uppercase tracking-wide text-slate-500">Tarjeta</p>
-                <p class="font-mono text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(card_total) }}</p>
+                <p class="font-mono text-slate-900">{{ card_total|money }}</p>
               </div>
               <div>
                 <p class="text-xs uppercase tracking-wide text-slate-500">Ventas de contado</p>
-                <p class="font-mono font-semibold text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(contado_total) }}</p>
+                <p class="font-mono font-semibold text-slate-900">{{ contado_total|money }}</p>
               </div>
               <div>
                 <p class="text-xs uppercase tracking-wide text-slate-500">Gastos efectivo</p>
-                <p class="font-mono text-rose-700">- {{ tenant.currency }} {{ '%.2f'|format(c.expenses_amount) }}</p>
+                <p class="font-mono text-rose-700">- {{ c.expenses_amount|money }}</p>
               </div>
               <div>
                 <p class="text-xs uppercase tracking-wide text-slate-500">Retiros</p>
-                <p class="font-mono text-amber-700">- {{ tenant.currency }} {{ '%.2f'|format(c.withdrawals_amount) }}</p>
+                <p class="font-mono text-amber-700">- {{ c.withdrawals_amount|money }}</p>
               </div>
               <div>
                 <p class="text-xs uppercase tracking-wide text-slate-500">Efectivo esperado</p>
-                <p class="font-mono font-semibold">{{ tenant.currency }} {{ '%.2f'|format(c.expected_cash_amount) }}</p>
+                <p class="font-mono font-semibold">{{ c.expected_cash_amount|money }}</p>
               </div>
               <div>
                 <p class="text-xs uppercase tracking-wide text-slate-500">Dinero entregado</p>
-                <p class="font-mono">{{ tenant.currency }} {{ '%.2f'|format(c.delivered_cash_amount) }}</p>
+                <p class="font-mono">{{ c.delivered_cash_amount|money }}</p>
               </div>
             </div>
 
@@ -347,7 +347,7 @@
               <details class="border-t bg-slate-50/40" {% if is_single_day %}open{% endif %}>
                 <summary class="px-5 py-2.5 cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-100 flex items-center justify-between">
                   <span>Gastos en efectivo del día ({{ cash_expenses_of_day|length }})</span>
-                  <span class="font-mono text-rose-700">- {{ tenant.currency }} {{ '%.2f'|format(c.expenses_amount) }}</span>
+                  <span class="font-mono text-rose-700">- {{ c.expenses_amount|money }}</span>
                 </summary>
                 <ul class="divide-y divide-slate-100 bg-white">
                   {% for e in cash_expenses_of_day %}
@@ -359,7 +359,7 @@
                           {% if e.user %} · {{ e.user.full_name or e.user.email }}{% endif %}
                         </p>
                       </div>
-                      <span class="font-mono text-rose-700">- {{ tenant.currency }} {{ '%.2f'|format(e.amount) }}</span>
+                      <span class="font-mono text-rose-700">- {{ e.amount|money }}</span>
                     </li>
                   {% endfor %}
                 </ul>
@@ -371,7 +371,7 @@
               <details class="border-t bg-slate-50/40" {% if is_single_day %}open{% endif %}>
                 <summary class="px-5 py-2.5 cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-100 flex items-center justify-between">
                   <span>Retiros parciales del día ({{ cash_withdrawals_of_day|length }})</span>
-                  <span class="font-mono text-amber-700">- {{ tenant.currency }} {{ '%.2f'|format(c.withdrawals_amount) }}</span>
+                  <span class="font-mono text-amber-700">- {{ c.withdrawals_amount|money }}</span>
                 </summary>
                 <ul class="divide-y divide-slate-100 bg-white">
                   {% for r in cash_withdrawals_of_day %}
@@ -383,7 +383,7 @@
                           {% if r.user %} · {{ r.user.full_name or r.user.email }}{% endif %}
                         </p>
                       </div>
-                      <span class="font-mono text-amber-700">- {{ tenant.currency }} {{ '%.2f'|format(r.amount) }}</span>
+                      <span class="font-mono text-amber-700">- {{ r.amount|money }}</span>
                     </li>
                   {% endfor %}
                 </ul>
@@ -393,7 +393,7 @@
             <footer class="px-5 py-3 border-t flex items-center justify-between gap-3 {{ footer_cls }}">
               <span class="text-xs uppercase tracking-wide font-semibold {{ diff_cls }}">Diferencia ({{ c.closure_status_label }})</span>
               <span class="font-mono text-base font-bold {{ diff_cls }}">
-                {% if c.variance_amount > 0 %}+{% endif %}{{ tenant.currency }} {{ '%.2f'|format(c.variance_amount) }}
+                {% if c.variance_amount > 0 %}+{% endif %}{{ c.variance_amount|money }}
               </span>
             </footer>
           </article>
@@ -434,7 +434,7 @@
             <div class="flex justify-between gap-3">
               <p class="font-medium text-slate-900">{{ e.description }}</p>
               <div class="flex items-center gap-2 shrink-0">
-                <p class="font-mono text-rose-700">{{ tenant.currency }} {{ '%.2f'|format(e.amount) }}</p>
+                <p class="font-mono text-rose-700">{{ e.amount|money }}</p>
                 {% if current_user.has_permission('cash.delete_expense') %}
                   <form method="POST"
                         action="{{ url_for('caja.delete_expense', expense_id=e.id) }}"
@@ -464,7 +464,7 @@
           <div class="p-4">
             <div class="flex justify-between gap-3">
               <p class="font-medium text-slate-900">{{ r.description }}</p>
-              <p class="font-mono text-amber-700">{{ tenant.currency }} {{ '%.2f'|format(r.amount) }}</p>
+              <p class="font-mono text-amber-700">{{ r.amount|money }}</p>
             </div>
             <p class="text-xs text-slate-500 mt-1">{{ r.withdrawal_date|local_datetime('%d/%m/%Y %H:%M') }} · {{ r.recipient }}</p>
           </div>

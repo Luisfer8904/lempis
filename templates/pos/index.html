@@ -32,7 +32,7 @@
                     <p class="text-xs text-slate-500">{{ draft.number }} · {{ draft.issue_date|local_datetime('%d/%m/%Y %H:%M') }}</p>
                   </div>
                   <span class="whitespace-nowrap font-mono text-sm font-bold text-indigo-700">
-                    {{ draft.currency }} {{ '%.2f'|format(draft.total or 0) }}
+                    {{ (draft.total or 0)|money(draft.currency) }}
                   </span>
                 </div>
               </a>
@@ -175,7 +175,7 @@
             </div>
             <div class="p-2.5">
               <p class="font-medium text-sm leading-tight line-clamp-2">{{ p.name }}</p>
-              <p class="text-base font-bold mt-1 product-price-label">{{ tenant.currency }} {{ '%.2f'|format(p.price) }}</p>
+              <p class="text-base font-bold mt-1 product-price-label">{{ p.price|money }}</p>
               {% if p.track_stock %}
                 {% if p.warehouse_stock <= 0 %}
                   <p class="text-sm font-medium text-rose-600 mt-1">Agotado</p>
@@ -323,15 +323,15 @@
       <div class="border-t p-4 bg-white">
         <div class="flex justify-between text-sm mb-1">
           <span class="text-slate-500">Subtotal</span>
-          <span class="font-mono" id="sum-sub">{{ tenant.currency }} 0.00</span>
+          <span class="font-mono" id="sum-sub">{{ 0|money }}</span>
         </div>
         <div class="flex justify-between text-sm mb-2">
           <span class="text-slate-500">ISV</span>
-          <span class="font-mono" id="sum-tax">{{ tenant.currency }} 0.00</span>
+          <span class="font-mono" id="sum-tax">{{ 0|money }}</span>
         </div>
         <div class="flex justify-between text-lg font-bold border-t pt-2 mb-3">
           <span>Total</span>
-          <span class="font-mono text-indigo-600" id="sum-total">{{ tenant.currency }} 0.00</span>
+          <span class="font-mono text-indigo-600" id="sum-total">{{ 0|money }}</span>
         </div>
         <div class="grid grid-cols-3 gap-2">
           <button id="save-draft-btn" name="action" value="draft" type="submit" disabled
@@ -367,7 +367,7 @@
     <div class="px-5 py-4 space-y-4">
       <div class="flex justify-between items-center rounded-lg bg-slate-50 px-4 py-3">
         <span class="text-sm text-slate-500">Total a cobrar</span>
-        <span class="font-mono text-xl font-bold text-indigo-600" id="checkout-modal-total">{{ tenant.currency }} 0.00</span>
+        <span class="font-mono text-xl font-bold text-indigo-600" id="checkout-modal-total">{{ 0|money }}</span>
       </div>
       <div id="checkout-payment-fields" class="space-y-3">
         <div class="space-y-2">
@@ -399,15 +399,15 @@
         <div class="space-y-2 rounded-lg border bg-slate-50 px-4 py-3">
           <div class="flex justify-between text-sm">
             <span class="text-slate-500">Aplicado</span>
-            <span id="checkout-applied" class="font-mono font-bold text-slate-900">{{ tenant.currency }} 0.00</span>
+            <span id="checkout-applied" class="font-mono font-bold text-slate-900">{{ 0|money }}</span>
           </div>
           <div class="flex justify-between text-sm">
             <span class="text-slate-500">Pendiente</span>
-            <span id="checkout-pending" class="font-mono font-bold text-amber-700">{{ tenant.currency }} 0.00</span>
+            <span id="checkout-pending" class="font-mono font-bold text-amber-700">{{ 0|money }}</span>
           </div>
           <div class="flex justify-between text-sm">
             <span class="text-slate-500">Cambio</span>
-            <span id="cash-change-modal" class="font-mono font-bold text-emerald-700">{{ tenant.currency }} 0.00</span>
+            <span id="cash-change-modal" class="font-mono font-bold text-emerald-700">{{ 0|money }}</span>
           </div>
         </div>
         <p id="cash-warning" class="hidden text-sm text-rose-600">La venta de contado debe quedar pagada completa.</p>
@@ -462,7 +462,7 @@
     <div class="px-5 py-4 space-y-4">
       <div class="flex justify-between items-center rounded-lg bg-emerald-50 px-4 py-3">
         <span class="text-sm font-medium text-emerald-900">Cambio a entregar</span>
-        <span class="font-mono text-xl font-bold text-emerald-700">{{ tenant.currency }} {{ sale_result.change }}</span>
+        <span class="font-mono text-xl font-bold text-emerald-700">{{ sale_result.change|money }}</span>
       </div>
       <div class="grid gap-2">
         <a href="{{ sale_result.ticket_url }}"
@@ -486,7 +486,7 @@
 {% endif %}
 
 <script>
-const TENANT_CURRENCY = "{{ tenant.currency }}";
+const TENANT_CURRENCY_SYMBOL = {{ currency_symbol|tojson }};
 const DRAFT_PAYLOAD = {{ draft_payload|tojson }};
 const cart = new Map();
 let checkoutConfirmed = false;
@@ -498,7 +498,12 @@ let selectedCategory = "{{ selected_category or '' }}";
 const PRODUCTS_PER_PAGE = 28;
 let productPage = 1;
 
-function fmt(n) { return TENANT_CURRENCY + " " + Number(n).toFixed(2); }
+function fmt(n) {
+  return `${TENANT_CURRENCY_SYMBOL} ${Number(n || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
 function hasUnsavedSale() {
   return cart.size > 0;
 }

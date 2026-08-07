@@ -114,7 +114,7 @@
             {% endif %}
 
             <div class="mt-2 flex items-center justify-between">
-              <span class="text-lg font-bold text-slate-900">{{ tenant.currency }} {{ '%.2f'|format(p.price) }}</span>
+              <span class="text-lg font-bold text-slate-900">{{ p.price|money }}</span>
               {% if p.track_stock %}
                 {% set shown_stock = p.visible_stock if p.visible_stock is defined else p.stock %}
                 {% if shown_stock <= 0 %}
@@ -200,11 +200,11 @@
           </td>
           <td class="text-sm">{{ p.category.name if p.category else '—' }}</td>
           {% if current_user.is_admin() %}
-          <td class="text-right font-medium text-slate-600">{{ tenant.currency }} {{ '%.2f'|format(p.cost or 0) }}</td>
+          <td class="text-right font-medium text-slate-600">{{ (p.cost or 0)|money }}</td>
           {% endif %}
-          <td class="text-right font-medium">{{ tenant.currency }} {{ '%.2f'|format(p.price) }}</td>
-          <td class="text-right font-medium">{{ tenant.currency }} {{ '%.2f'|format(p.price_wholesale if p.price_wholesale is not none else p.price) }}</td>
-          <td class="text-right font-medium">{{ tenant.currency }} {{ '%.2f'|format(p.price_special if p.price_special is not none else p.price) }}</td>
+          <td class="text-right font-medium">{{ p.price|money }}</td>
+          <td class="text-right font-medium">{{ (p.price_wholesale if p.price_wholesale is not none else p.price)|money }}</td>
+          <td class="text-right font-medium">{{ (p.price_special if p.price_special is not none else p.price)|money }}</td>
           <td class="text-right">
             {% if p.track_stock %}{{ p.visible_stock if p.visible_stock is defined else p.stock }}{% else %}—{% endif %}
           </td>

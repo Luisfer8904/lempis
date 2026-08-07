@@ -67,11 +67,11 @@
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div class="bg-white p-4 rounded-xl shadow-sm border">
         <p class="text-xs text-slate-500 uppercase">Precio venta</p>
-        <p class="text-2xl font-bold text-indigo-600">{{ tenant.currency }} {{ '%.2f'|format(producto.price) }}</p>
+        <p class="text-2xl font-bold text-indigo-600">{{ producto.price|money }}</p>
       </div>
       <div class="bg-white p-4 rounded-xl shadow-sm border">
         <p class="text-xs text-slate-500 uppercase">Costo</p>
-        <p class="text-2xl font-bold text-slate-700">{{ tenant.currency }} {{ '%.2f'|format(producto.cost or 0) }}</p>
+        <p class="text-2xl font-bold text-slate-700">{{ (producto.cost or 0)|money }}</p>
         {% if producto.cost and producto.cost > 0 %}
           {% set margen = ((producto.price - producto.cost) / producto.price * 100) %}
           <p class="text-xs {% if margen >= 30 %}text-green-600{% elif margen >= 15 %}text-amber-600{% else %}text-rose-600{% endif %}">
@@ -216,7 +216,7 @@
         </td>
         <td class="text-right font-mono">{{ '%.0f'|format(l.initial_quantity) }}</td>
         <td class="text-right font-mono font-semibold">{{ '%.0f'|format(l.remaining_quantity) }}</td>
-        <td class="text-right font-mono">{{ '%.2f'|format(l.cost) }}</td>
+            <td class="text-right font-mono">{{ l.cost|money }}</td>
         <td class="text-sm">{{ l.supplier or '—' }}</td>
         <td>
           {% set st = l.status_label() %}
@@ -278,7 +278,7 @@
           </td>
           <td class="text-xs">{{ compra.issue_date.strftime('%d/%m/%Y') }}</td>
           <td class="text-right">{{ '%.0f'|format(item.quantity) }}</td>
-          <td class="text-right font-mono">{{ '%.2f'|format(item.unit_cost) }}</td>
+          <td class="text-right font-mono">{{ item.unit_cost|money }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -314,7 +314,7 @@
           </td>
           <td class="text-xs">{{ factura.issue_date.strftime('%d/%m/%Y') }}</td>
           <td class="text-right">{{ '%.0f'|format(item.quantity) }}</td>
-          <td class="text-right font-mono">{{ '%.2f'|format(item.unit_price) }}</td>
+          <td class="text-right font-mono">{{ item.unit_price|money }}</td>
         </tr>
         {% endfor %}
       </tbody>
