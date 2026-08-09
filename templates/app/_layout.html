@@ -91,7 +91,7 @@
       {% if current_user.has_permission('purchases.view') or current_user.has_permission('products.manage') %}
         <div class="pt-3 mt-2 border-t">
           <p class="px-3 text-[10px] text-slate-400 uppercase font-semibold mb-1">Inventario / compras</p>
-          {% if current_user.has_permission('products.manage') %}{{ navlink('ubicaciones.index', 'Sedes y bodegas', '🏬') }}{% endif %}
+          {% if current_user.has_permission('products.manage') %}{{ navlink('ubicaciones.index', 'Sedes e inventario', '🏬') }}{% endif %}
           {% if current_user.has_permission('purchases.view') %}
             {{ navlink('proveedores.list',      'Proveedores', '🚚') }}
             {{ navlink('compras.list',          'Compras',     '🛒') }}

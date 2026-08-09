@@ -1,6 +1,6 @@
 {% extends "app/_layout.html" %}
-{% block title %}Sedes y bodegas — {{ APP_NAME }}{% endblock %}
-{% block heading %}Sedes y bodegas{% endblock %}
+{% block title %}Sedes e inventario — {{ APP_NAME }}{% endblock %}
+{% block heading %}Sedes e inventario{% endblock %}
 
 {% block content %}
 <section class="grid xl:grid-cols-3 gap-6">
@@ -8,17 +8,13 @@
     <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
       <div class="px-6 py-5 border-b flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 class="text-lg font-semibold text-slate-900">Ubicaciones de inventario</h2>
-          <p class="text-sm text-slate-500">Cada sede puede tener una o varias bodegas.</p>
+          <h2 class="text-lg font-semibold text-slate-900">Sedes de la empresa</h2>
+          <p class="text-sm text-slate-500">Cada sede administra una única existencia de inventario.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <button type="button" onclick="openLocationModal('branch-modal')"
                   class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900">
             + Nueva sede
-          </button>
-          <button type="button" onclick="openLocationModal('warehouse-modal')"
-                  class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">
-            + Nueva bodega
           </button>
           <a href="{{ url_for('reportes.detallado', tipo='inventario') }}"
              class="rounded-lg border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -55,37 +51,44 @@
               {% endif %}
             </div>
 
-            <div class="mt-4 grid md:grid-cols-2 gap-3">
-              {% for warehouse in branch.warehouses %}
+            {% set branch_warehouses = active_warehouses_by_branch.get(branch.id, []) %}
+            {% set primary_warehouse = canonical_warehouse_by_branch.get(branch.id) %}
+            <div class="mt-4 grid gap-3">
+              {% for warehouse in branch_warehouses %}
                 <div class="rounded-lg border bg-slate-50 px-4 py-3">
                   <div class="flex items-center justify-between gap-3">
                     <div>
-                      <p class="font-medium text-slate-900">{{ warehouse.name }}</p>
+                      <p class="font-medium text-slate-900">Inventario de {{ branch.name }}</p>
                       <p class="text-xs text-slate-500">
-                        {{ warehouse.code or 'Sin código' }}
-                        {% if warehouse.is_default %} · bodega principal{% endif %}
+                        {{ warehouse.code or branch.code or 'Sin código' }}
+                        {% if branch_warehouses|length > 1 %} · ubicación interna: {{ warehouse.name }}{% endif %}
                       </p>
                     </div>
                     <span class="text-xs font-medium px-2 py-0.5 rounded {{ 'bg-emerald-50 text-emerald-700' if warehouse.is_active else 'bg-slate-200 text-slate-500' }}">
                       {{ 'Activa' if warehouse.is_active else 'Inactiva' }}
                     </span>
                   </div>
-                  {% if not warehouse.is_default %}
-                    <form method="POST" class="mt-2">
-                      <input type="hidden" name="action" value="toggle_warehouse" />
-                      <input type="hidden" name="warehouse_id" value="{{ warehouse.id }}" />
-                      <button class="text-xs {{ 'text-rose-600' if warehouse.is_active else 'text-emerald-700' }} hover:underline">
-                        {{ 'Desactivar bodega' if warehouse.is_active else 'Activar bodega' }}
-                      </button>
-                    </form>
-                  {% endif %}
                 </div>
               {% else %}
                 <div class="rounded-lg border border-dashed px-4 py-3 text-sm text-slate-500">
-                  Esta sede no tiene bodegas todavía.
+                  Esta sede todavía no tiene una ubicación de inventario.
                 </div>
               {% endfor %}
             </div>
+            {% if branch_warehouses|length > 1 and primary_warehouse %}
+              <form method="POST" class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3"
+                    onsubmit="return confirm('¿Unificar todo el inventario de esta sede en {{ primary_warehouse.name|e }}? Las demás ubicaciones quedarán inactivas.');">
+                <input type="hidden" name="action" value="consolidate_warehouses" />
+                <input type="hidden" name="branch_id" value="{{ branch.id }}" />
+                <input type="hidden" name="target_warehouse_id" value="{{ primary_warehouse.id }}" />
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <p class="text-sm text-amber-900">Esta sede tiene {{ branch_warehouses|length }} ubicaciones internas heredadas.</p>
+                  <button class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700">
+                    Unificar en {{ primary_warehouse.name }}
+                  </button>
+                </div>
+              </form>
+            {% endif %}
           </div>
         {% endfor %}
       </div>
@@ -93,15 +96,14 @@
 
     <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
       <div class="px-6 py-5 border-b">
-        <h2 class="text-lg font-semibold text-slate-900">Inventario por bodega</h2>
-        <p class="text-sm text-slate-500">Existencias actuales disponibles para transferir o vender.</p>
+        <h2 class="text-lg font-semibold text-slate-900">Inventario por sede</h2>
+        <p class="text-sm text-slate-500">Existencias actuales disponibles en cada sede.</p>
       </div>
       <div class="overflow-x-auto">
         <table class="saas-table w-full min-w-[760px]">
           <thead>
             <tr>
               <th>Sede</th>
-              <th>Bodega</th>
               <th>Producto</th>
               <th>SKU</th>
               <th class="text-right">Stock</th>
@@ -111,14 +113,13 @@
             {% for row in stock_rows %}
               <tr class="warehouse-stock-row">
                 <td>{{ row.branch_name }}</td>
-                <td>{{ row.warehouse_name }}</td>
                 <td>{{ row.product_name }}</td>
                 <td class="font-mono text-xs">{{ row.sku }}</td>
                 <td class="text-right font-mono">{{ '%.2f'|format(row.quantity)|replace('.00', '') }}</td>
               </tr>
             {% else %}
               <tr>
-                <td colspan="5" class="text-center py-8 text-slate-400">Sin inventario por bodega todavía.</td>
+                <td colspan="4" class="text-center py-8 text-slate-400">Sin inventario por sede todavía.</td>
               </tr>
             {% endfor %}
           </tbody>
@@ -128,7 +129,7 @@
         <div id="warehouse-stock-pagination" class="border-t px-4 py-4 flex flex-col items-center gap-3">
           <p id="warehouse-stock-pagination-summary" class="text-sm text-slate-500 text-center"></p>
           <nav id="warehouse-stock-pagination-controls"
-               aria-label="Paginación del inventario por bodega"
+               aria-label="Paginación del inventario por sede"
                class="flex flex-wrap items-center justify-center gap-1.5"></nav>
         </div>
       {% endif %}
@@ -166,10 +167,10 @@
         </select>
       </div>
       <div>
-        <label class="block text-sm font-medium mb-1">Bodega *</label>
+        <label class="block text-sm font-medium mb-1">Sede *</label>
         <select name="adjustment_warehouse_id" required class="w-full px-3 py-2 border rounded-lg bg-white">
           {% for w in warehouses if w.is_active %}
-            <option value="{{ w.id }}">{{ w.label }}</option>
+            <option value="{{ w.id }}">{{ w.branch.name }}</option>
           {% endfor %}
         </select>
       </div>
@@ -196,7 +197,7 @@
       <input type="hidden" name="action" value="transfer" />
       <div>
         <h2 class="font-semibold text-slate-900">Transferir inventario</h2>
-        <p class="text-sm text-slate-500">Mueve producto entre bodegas o sedes.</p>
+        <p class="text-sm text-slate-500">Mueve producto de una sede a otra.</p>
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Producto *</label>
@@ -206,24 +207,24 @@
             <option value="{{ row.WarehouseStock.product_id }}"
                     data-source="{{ row.WarehouseStock.warehouse_id }}"
                     data-batch="{{ row.WarehouseStock.batch_id or '' }}">
-              {{ row.product_name }} · {{ row.warehouse_name }} · {{ '%.2f'|format(row.quantity)|replace('.00', '') }} disp.
+              {{ row.product_name }} · {{ row.branch_name }} · {{ '%.2f'|format(row.quantity)|replace('.00', '') }} disp.
             </option>
           {% endfor %}
         </select>
       </div>
       <div>
-        <label class="block text-sm font-medium mb-1">Bodega origen *</label>
+        <label class="block text-sm font-medium mb-1">Sede origen *</label>
         <select name="source_warehouse_id" required class="w-full px-3 py-2 border rounded-lg bg-white">
           {% for w in warehouses if w.is_active %}
-            <option value="{{ w.id }}">{{ w.label }}</option>
+            <option value="{{ w.id }}">{{ w.branch.name }}</option>
           {% endfor %}
         </select>
       </div>
       <div>
-        <label class="block text-sm font-medium mb-1">Bodega destino *</label>
+        <label class="block text-sm font-medium mb-1">Sede destino *</label>
         <select name="target_warehouse_id" required class="w-full px-3 py-2 border rounded-lg bg-white">
           {% for w in warehouses if w.is_active %}
-            <option value="{{ w.id }}">{{ w.label }}</option>
+            <option value="{{ w.id }}">{{ w.branch.name }}</option>
           {% endfor %}
         </select>
       </div>
@@ -290,45 +291,6 @@
   </div>
 </div>
 
-<div id="warehouse-modal" data-location-modal class="hidden fixed inset-0 z-50 items-center justify-center bg-slate-900/50 p-4"
-     role="dialog" aria-modal="true" aria-labelledby="warehouse-modal-title">
-  <div class="w-full max-w-md rounded-xl bg-white shadow-2xl" data-modal-panel>
-    <div class="flex items-center justify-between border-b px-5 py-4">
-      <div>
-        <h2 id="warehouse-modal-title" class="font-semibold text-slate-900">Nueva bodega</h2>
-        <p class="text-xs text-slate-500">Agrégala dentro de una sede existente.</p>
-      </div>
-      <button type="button" onclick="closeLocationModal('warehouse-modal')"
-              class="rounded-lg px-2 py-1 text-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-              aria-label="Cerrar">×</button>
-    </div>
-    <form method="POST" class="space-y-3 p-5">
-      <input type="hidden" name="action" value="warehouse" />
-      <div>
-        <label class="mb-1 block text-sm font-medium">Sede *</label>
-        <select name="warehouse_branch_id" required class="w-full rounded-lg border bg-white px-3 py-2">
-          {% for branch in branches if branch.is_active %}
-            <option value="{{ branch.id }}">{{ branch.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium">Nombre *</label>
-        <input name="warehouse_name" required class="w-full rounded-lg border px-3 py-2" placeholder="Tienda" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium">Código</label>
-        <input name="warehouse_code" class="w-full rounded-lg border px-3 py-2" placeholder="Código" />
-      </div>
-      <div class="flex justify-end gap-2 pt-1">
-        <button type="button" onclick="closeLocationModal('warehouse-modal')"
-                class="rounded-lg border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancelar</button>
-        <button class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">Crear bodega</button>
-      </div>
-    </form>
-  </div>
-</div>
-
 <section id="movimientos-recientes" class="mt-6 bg-white rounded-xl border shadow-sm overflow-hidden">
   <div class="px-6 py-5 border-b">
     <h2 class="text-lg font-semibold text-slate-900">Movimientos recientes</h2>
@@ -366,8 +328,8 @@
               {% endif %}
             </td>
             <td class="text-right font-mono">{{ '%.2f'|format(movement.quantity)|replace('.00', '') }}</td>
-            <td>{{ movement.source_warehouse.label if movement.source_warehouse else '—' }}</td>
-            <td>{{ movement.target_warehouse.label if movement.target_warehouse else '—' }}</td>
+            <td>{{ movement.source_warehouse.branch.name if movement.source_warehouse and movement.source_warehouse.branch else '—' }}</td>
+            <td>{{ movement.target_warehouse.branch.name if movement.target_warehouse and movement.target_warehouse.branch else '—' }}</td>
             <td class="text-sm text-slate-500">{{ movement.notes or movement.reference or '—' }}</td>
           </tr>
         {% else %}
