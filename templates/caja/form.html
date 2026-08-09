@@ -16,7 +16,7 @@
     <h2 class="text-lg font-semibold text-slate-900">Datos del cierre</h2>
     <p class="text-sm text-slate-500 mt-1">El sistema calcula ventas, abonos, gastos y retiros del día. Solo ingresas apertura, efectivo contado y dinero entregado.</p>
 
-    <div class="grid md:grid-cols-3 gap-4 mt-5">
+    <div class="grid md:grid-cols-2 gap-4 mt-5">
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-1">Fecha</label>
         <input type="date" name="closure_date" value="{{ fecha }}" max="{{ today }}"
@@ -41,17 +41,8 @@
           {% endfor %}
         </select>
       </div>
-      <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Bodega</label>
-        <select id="closure-warehouse" name="warehouse_id" class="w-full rounded-lg border px-3 py-2">
-          <option value="">No aplica</option>
-          {% for w in warehouses %}
-            <option value="{{ w.id }}" data-branch-id="{{ w.branch_id }}" {% if selected_warehouse_id == w.id %}selected{% endif %}>{{ w.label }}</option>
-          {% endfor %}
-        </select>
-      </div>
     </div>
-    <p class="mt-2 text-xs text-slate-500">Los importes del cierre se calculan únicamente con las operaciones de esta sede y bodega.</p>
+    <p class="mt-2 text-xs text-slate-500">Los importes del cierre se calculan únicamente con las operaciones de esta sede.</p>
 
     <div class="grid md:grid-cols-3 gap-4 mt-5">
       <div>
@@ -158,18 +149,6 @@
 </form>
 <script>
 const closureBranch = document.getElementById('closure-branch');
-const closureWarehouse = document.getElementById('closure-warehouse');
-
-function filterClosureWarehouses() {
-  if (!closureBranch || !closureWarehouse) return;
-  let selectedStillVisible = !closureWarehouse.value;
-  for (const option of closureWarehouse.options) {
-    if (!option.value) continue;
-    option.hidden = Boolean(closureBranch.value) && option.dataset.branchId !== closureBranch.value;
-    if (option.value === closureWarehouse.value && !option.hidden) selectedStillVisible = true;
-  }
-  if (!selectedStillVisible) closureWarehouse.value = '';
-}
 
 function reloadClosureScope() {
   if (!closureBranch?.value) return;
@@ -177,15 +156,9 @@ function reloadClosureScope() {
     fecha: {{ fecha|tojson }},
     branch_id: closureBranch.value,
   });
-  if (closureWarehouse?.value) params.set('warehouse_id', closureWarehouse.value);
   window.location.href = `{{ url_for('caja.new_closure') }}?${params.toString()}`;
 }
 
-closureBranch?.addEventListener('change', () => {
-  filterClosureWarehouses();
-  reloadClosureScope();
-});
-closureWarehouse?.addEventListener('change', reloadClosureScope);
-filterClosureWarehouses();
+closureBranch?.addEventListener('change', reloadClosureScope);
 </script>
 {% endblock %}

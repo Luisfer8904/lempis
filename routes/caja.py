@@ -82,12 +82,10 @@ def index():
         .first()
     )
     today_branch_id = today_closure.branch_id if today_closure else None
-    today_warehouse_id = today_closure.warehouse_id if today_closure else None
     today_summary = _suggested_closure_values(
         tenant.id,
         today,
         branch_id=today_branch_id,
-        warehouse_id=today_warehouse_id,
     )
     is_single_day = (start_date == end_date)
     selected_date = start_date if is_single_day else None
@@ -101,7 +99,6 @@ def index():
         if selected_date is not None else None
     )
     selected_branch_id = selected_closure.branch_id if selected_closure else None
-    selected_warehouse_id = selected_closure.warehouse_id if selected_closure else None
     if selected_branch_id:
         expenses = [expense for expense in expenses if expense.branch_id == selected_branch_id]
         withdrawals = [withdrawal for withdrawal in withdrawals if withdrawal.branch_id == selected_branch_id]
@@ -110,7 +107,6 @@ def index():
             tenant.id,
             selected_date,
             branch_id=selected_branch_id,
-            warehouse_id=selected_warehouse_id,
         )
         if selected_date is not None else None
     )
@@ -121,7 +117,6 @@ def index():
         closures,
         open_closure=today_closure if start_date <= today <= end_date else None,
         branch_id=selected_branch_id if is_single_day else None,
-        warehouse_id=selected_warehouse_id if is_single_day else None,
     )
 
     # Gastos en efectivo de HOY (para listarlos detalladamente en el banner del día)
@@ -181,7 +176,6 @@ def index():
         selected_date=selected_date,
         selected_closure=selected_closure,
         selected_summary=selected_summary,
-        warehouses=_active_warehouses(tenant.id),
         yesterday_iso=yesterday.isoformat(),
         week_start_iso=week_start.isoformat(),
         month_start_iso=month_start.isoformat(),
@@ -217,29 +211,23 @@ def new_closure():
         return redirect(url_for("caja.index", desde=closure_date.isoformat(), hasta=closure_date.isoformat()))
 
     branches = _active_branches(tenant.id)
-    warehouses = _active_warehouses(tenant.id)
     requested_branch_id = request.values.get("branch_id", type=int)
-    requested_warehouse_id = request.values.get("warehouse_id", type=int)
     submitted_scope_changed = (
         request.method == "POST"
         and existing is not None
-        and (
-            requested_branch_id != existing.branch_id
-            or requested_warehouse_id != existing.warehouse_id
-        )
+        and requested_branch_id != existing.branch_id
     )
     branch_id = existing.branch_id if existing else requested_branch_id
-    warehouse_id = existing.warehouse_id if existing else requested_warehouse_id
-    branch_id, warehouse_id, scope_error = _validated_cash_scope(
-        tenant.id, branch_id, warehouse_id, require_branch=bool(branches)
+    branch_id, scope_error = _validated_branch_scope(
+        tenant.id, branch_id, require_branch=bool(branches)
     )
     suggested = _suggested_closure_values(
-        tenant.id, closure_date, branch_id=branch_id, warehouse_id=warehouse_id
+        tenant.id, closure_date, branch_id=branch_id
     )
 
     if request.method == "POST":
         if submitted_scope_changed:
-            flash("La sede o bodega cambió. Guarda primero la apertura antes de cerrar la caja.", "warning")
+            flash("La sede cambió. Guarda primero la apertura antes de cerrar la caja.", "warning")
             return redirect(url_for("caja.index", desde=closure_date.isoformat(), hasta=closure_date.isoformat()))
         if scope_error:
             flash(scope_error, "warning")
@@ -262,7 +250,7 @@ def new_closure():
         closure.user_id = current_user.id
         _fill_closure_from_form(closure, suggested)
         closure.branch_id = branch_id
-        closure.warehouse_id = warehouse_id
+        closure.warehouse_id = None
         if existing is None:
             db.session.add(closure)
         db.session.flush()  # necesitamos closure.id antes de vincular gastos
@@ -280,9 +268,7 @@ def new_closure():
         closing_existing_open=existing is not None,
         suggested=suggested,
         branches=branches,
-        warehouses=warehouses,
         selected_branch_id=branch_id,
-        selected_warehouse_id=warehouse_id,
         fecha=closure_date.isoformat(),
         today=today.isoformat(),
     )
@@ -305,17 +291,16 @@ def open_day():
         flash("La caja de ese día tiene un cierre definitivo y no puede modificarse.", "warning")
         return redirect(url_for("caja.index", desde=closure_date.isoformat(), hasta=closure_date.isoformat()))
 
-    branch_id, warehouse_id, scope_error = _validated_cash_scope(
+    branch_id, scope_error = _validated_branch_scope(
         tenant.id,
         request.form.get("branch_id", type=int),
-        request.form.get("warehouse_id", type=int),
         require_branch=bool(_active_branches(tenant.id)),
     )
     if scope_error:
         flash(scope_error, "warning")
         return redirect(url_for("caja.index", desde=closure_date.isoformat(), hasta=closure_date.isoformat()))
     suggested = _suggested_closure_values(
-        tenant.id, closure_date, branch_id=branch_id, warehouse_id=warehouse_id
+        tenant.id, closure_date, branch_id=branch_id
     )
     closure = existing or CashClosure(
         tenant_id=tenant.id,
@@ -326,7 +311,7 @@ def open_day():
     closure.user_id = current_user.id
     closure.status = "open"
     closure.branch_id = branch_id
-    closure.warehouse_id = warehouse_id
+    closure.warehouse_id = None
     closure.opening_amount = _decimal(request.form.get("opening_amount"))
     _apply_suggested_amounts(closure, suggested)
     if existing is None:
@@ -386,10 +371,9 @@ def create_expense():
         flash("No puedes registrar gastos en una caja con cierre definitivo.", "warning")
         return redirect(url_for("caja.index", desde=expense_local_date.isoformat(), hasta=expense_local_date.isoformat()))
 
-    branch_id, _, scope_error = _validated_cash_scope(
+    branch_id, scope_error = _validated_branch_scope(
         tenant.id,
         request.form.get("branch_id", type=int),
-        None,
         require_branch=bool(_active_branches(tenant.id)),
     )
     if scope_error:
@@ -482,10 +466,9 @@ def create_withdrawal():
         flash("No puedes registrar retiros en una caja con cierre definitivo.", "warning")
         return redirect(url_for("caja.index", desde=withdrawal_local_date.isoformat(), hasta=withdrawal_local_date.isoformat()))
 
-    branch_id, _, scope_error = _validated_cash_scope(
+    branch_id, scope_error = _validated_branch_scope(
         tenant.id,
         request.form.get("branch_id", type=int),
-        None,
         require_branch=bool(_active_branches(tenant.id)),
     )
     if scope_error:
@@ -526,7 +509,7 @@ def _fill_closure_from_form(closure: CashClosure, suggested: dict) -> None:
     closure.closure_date = _parse_date(request.form.get("closure_date")) or suggested["closure_date"]
     closure.status = "closed"
     closure.branch_id = request.form.get("branch_id", type=int) or None
-    closure.warehouse_id = request.form.get("warehouse_id", type=int) or None
+    closure.warehouse_id = None
     closure.opening_amount = _decimal(request.form.get("opening_amount"))
     _apply_suggested_amounts(closure, suggested)
     closure.actual_cash_amount = _decimal(request.form.get("actual_cash_amount"))
@@ -639,12 +622,11 @@ def _suggested_closure_values(
     tenant_id: int,
     closure_date,
     branch_id: int | None = None,
-    warehouse_id: int | None = None,
 ):
     start, end = _period_bounds(closure_date, closure_date)
-    sales = _sum_invoices_by_method(tenant_id, start, end, branch_id, warehouse_id)
-    payments = _sum_payments_by_method(tenant_id, start, end, False, branch_id, warehouse_id)
-    credit_payments = _sum_payments_by_method(tenant_id, start, end, True, branch_id, warehouse_id)
+    sales = _sum_invoices_by_method(tenant_id, start, end, branch_id)
+    payments = _sum_payments_by_method(tenant_id, start, end, False, branch_id)
+    credit_payments = _sum_payments_by_method(tenant_id, start, end, True, branch_id)
     expenses_query = (
         db.session.query(func.coalesce(func.sum(CashExpense.amount), 0))
         .filter(
@@ -697,17 +679,15 @@ def _cash_summary(
     closures,
     open_closure: CashClosure | None = None,
     branch_id: int | None = None,
-    warehouse_id: int | None = None,
 ):
-    sales = _sum_invoices_by_method(tenant_id, period_start, period_end, branch_id, warehouse_id)
-    payments = _sum_payments_by_method(tenant_id, period_start, period_end, False, branch_id, warehouse_id)
+    sales = _sum_invoices_by_method(tenant_id, period_start, period_end, branch_id)
+    payments = _sum_payments_by_method(tenant_id, period_start, period_end, False, branch_id)
     credit_payments = _sum_payments_by_method(
         tenant_id,
         period_start,
         period_end,
         credit_only=True,
         branch_id=branch_id,
-        warehouse_id=warehouse_id,
     )
     expenses_query = (
         db.session.query(
@@ -787,7 +767,6 @@ def _sum_invoices_by_method(
     period_start,
     period_end,
     branch_id: int | None = None,
-    warehouse_id: int | None = None,
 ):
     query = (
         db.session.query(
@@ -802,7 +781,7 @@ def _sum_invoices_by_method(
             or_(Invoice.payment_method == "credito", ~Invoice.payments.any()),
         )
     )
-    query = _scope_invoice_query(query, branch_id, warehouse_id)
+    query = _scope_invoice_query(query, branch_id)
     rows = query.group_by(Invoice.payment_method).all()
     return {row.method: row.total for row in rows}
 
@@ -813,7 +792,6 @@ def _sum_payments_by_method(
     period_end,
     credit_only: bool = False,
     branch_id: int | None = None,
-    warehouse_id: int | None = None,
 ):
     query = (
         db.session.query(
@@ -829,15 +807,13 @@ def _sum_payments_by_method(
     )
     if credit_only:
         query = query.filter(Invoice.payment_method == "credito")
-    query = _scope_invoice_query(query, branch_id, warehouse_id)
+    query = _scope_invoice_query(query, branch_id)
     rows = query.group_by(InvoicePayment.payment_method).all()
     return {row.method: row.total for row in rows}
 
 
-def _scope_invoice_query(query, branch_id: int | None, warehouse_id: int | None):
-    """Limita facturas/pagos a la bodega o sede operativa de la caja."""
-    if warehouse_id:
-        return query.filter(Invoice.warehouse_id == warehouse_id)
+def _scope_invoice_query(query, branch_id: int | None):
+    """Limita facturas y cobros a la sede operativa de la caja."""
     if branch_id:
         return query.join(Warehouse, Invoice.warehouse_id == Warehouse.id).filter(
             Warehouse.branch_id == branch_id
@@ -845,40 +821,25 @@ def _scope_invoice_query(query, branch_id: int | None, warehouse_id: int | None)
     return query
 
 
-def _validated_cash_scope(
+def _validated_branch_scope(
     tenant_id: int,
     branch_id: int | None,
-    warehouse_id: int | None,
     require_branch: bool = False,
 ):
-    """Valida que sede y bodega pertenezcan a la empresa y sean coherentes."""
+    """Valida que la sede de la caja pertenezca a la empresa."""
     branch = None
     if branch_id:
         branch = Branch.query.filter_by(id=branch_id, tenant_id=tenant_id).first()
         if branch is None:
-            return None, None, "La sede seleccionada no es válida."
-
-    warehouse = None
-    if warehouse_id:
-        warehouse = Warehouse.query.filter_by(id=warehouse_id, tenant_id=tenant_id).first()
-        if warehouse is None:
-            return branch_id, None, "La bodega seleccionada no es válida."
-        if branch is not None and warehouse.branch_id != branch.id:
-            return branch.id, None, "La bodega seleccionada no pertenece a la sede indicada."
-        if branch is None:
-            branch = Branch.query.filter_by(id=warehouse.branch_id, tenant_id=tenant_id).first()
+            return None, "La sede seleccionada no es válida."
 
     if require_branch and branch is None:
-        return None, None, "Selecciona la sede que corresponde a esta caja."
-    return branch.id if branch else None, warehouse.id if warehouse else None, None
+        return None, "Selecciona la sede que corresponde a esta caja."
+    return branch.id if branch else None, None
 
 
 def _active_branches(tenant_id: int):
     return Branch.query.filter_by(tenant_id=tenant_id, is_active=True).order_by(Branch.name.asc()).all()
-
-
-def _active_warehouses(tenant_id: int):
-    return Warehouse.query.filter_by(tenant_id=tenant_id, is_active=True).order_by(Warehouse.name.asc()).all()
 
 
 def _period_bounds(start_date, end_date):
