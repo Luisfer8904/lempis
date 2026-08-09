@@ -111,7 +111,6 @@ def index():
         period_end,
         closures,
         open_closure=today_closure if start_date <= today <= end_date else None,
-        open_closure_values=today_summary,
     )
 
     # Gastos en efectivo de HOY (para listarlos detalladamente en el banner del día)
@@ -573,10 +572,15 @@ def _cash_summary(
     period_end,
     closures,
     open_closure: CashClosure | None = None,
-    open_closure_values: dict | None = None,
 ):
     sales = _sum_invoices_by_method(tenant_id, period_start, period_end)
     payments = _sum_payments_by_method(tenant_id, period_start, period_end)
+    credit_payments = _sum_payments_by_method(
+        tenant_id,
+        period_start,
+        period_end,
+        credit_only=True,
+    )
     expenses = (
         db.session.query(
             CashExpense.payment_method.label("method"),
@@ -600,37 +604,47 @@ def _cash_summary(
         )
         .scalar()
     )
-    cash_sales = _decimal(sales.get("efectivo"))
-    transfer_sales = _decimal(sales.get("transferencia"))
-    card_sales = _decimal(sales.get("tarjeta"))
-    check_sales = _decimal(sales.get("cheque")) + _decimal(payments.get("cheque"))
+    payment_methods = ("efectivo", "transferencia", "tarjeta", "cheque")
+    method_totals = {
+        method: _decimal(sales.get(method)) + _decimal(payments.get(method))
+        for method in payment_methods
+    }
+    # Las ventas actuales generan un InvoicePayment al cobrar. Restamos solo los
+    # pagos de facturas a crédito para separar venta inmediata de cobro/abono.
+    immediate_sales = {
+        method: method_totals[method] - _decimal(credit_payments.get(method))
+        for method in payment_methods
+    }
     closure_dates = {c.closure_date for c in closures}
     include_open_closure = (
         open_closure is not None
         and open_closure.status == "open"
         and open_closure.closure_date not in closure_dates
     )
-    open_values = open_closure_values or {}
     open_opening = _decimal(open_closure.opening_amount) if include_open_closure else Decimal("0.00")
-    open_expected_cash = (
-        open_opening
-        + _decimal(open_values.get("cash_sales_amount"))
-        + _decimal(open_values.get("receivable_cash_amount"))
-        - _decimal(open_values.get("expenses_amount"))
-        - _decimal(open_values.get("withdrawals_amount"))
-        if include_open_closure
-        else Decimal("0.00")
+    opening_total = sum(_decimal(c.opening_amount) for c in closures) + open_opening
+    cash_available = (
+        opening_total
+        + method_totals["efectivo"]
+        - _decimal(expenses_by_method.get("efectivo"))
+        - _decimal(withdrawals_total)
     )
     return {
         "sales": {key: _decimal(value) for key, value in sales.items()},
         "payments": {key: _decimal(value) for key, value in payments.items()},
+        "credit_payments": {
+            key: _decimal(value) for key, value in credit_payments.items()
+        },
+        "immediate_sales": immediate_sales,
+        "method_totals": method_totals,
         "expenses": expenses_by_method,
-        # Total "de contado" = todo lo no a crédito del periodo
-        "contado_total": cash_sales + transfer_sales + card_sales + check_sales,
-        "opening_total": sum(_decimal(c.opening_amount) for c in closures) + open_opening,
+        # Total recibido en el periodo, incluyendo ventas inmediatas y abonos.
+        "contado_total": sum(method_totals.values(), Decimal("0.00")),
+        "opening_total": opening_total,
         "expenses_total": sum(_decimal(c.expenses_amount) for c in closures),
         "withdrawals_total": _decimal(withdrawals_total),
-        "expected_cash": sum(_decimal(c.expected_cash_amount) for c in closures) + open_expected_cash,
+        "expected_cash": cash_available,
+        "cash_available": cash_available,
         "actual_cash": sum(_decimal(c.actual_cash_amount) for c in closures),
         "delivered_cash": sum(_decimal(c.delivered_cash_amount) for c in closures),
         "variance": sum(_decimal(c.variance_amount) for c in closures),

@@ -208,50 +208,92 @@
   {% endif %}
 {% endif %}
 
-<section class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
-  <div class="bg-white rounded-xl border shadow-sm p-5">
-    <p class="text-sm text-slate-500">Efectivo cobrado</p>
-    <p class="mt-2 text-2xl font-black text-emerald-700">{{ (summary.sales.get('efectivo', 0) + summary.payments.get('efectivo', 0))|money }}</p>
-    <p class="text-xs text-slate-400 mt-1">Ventas y cobros en efectivo</p>
-  </div>
-  <div class="bg-white rounded-xl border shadow-sm p-5">
-    <p class="text-sm text-slate-500">Transferencias</p>
-    <p class="mt-2 text-2xl font-black text-indigo-700">{{ (summary.sales.get('transferencia', 0) + summary.payments.get('transferencia', 0))|money }}</p>
-    <p class="text-xs text-slate-400 mt-1">Ventas y abonos del periodo</p>
-  </div>
-  <div class="bg-white rounded-xl border shadow-sm p-5">
-    <p class="text-sm text-slate-500">Tarjeta</p>
-    <p class="mt-2 text-2xl font-black text-slate-900">{{ (summary.sales.get('tarjeta', 0) + summary.payments.get('tarjeta', 0))|money }}</p>
-    <p class="text-xs text-slate-400 mt-1">Ventas y abonos del periodo</p>
-  </div>
-  <div class="bg-white rounded-xl border shadow-sm p-5">
-    <p class="text-sm text-slate-500">Efectivo esperado</p>
-    <p class="mt-2 text-2xl font-black text-slate-900">{{ summary.expected_cash|money }}</p>
-    <p class="text-xs text-slate-400 mt-1">Dinero que debe haber en caja ahora</p>
-  </div>
-</section>
+{% set non_cash_total = summary.method_totals.get('transferencia', 0) + summary.method_totals.get('tarjeta', 0) + summary.method_totals.get('cheque', 0) %}
+<section class="grid gap-5 xl:grid-cols-2 mb-5">
+  <article class="overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
+    <div class="flex items-center gap-3 border-b border-emerald-100 bg-emerald-50/60 px-5 py-4">
+      <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xl">🏦</span>
+      <div>
+        <h2 class="text-xl font-bold text-emerald-800">Dinero existente en caja</h2>
+        <p class="text-sm text-slate-500">Efectivo disponible en este momento</p>
+      </div>
+    </div>
 
-<section class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
-  <div class="bg-white rounded-xl border shadow-sm p-5">
-    <p class="text-sm text-slate-500">Cobrado del periodo</p>
-    <p class="mt-2 text-2xl font-black text-emerald-700">{{ summary.contado_total|money }}</p>
-    <p class="text-xs text-slate-400 mt-1">Efectivo + transferencia + tarjeta + cheque</p>
-  </div>
-  <div class="bg-white rounded-xl border shadow-sm p-5">
-    <p class="text-sm text-slate-500">Apertura acumulada</p>
-    <p class="mt-2 text-2xl font-black text-slate-900">{{ summary.opening_total|money }}</p>
-    <p class="text-xs text-slate-400 mt-1">Aperturas registradas en el periodo</p>
-  </div>
-  <div class="bg-white rounded-xl border shadow-sm p-5">
-    <p class="text-sm text-slate-500">Gastos en efectivo</p>
-    <p class="mt-2 text-2xl font-black text-rose-700">{{ summary.expenses.get('efectivo', 0)|money }}</p>
-    <p class="text-xs text-slate-400 mt-1">Otros métodos: {{ (summary.expenses.get('transferencia', 0) + summary.expenses.get('tarjeta', 0) + summary.expenses.get('otro', 0))|money }}</p>
-  </div>
-  <div class="bg-white rounded-xl border shadow-sm p-5">
-    <p class="text-sm text-slate-500">Retiros parciales</p>
-    <p class="mt-2 text-2xl font-black text-amber-700">{{ summary.withdrawals_total|money }}</p>
-    <p class="text-xs text-slate-400 mt-1">Entregas o retiros de efectivo del periodo</p>
-  </div>
+    <div class="p-5">
+      <dl class="space-y-3 text-sm">
+        <div class="flex items-center justify-between gap-4">
+          <dt class="text-slate-600">Apertura de caja</dt>
+          <dd class="font-mono font-semibold text-slate-900 whitespace-nowrap">{{ summary.opening_total|money }}</dd>
+        </div>
+        <div class="flex items-center justify-between gap-4">
+          <dt class="flex items-center gap-2 text-slate-700"><span class="font-bold text-emerald-600">+</span> Ventas en efectivo</dt>
+          <dd class="font-mono font-semibold text-slate-900 whitespace-nowrap">{{ summary.immediate_sales.get('efectivo', 0)|money }}</dd>
+        </div>
+        <div class="flex items-center justify-between gap-4">
+          <dt class="flex items-center gap-2 text-slate-700"><span class="font-bold text-emerald-600">+</span> Cobros y abonos en efectivo</dt>
+          <dd class="font-mono font-semibold text-slate-900 whitespace-nowrap">{{ summary.credit_payments.get('efectivo', 0)|money }}</dd>
+        </div>
+        <div class="flex items-center justify-between gap-4">
+          <dt class="flex items-center gap-2 text-slate-700"><span class="font-bold text-rose-600">−</span> Gastos pagados de caja</dt>
+          <dd class="font-mono font-semibold text-rose-700 whitespace-nowrap">{{ summary.expenses.get('efectivo', 0)|money }}</dd>
+        </div>
+        <div class="flex items-center justify-between gap-4">
+          <dt class="flex items-center gap-2 text-slate-700"><span class="font-bold text-rose-600">−</span> Retiros parciales</dt>
+          <dd class="font-mono font-semibold text-rose-700 whitespace-nowrap">{{ summary.withdrawals_total|money }}</dd>
+        </div>
+      </dl>
+
+      <div class="mt-5 rounded-xl border border-emerald-300 bg-gradient-to-r from-emerald-50 to-white p-4">
+        <p class="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Dinero en caja</p>
+        <div class="mt-1 flex items-end justify-between gap-3">
+          <p class="font-mono text-3xl font-black tracking-tight text-emerald-700 whitespace-nowrap">{{ summary.cash_available|money }}</p>
+          <span class="text-4xl opacity-30" aria-hidden="true">💵</span>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm">
+    <div class="flex items-center gap-3 border-b border-indigo-100 bg-indigo-50/60 px-5 py-4">
+      <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xl">🏛️</span>
+      <div>
+        <h2 class="text-xl font-bold text-indigo-800">Ingresos no efectivos</h2>
+        <p class="text-sm text-slate-500">Dinero recibido por otros métodos</p>
+      </div>
+    </div>
+
+    <div class="space-y-3 p-5">
+      {% for method, label, icon in [
+        ('transferencia', 'Transferencias', '↔'),
+        ('tarjeta', 'Tarjetas', '▣'),
+        ('cheque', 'Cheques', '✓')
+      ] %}
+        <div class="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 p-3 sm:grid-cols-4 sm:items-center">
+          <div class="flex items-center gap-2 font-semibold text-slate-900">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 font-bold text-indigo-600">{{ icon }}</span>
+            {{ label }}
+          </div>
+          <div>
+            <p class="text-[11px] text-slate-500">Ventas</p>
+            <p class="font-mono text-sm font-semibold whitespace-nowrap">{{ summary.immediate_sales.get(method, 0)|money }}</p>
+          </div>
+          <div>
+            <p class="text-[11px] text-slate-500">Cobros y abonos</p>
+            <p class="font-mono text-sm font-semibold whitespace-nowrap">{{ summary.credit_payments.get(method, 0)|money }}</p>
+          </div>
+          <div>
+            <p class="text-[11px] text-slate-500">Total</p>
+            <p class="font-mono text-sm font-bold text-indigo-700 whitespace-nowrap">{{ summary.method_totals.get(method, 0)|money }}</p>
+          </div>
+        </div>
+      {% endfor %}
+
+      <div class="rounded-xl border border-indigo-300 bg-gradient-to-r from-indigo-50 to-white p-4">
+        <p class="text-xs font-bold uppercase tracking-[0.14em] text-indigo-700">Total no efectivo</p>
+        <p class="mt-1 font-mono text-3xl font-black tracking-tight text-indigo-700 whitespace-nowrap">{{ non_cash_total|money }}</p>
+      </div>
+    </div>
+  </article>
 </section>
 
 <form method="GET" class="bg-white rounded-xl border shadow-sm p-4 mb-5">
