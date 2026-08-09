@@ -2,11 +2,9 @@
 Caja diaria: aperturas, gastos y cierres.
 
 Reglas clave:
-- Los gastos de caja del día se vinculan automáticamente al cierre del día
-  (closure_id) cuando éste existe. Si se registra un gasto después del
-  cierre, ese cierre se recalcula para reflejar el nuevo total.
-- Editar un cierre ya guardado requiere el permiso `cash.edit_closure`
-  (admin/owner/contador). El cajero solo puede crear el cierre del día.
+- Los gastos y retiros se vinculan mientras la caja está abierta.
+- Un cierre guardado es definitivo: no se edita ni se recalcula después.
+- El precierre se calcula en el navegador y no persiste información.
 """
 from __future__ import annotations
 
@@ -55,12 +53,6 @@ def index():
         .order_by(CashClosure.closure_date.desc(), CashClosure.id.desc())
         .all()
     )
-    # Garantizar que los gastos del día estén vinculados y los totales sean correctos
-    for c in closures:
-        _reconcile_closure(c)
-    if closures:
-        db.session.commit()
-
     expenses = (
         CashExpense.query
         .filter(
@@ -189,10 +181,10 @@ def new_closure():
         .first()
     )
     if existing is not None and existing.status == "closed":
-        if current_user.has_permission("cash.edit_closure"):
-            flash(f"Ya existe un cierre para {closure_date.strftime('%d/%m/%Y')}. Lo abrimos para editarlo.", "info")
-            return redirect(url_for("caja.edit_closure", closure_id=existing.id))
-        flash(f"Ya existe un cierre para {closure_date.strftime('%d/%m/%Y')}. Solo un administrador puede editarlo.", "warning")
+        flash(
+            f"La caja del {closure_date.strftime('%d/%m/%Y')} ya tiene un cierre definitivo y no puede modificarse.",
+            "warning",
+        )
         return redirect(url_for("caja.index", desde=closure_date.isoformat(), hasta=closure_date.isoformat()))
 
     suggested = _suggested_closure_values(tenant.id, closure_date)
@@ -200,6 +192,20 @@ def new_closure():
     warehouses = _active_warehouses(tenant.id)
 
     if request.method == "POST":
+        if request.form.get("confirm_final") != "1":
+            flash("Debes revisar y confirmar el cierre definitivo antes de guardarlo.", "warning")
+            return redirect(url_for("caja.index", desde=closure_date.isoformat(), hasta=closure_date.isoformat()))
+        actual_raw = (request.form.get("actual_cash_amount") or "").strip()
+        delivered_raw = (request.form.get("delivered_cash_amount") or "").strip()
+        try:
+            actual_amount = Decimal(actual_raw)
+            delivered_amount = Decimal(delivered_raw or "0")
+        except (InvalidOperation, ValueError):
+            actual_amount = Decimal("-1")
+            delivered_amount = Decimal("-1")
+        if not actual_raw or actual_amount < 0 or delivered_amount < 0:
+            flash("Ingresa montos válidos para el efectivo contado y el dinero entregado.", "warning")
+            return redirect(url_for("caja.index", desde=closure_date.isoformat(), hasta=closure_date.isoformat()))
         closure = existing or CashClosure(tenant_id=tenant.id, user_id=current_user.id)
         closure.user_id = current_user.id
         _fill_closure_from_form(closure, suggested)
@@ -240,7 +246,7 @@ def open_day():
         .first()
     )
     if existing is not None and existing.status == "closed":
-        flash("La caja de ese día ya está cerrada. Solo puedes editarla desde el cierre registrado.", "warning")
+        flash("La caja de ese día tiene un cierre definitivo y no puede modificarse.", "warning")
         return redirect(url_for("caja.index", desde=closure_date.isoformat(), hasta=closure_date.isoformat()))
 
     suggested = _suggested_closure_values(tenant.id, closure_date)
@@ -273,30 +279,17 @@ def open_day():
 @permission_required("cash.edit_closure")
 def edit_closure(closure_id):
     tenant = current_tenant()
-    today = tenant_today(tenant)
     closure = CashClosure.query.filter_by(id=closure_id, tenant_id=tenant.id).first_or_404()
-    suggested = _suggested_closure_values(tenant.id, closure.closure_date)
-    branches = _active_branches(tenant.id)
-    warehouses = _active_warehouses(tenant.id)
-
-    if request.method == "POST":
-        _fill_closure_from_form(closure, suggested)
-        _link_day_expenses_to_closure(closure)
-        _link_day_withdrawals_to_closure(closure)
-        _reconcile_closure(closure)
-        db.session.commit()
-        flash("Cierre de caja actualizado.", "success")
-        return redirect(url_for("caja.index", desde=closure.closure_date.isoformat(), hasta=closure.closure_date.isoformat()))
-
-    return render_template(
-        "caja/form.html",
-        tenant=tenant,
-        closure=closure,
-        suggested=suggested,
-        branches=branches,
-        warehouses=warehouses,
-        fecha=closure.closure_date.isoformat(),
-        today=today.isoformat(),
+    flash(
+        "Este cierre es definitivo y no puede modificarse. Registra cualquier corrección como un ajuste posterior.",
+        "warning",
+    )
+    return redirect(
+        url_for(
+            "caja.index",
+            desde=closure.closure_date.isoformat(),
+            hasta=closure.closure_date.isoformat(),
+        )
     )
 
 
@@ -314,6 +307,18 @@ def create_expense():
 
     expense_date = _parse_datetime(request.form.get("expense_date")) or datetime.utcnow()
     expense_local_date = _expense_local_date(expense_date)
+    existing_closure = (
+        CashClosure.query
+        .filter(
+            CashClosure.tenant_id == tenant.id,
+            CashClosure.closure_date == expense_local_date,
+        )
+        .first()
+    )
+    if existing_closure is not None and existing_closure.status == "closed":
+        flash("No puedes registrar gastos en una caja con cierre definitivo.", "warning")
+        return redirect(url_for("caja.index", desde=expense_local_date.isoformat(), hasta=expense_local_date.isoformat()))
+
     expense = CashExpense(
         tenant_id=tenant.id,
         branch_id=request.form.get("branch_id", type=int) or None,
@@ -329,14 +334,6 @@ def create_expense():
     db.session.flush()
 
     # Si ya existe un cierre para ese día, vincular el gasto y recalcular el cierre
-    existing_closure = (
-        CashClosure.query
-        .filter(
-            CashClosure.tenant_id == tenant.id,
-            CashClosure.closure_date == expense_local_date,
-        )
-        .first()
-    )
     if existing_closure is not None:
         expense.closure_id = existing_closure.id
         _reconcile_closure(existing_closure)
@@ -355,6 +352,15 @@ def delete_expense(expense_id):
     expense = CashExpense.query.filter_by(id=expense_id, tenant_id=tenant.id).first_or_404()
     expense_local_date = _expense_local_date(expense.expense_date)
     closure_id = expense.closure_id
+
+    closed_closure = CashClosure.query.filter_by(
+        tenant_id=tenant.id,
+        closure_date=expense_local_date,
+        status="closed",
+    ).first()
+    if closed_closure is not None:
+        flash("No puedes eliminar gastos de una caja con cierre definitivo.", "warning")
+        return redirect(url_for("caja.index", desde=expense_local_date.isoformat(), hasta=expense_local_date.isoformat()))
 
     db.session.delete(expense)
     db.session.flush()
@@ -384,6 +390,18 @@ def create_withdrawal():
 
     withdrawal_date = _parse_datetime(request.form.get("withdrawal_date")) or datetime.utcnow()
     withdrawal_local_date = _cash_movement_local_date(withdrawal_date)
+    existing_closure = (
+        CashClosure.query
+        .filter(
+            CashClosure.tenant_id == tenant.id,
+            CashClosure.closure_date == withdrawal_local_date,
+        )
+        .first()
+    )
+    if existing_closure is not None and existing_closure.status == "closed":
+        flash("No puedes registrar retiros en una caja con cierre definitivo.", "warning")
+        return redirect(url_for("caja.index", desde=withdrawal_local_date.isoformat(), hasta=withdrawal_local_date.isoformat()))
+
     withdrawal = CashWithdrawal(
         tenant_id=tenant.id,
         branch_id=request.form.get("branch_id", type=int) or None,
@@ -397,14 +415,6 @@ def create_withdrawal():
     db.session.add(withdrawal)
     db.session.flush()
 
-    existing_closure = (
-        CashClosure.query
-        .filter(
-            CashClosure.tenant_id == tenant.id,
-            CashClosure.closure_date == withdrawal_local_date,
-        )
-        .first()
-    )
     if existing_closure is not None:
         withdrawal.closure_id = existing_closure.id
         _reconcile_closure(existing_closure)
@@ -471,19 +481,17 @@ def _link_day_withdrawals_to_closure(closure: CashClosure) -> None:
 
 def _reconcile_closure(closure: CashClosure) -> None:
     """
-    Recalcula los gastos (en tiempo real), el efectivo esperado y la diferencia
-    para que un cierre siempre refleje la realidad del día, aunque se hayan
-    registrado gastos después de haberlo creado.
+    Calcula los importes definitivos al momento de cerrar la caja.
 
     Fórmulas oficiales:
       efectivo_esperado = apertura + ventas_efectivo + abonos_efectivo - gastos_efectivo - retiros
-      diferencia        = dinero_entregado - efectivo_esperado
+      diferencia        = efectivo_contado - efectivo_esperado
         · > 0 → sobrante
         · = 0 → cuadrado
         · < 0 → faltante
 
-    Nota: el dinero entregado NO altera las ventas. Solo se usa para comparar
-    contra el efectivo esperado y determinar el estado del cierre.
+    El dinero entregado se conserva como dato informativo y permite calcular
+    cuánto efectivo permanece físicamente en caja.
     """
     start, end = _period_bounds(closure.closure_date, closure.closure_date)
     expenses_total = (
@@ -514,9 +522,9 @@ def _reconcile_closure(closure: CashClosure) -> None:
         - _decimal(closure.expenses_amount)
         - _decimal(closure.withdrawals_amount)
     )
-    # Diferencia oficial: entregado - esperado
+    # Diferencia oficial del arqueo: contado físicamente - esperado.
     closure.variance_amount = (
-        _decimal(closure.delivered_cash_amount) - _decimal(closure.expected_cash_amount)
+        _decimal(closure.actual_cash_amount) - _decimal(closure.expected_cash_amount)
     )
 
 

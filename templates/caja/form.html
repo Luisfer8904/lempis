@@ -11,6 +11,7 @@
 
 {% block content %}
 <form method="POST" class="grid xl:grid-cols-[1fr_360px] gap-5">
+  <input type="hidden" name="confirm_final" value="1">
   <section class="bg-white rounded-xl border shadow-sm p-5">
     <h2 class="text-lg font-semibold text-slate-900">Datos del cierre</h2>
     <p class="text-sm text-slate-500 mt-1">El sistema calcula ventas, abonos, gastos y retiros del día. Solo ingresas apertura, efectivo contado y dinero entregado.</p>
@@ -72,9 +73,15 @@
       <textarea name="notes" rows="4" class="w-full rounded-lg border px-3 py-2">{{ closure.notes if closure else '' }}</textarea>
     </div>
 
-    <div class="mt-6 flex justify-end">
-      <button class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700">
-        Guardar cierre
+    <div class="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+      <p class="font-semibold">Este cierre será definitivo.</p>
+      <p class="mt-1 text-xs">Después de guardarlo no podrá editarse ni recibir gastos o retiros adicionales.</p>
+    </div>
+
+    <div class="mt-4 flex justify-end">
+      <button class="rounded-lg bg-rose-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-rose-700"
+              onclick="return confirm('¿Confirmas el cierre definitivo de esta fecha? No podrá modificarse después.');">
+        Confirmar cierre definitivo
       </button>
     </div>
   </section>
