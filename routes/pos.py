@@ -35,12 +35,8 @@ from services.stock_validation import (
     sale_stock_map_for_warehouse,
     validate_sale_inventory,
 )
-from services.locations import (
-    can_user_sell_from_warehouse,
-    sale_warehouses_for_user,
-    subtract_stock,
-    sync_default_warehouse_stock,
-)
+from services.locations import subtract_stock, sync_default_warehouse_stock
+from services.sale_scope import can_user_sell_from_warehouse, sale_warehouses_for_user
 
 pos_bp = Blueprint("pos", __name__, url_prefix="/app/venta")
 
@@ -195,8 +191,11 @@ def quick_sale():
     q = (request.args.get("q") or "").strip()
     category_id = request.args.get("category_id", type=int)
     draft_invoice = _get_draft_for_pos(tenant, request.args.get("draft_id", type=int))
-    default_warehouse = sync_default_warehouse_stock(tenant)
-    warehouses = sale_warehouses_for_user(tenant.id, current_user) or [default_warehouse]
+    sync_default_warehouse_stock(tenant)
+    warehouses = sale_warehouses_for_user(tenant.id, current_user)
+    if not warehouses:
+        flash("Tu usuario no tiene una sede activa asignada para facturar. Solicita al administrador que asigne tu sede.", "warning")
+        return redirect(url_for("dashboard.home"))
     selected_warehouse_id = (
         request.args.get("warehouse_id", type=int)
         or (draft_invoice.warehouse_id if draft_invoice else None)
@@ -356,14 +355,15 @@ def cobrar():
 
         sale_type = request.form.get("sale_type") or "contado"
         payment_method = "credito" if sale_type == "credito" else "efectivo"
-        default_warehouse = sync_default_warehouse_stock(tenant)
-        warehouses = sale_warehouses_for_user(tenant.id, current_user) or [default_warehouse]
+        sync_default_warehouse_stock(tenant)
+        warehouses = sale_warehouses_for_user(tenant.id, current_user)
         allowed_warehouse_ids = {w.id for w in warehouses}
         warehouse_id = request.form.get("warehouse_id", type=int)
         if warehouse_id not in allowed_warehouse_ids:
-            warehouse_id = warehouses[0].id if warehouses else None
+            flash("No puedes facturar desde una sede distinta a la que tienes asignada.", "warning")
+            return redirect(url_for("pos.quick_sale"))
         if not can_user_sell_from_warehouse(tenant.id, current_user, warehouse_id):
-            flash("No puedes facturar desde una bodega de otra sede.", "warning")
+            flash("No puedes facturar desde una sede distinta a la que tienes asignada.", "warning")
             return redirect(url_for("pos.quick_sale"))
         payment_breakdown = _payment_breakdown_from_form() if action == "charge" else _empty_payment_breakdown()
         payment_method = _primary_invoice_payment_method(sale_type, payment_breakdown)

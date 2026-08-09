@@ -44,16 +44,22 @@
 
     <div class="grid md:grid-cols-2 gap-4">
       <div>
-        <label class="block text-sm font-medium mb-1">Sede / bodega</label>
+        <label class="block text-sm font-medium mb-1">Sede de venta</label>
         <select name="warehouse_id" id="warehouse-select"
                 class="w-full px-3 py-2 border rounded-lg bg-white focus:ring-2 focus:ring-indigo-500">
           {% for w in warehouses %}
             <option value="{{ w.id }}" {% if selected_warehouse_id == w.id %}selected{% endif %}>
-              {{ w.label }}
+              {{ w.branch.name }}
             </option>
           {% endfor %}
         </select>
-        <p class="text-xs text-slate-500 mt-1">La factura descontará inventario de esta bodega.</p>
+        <p class="text-xs text-slate-500 mt-1">
+          {% if current_user.is_admin() or current_user.is_superadmin %}
+            Puedes facturar desde cualquiera de las sedes activas.
+          {% else %}
+            Esta es la sede asignada a tu usuario.
+          {% endif %}
+        </p>
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Cliente</label>

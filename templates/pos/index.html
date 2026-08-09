@@ -81,14 +81,20 @@
     <form method="GET" class="bg-white rounded-xl border px-4 py-3 flex flex-wrap items-center justify-between gap-3">
       {% if draft_invoice %}<input type="hidden" name="draft_id" value="{{ draft_invoice.id }}" />{% endif %}
       <div>
-        <p class="text-xs font-medium text-slate-500">Inventario de venta</p>
-        <p class="text-sm text-slate-700">La venta descontará stock de esta bodega.</p>
+        <p class="text-xs font-medium text-slate-500">Sede de venta</p>
+        <p class="text-sm text-slate-700">
+          {% if current_user.is_admin() or current_user.is_superadmin %}
+            Elige la sede desde la que deseas facturar.
+          {% else %}
+            Tu usuario factura únicamente desde su sede asignada.
+          {% endif %}
+        </p>
       </div>
       <select name="warehouse_id" onchange="submitWarehouseChange(this)"
               class="min-w-[240px] px-3 py-2 border rounded-lg bg-white text-sm focus:ring-2 focus:ring-indigo-500">
         {% for w in warehouses %}
           <option value="{{ w.id }}" {% if selected_warehouse_id == w.id %}selected{% endif %}>
-            {{ w.label }}
+            {{ w.branch.name }}
           </option>
         {% endfor %}
       </select>
@@ -604,7 +610,7 @@ function showStockWarning(item, requestedQty = null) {
   if (!warning) return;
   const available = Number(item.stock || 0);
   warning.textContent = available <= 0
-    ? `${item.name} está agotado en esta bodega.`
+    ? `${item.name} está agotado en esta sede.`
     : `Solo hay ${available.toFixed(2)} disponibles de ${item.name}${requestedQty ? `; no se agregó la cantidad ${Number(requestedQty).toFixed(2)}` : ''}.`;
   warning.classList.remove('hidden');
   clearTimeout(stockWarningTimer);

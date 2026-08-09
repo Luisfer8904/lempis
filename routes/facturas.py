@@ -35,11 +35,10 @@ from services.stock_validation import InventoryAvailabilityError, validate_sale_
 from services.inventory import consume_from_batch, recompute_product_stock
 from services.locations import (
     add_stock,
-    can_user_sell_from_warehouse,
-    sale_warehouses_for_user,
     subtract_stock,
     sync_default_warehouse_stock,
 )
+from services.sale_scope import can_user_sell_from_warehouse, sale_warehouses_for_user
 
 facturas_bp = Blueprint("facturas", __name__, url_prefix="/app/facturas")
 
@@ -185,8 +184,11 @@ def new():
     clientes = Customer.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Customer.name).all()
     productos = Product.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Product.name).all()
     impuestos = TaxConfig.query.filter_by(country_code=tenant.country_code, is_active=True).all()
-    default_warehouse = sync_default_warehouse_stock(tenant)
-    warehouses = sale_warehouses_for_user(tenant.id, current_user) or [default_warehouse]
+    sync_default_warehouse_stock(tenant)
+    warehouses = sale_warehouses_for_user(tenant.id, current_user)
+    if not warehouses:
+        flash("Tu usuario no tiene una sede activa asignada para facturar. Solicita al administrador que asigne tu sede.", "warning")
+        return redirect(url_for("dashboard.home"))
     correlativo, formatted = next_invoice_number(tenant)
 
     # Validar antes de mostrar el form
@@ -233,7 +235,7 @@ def edit(invoice_id):
             items = _parse_items()
             warehouse_id = request.form.get("warehouse_id", type=int) or inv.warehouse_id
             if not can_user_sell_from_warehouse(tenant.id, current_user, warehouse_id):
-                flash("No puedes facturar desde una bodega de otra sede.", "warning")
+                flash("No puedes facturar desde una sede distinta a la que tienes asignada.", "warning")
                 return redirect(url_for("facturas.edit", invoice_id=inv.id))
 
             if can_edit_issued:
@@ -265,8 +267,11 @@ def edit(invoice_id):
     clientes = Customer.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Customer.name).all()
     productos = Product.query.filter_by(tenant_id=tenant.id, is_active=True).order_by(Product.name).all()
     impuestos = TaxConfig.query.filter_by(country_code=tenant.country_code, is_active=True).all()
-    default_warehouse = sync_default_warehouse_stock(tenant)
-    warehouses = sale_warehouses_for_user(tenant.id, current_user) or [default_warehouse]
+    sync_default_warehouse_stock(tenant)
+    warehouses = sale_warehouses_for_user(tenant.id, current_user)
+    if not warehouses:
+        flash("Tu usuario no tiene una sede activa asignada para facturar. Solicita al administrador que asigne tu sede.", "warning")
+        return redirect(url_for("dashboard.home"))
     selected_warehouse_id = inv.warehouse_id if inv.warehouse_id in {w.id for w in warehouses} else warehouses[0].id
 
     return render_template(
@@ -510,8 +515,8 @@ def _create_from_form(tenant) -> Invoice:
 
     payment_method = request.form.get("payment_method", "efectivo")
     warehouse_id = request.form.get("warehouse_id", type=int)
-    if status == "issued" and not can_user_sell_from_warehouse(tenant.id, current_user, warehouse_id):
-        raise CAIError("No puedes facturar desde una bodega de otra sede.")
+    if not can_user_sell_from_warehouse(tenant.id, current_user, warehouse_id):
+        raise CAIError("No puedes facturar desde una sede distinta a la que tienes asignada.")
     if status == "issued":
         validate_sale_inventory(tenant.id, warehouse_id, items)
 
