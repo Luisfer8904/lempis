@@ -31,10 +31,11 @@
 
 {# ===== Búsqueda + toggle de vista ===== #}
 <div class="flex flex-col md:flex-row gap-3 mb-4">
-  <form method="GET" class="flex gap-2 flex-1">
+  <form method="GET" id="product-search-form" class="flex gap-2 flex-1">
     <input type="search" name="q" value="{{ q }}" id="product-list-search"
            placeholder="Buscar producto, SKU o descripción..."
            autocomplete="off"
+           aria-describedby="product-search-help"
            class="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white" />
     {% if selected_category %}
       <input type="hidden" name="category_id" value="{{ selected_category }}" />
@@ -54,6 +55,9 @@
        title="Vista de tabla">📋 Tabla</a>
   </div>
 </div>
+<p id="product-search-help" class="-mt-2 mb-4 text-xs text-slate-500">
+  Los resultados se actualizan automáticamente mientras escribes.
+</p>
 
 {# ===== Tabs de categorías (estilo Treinta) ===== #}
 {% if categorias %}
@@ -402,5 +406,40 @@ function closeCategoriesModal() {
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') closeCategoriesModal();
 });
+
+const productSearchForm = document.getElementById('product-search-form');
+const productSearchInput = document.getElementById('product-list-search');
+let productSearchTimer = null;
+let productSearchComposing = false;
+let lastSubmittedSearch = productSearchInput?.value.trim() || '';
+
+function scheduleProductSearch() {
+  if (!productSearchForm || !productSearchInput || productSearchComposing) return;
+  window.clearTimeout(productSearchTimer);
+  productSearchTimer = window.setTimeout(() => {
+    const nextSearch = productSearchInput.value.trim();
+    if (nextSearch === lastSubmittedSearch) return;
+    lastSubmittedSearch = nextSearch;
+    productSearchForm.requestSubmit();
+  }, 350);
+}
+
+if (productSearchInput) {
+  productSearchInput.addEventListener('input', scheduleProductSearch);
+  productSearchInput.addEventListener('search', scheduleProductSearch);
+  productSearchInput.addEventListener('compositionstart', () => {
+    productSearchComposing = true;
+    window.clearTimeout(productSearchTimer);
+  });
+  productSearchInput.addEventListener('compositionend', () => {
+    productSearchComposing = false;
+    scheduleProductSearch();
+  });
+
+  {% if q %}
+  productSearchInput.focus();
+  productSearchInput.setSelectionRange(productSearchInput.value.length, productSearchInput.value.length);
+  {% endif %}
+}
 </script>
 {% endblock %}
