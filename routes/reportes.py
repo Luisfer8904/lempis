@@ -39,6 +39,9 @@ reportes_bp = Blueprint("reportes", __name__, url_prefix="/app/reportes")
 REPORT_OPTIONS = [
     ("ventas_contado", "Reporte de ventas de contado", "Ventas pagadas en efectivo, transferencia o tarjeta."),
     ("ventas_credito", "Reporte de ventas de crédito", "Facturas emitidas a crédito y sus saldos."),
+    ("ventas_venta", "Ventas por venta", "Detalle individual de cada venta realizada en el periodo."),
+    ("ventas_producto", "Ventas por producto", "Cantidades vendidas, valores y utilidad estimada por producto."),
+    ("ventas_categoria", "Ventas por categoría", "Cantidades vendidas, valores y utilidad estimada por categoría."),
     ("cierres_caja", "Reporte de cierres de caja", "Aperturas, formas de pago, gastos, dinero contado y entregado."),
     ("inventario", "Inventarios", "Existencias, costos y valor de inventario."),
     ("productos_vencer", "Listado de productos por vencer", "Lotes vigentes próximos a vencer."),
@@ -137,9 +140,31 @@ def _custom_report_context():
     title, description = report_map.get(report_type, ("Selecciona un reporte", "Elige el tipo de reporte que quieres consultar."))
     sync_default_warehouse_stock(tenant)
     warehouse_id = request.args.get("warehouse_id", type=int) or None
-    columns, rows, totals = _custom_report_data(tenant, report_type, start_date, end_date, warehouse_id)
+    product_id = request.args.get("product_id", type=int) or None
+    category_id = request.args.get("category_id", type=int) or None
+    columns, rows, totals = _custom_report_data(
+        tenant,
+        report_type,
+        start_date,
+        end_date,
+        warehouse_id,
+        product_id,
+        category_id,
+    )
     warehouses = active_warehouses(tenant.id)
     selected_warehouse = next((w for w in warehouses if w.id == warehouse_id), None)
+    products = (
+        Product.query.filter_by(tenant_id=tenant.id, is_active=True)
+        .order_by(Product.name.asc())
+        .all()
+    )
+    categories = (
+        Category.query.filter_by(tenant_id=tenant.id)
+        .order_by(Category.name.asc())
+        .all()
+    )
+    selected_product = next((p for p in products if p.id == product_id), None)
+    selected_category = next((c for c in categories if c.id == category_id), None)
     return dict(
         tenant=tenant,
         report_options=REPORT_OPTIONS,
@@ -153,14 +178,35 @@ def _custom_report_context():
         desde=start_date.isoformat(),
         hasta=end_date.isoformat(),
         period_label=f"{start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}",
-        uses_dates=report_type in {"ventas_contado", "ventas_credito", "cierres_caja"},
+        uses_dates=report_type in {
+            "ventas_contado",
+            "ventas_credito",
+            "ventas_venta",
+            "ventas_producto",
+            "ventas_categoria",
+            "cierres_caja",
+        },
         warehouses=warehouses,
         warehouse_id=warehouse_id,
         selected_warehouse=selected_warehouse,
+        products=products,
+        product_id=product_id,
+        selected_product=selected_product,
+        categories=categories,
+        category_id=category_id,
+        selected_category=selected_category,
     )
 
 
-def _custom_report_data(tenant, report_type, start_date, end_date, warehouse_id=None):
+def _custom_report_data(
+    tenant,
+    report_type,
+    start_date,
+    end_date,
+    warehouse_id=None,
+    product_id=None,
+    category_id=None,
+):
     if not report_type:
         return [], [], {}
     period_start, period_end = local_date_range_to_utc(start_date, end_date, tenant)
@@ -234,6 +280,208 @@ def _custom_report_data(tenant, report_type, start_date, end_date, warehouse_id=
             ],
             rows,
             _totals(rows, ["total", "abonado", "saldo"]),
+        )
+
+    if report_type == "ventas_venta":
+        item_totals = (
+            db.session.query(
+                InvoiceItem.invoice_id.label("invoice_id"),
+                func.count(InvoiceItem.id).label("lineas"),
+                func.coalesce(func.sum(InvoiceItem.quantity), 0).label("cantidad"),
+                func.coalesce(
+                    func.sum(
+                        InvoiceItem.subtotal
+                        - (InvoiceItem.quantity * func.coalesce(Product.cost, 0))
+                    ),
+                    0,
+                ).label("utilidad"),
+            )
+            .outerjoin(Product, Product.id == InvoiceItem.product_id)
+            .filter(InvoiceItem.tenant_id == tenant.id)
+            .group_by(InvoiceItem.invoice_id)
+            .subquery()
+        )
+        sales = (
+            db.session.query(
+                Invoice,
+                Branch.name.label("sede"),
+                func.coalesce(item_totals.c.lineas, 0).label("lineas"),
+                func.coalesce(item_totals.c.cantidad, 0).label("cantidad"),
+                func.coalesce(item_totals.c.utilidad, 0).label("utilidad"),
+            )
+            .outerjoin(Warehouse, Warehouse.id == Invoice.warehouse_id)
+            .outerjoin(Branch, Branch.id == Warehouse.branch_id)
+            .outerjoin(item_totals, item_totals.c.invoice_id == Invoice.id)
+            .filter(
+                Invoice.tenant_id == tenant.id,
+                Invoice.status.in_(valid_statuses),
+                Invoice.issue_date >= period_start,
+                Invoice.issue_date < period_end,
+            )
+            .order_by(Invoice.issue_date.desc(), Invoice.number.desc())
+            .all()
+        )
+        rows = []
+        for invoice, branch_name, lines, quantity, profit in sales:
+            rows.append({
+                "fecha": format_local_datetime(invoice.issue_date, "%d/%m/%Y %H:%M", tenant),
+                "factura": invoice.number,
+                "cliente": invoice.customer.name if invoice.customer else (invoice.receptor_name or "Consumidor final"),
+                "sede": branch_name or "Sin sede",
+                "tipo": "Crédito" if invoice.payment_method == "credito" else "Contado",
+                "metodo": _payment_label(invoice.payment_method),
+                "total": float(invoice.total or 0),
+                "lineas": int(lines or 0),
+                "cantidad": float(quantity or 0),
+                "subtotal": float(invoice.subtotal or 0),
+                "descuento": float(invoice.discount_total or 0),
+                "impuesto": float(invoice.tax_total or 0),
+                "abonado": float(invoice.amount_paid or 0),
+                "saldo": float(invoice.amount_due or 0),
+                "utilidad": float(profit or 0),
+                "estado": _status_label(invoice.status),
+            })
+        return (
+            [
+                ("fecha", "Fecha", "text"), ("factura", "Factura", "text"),
+                ("cliente", "Cliente", "text"), ("sede", "Sede", "text"),
+                ("tipo", "Tipo", "text"), ("metodo", "Método", "text"),
+                ("total", "Total", "money"), ("lineas", "Productos", "number"),
+                ("cantidad", "Cantidad", "number"), ("subtotal", "Subtotal", "money"),
+                ("descuento", "Descuento", "money"), ("impuesto", "Impuesto", "money"),
+                ("abonado", "Abonado", "money"), ("saldo", "Saldo", "money"),
+                ("utilidad", "Utilidad est.", "money"), ("estado", "Estado", "text"),
+            ],
+            rows,
+            _totals(rows, [
+                "lineas", "cantidad", "subtotal", "descuento", "impuesto",
+                "total", "abonado", "saldo", "utilidad",
+            ]),
+        )
+
+    if report_type == "ventas_producto":
+        product_name = func.coalesce(Product.name, InvoiceItem.description, "Producto sin catálogo")
+        query = (
+            db.session.query(
+                product_name.label("producto"),
+                func.coalesce(Product.sku, "").label("sku"),
+                func.coalesce(Category.name, "Sin categoría").label("categoria"),
+                func.coalesce(func.sum(InvoiceItem.quantity), 0).label("cantidad"),
+                func.coalesce(func.sum(InvoiceItem.subtotal), 0).label("ventas"),
+                func.coalesce(
+                    func.sum(InvoiceItem.quantity * func.coalesce(Product.cost, 0)),
+                    0,
+                ).label("costo_estimado"),
+                func.coalesce(
+                    func.sum(
+                        InvoiceItem.subtotal
+                        - (InvoiceItem.quantity * func.coalesce(Product.cost, 0))
+                    ),
+                    0,
+                ).label("utilidad"),
+            )
+            .join(Invoice, Invoice.id == InvoiceItem.invoice_id)
+            .outerjoin(Product, Product.id == InvoiceItem.product_id)
+            .outerjoin(Category, Category.id == Product.category_id)
+            .filter(
+                InvoiceItem.tenant_id == tenant.id,
+                Invoice.status.in_(valid_statuses),
+                Invoice.issue_date >= period_start,
+                Invoice.issue_date < period_end,
+            )
+        )
+        if product_id:
+            query = query.filter(Product.id == product_id)
+        rows_raw = (
+            query.group_by(product_name, Product.sku, Category.name)
+            .order_by(func.sum(InvoiceItem.subtotal).desc())
+            .all()
+        )
+        rows = []
+        for item in rows_raw:
+            quantity = float(item.cantidad or 0)
+            sales_value = float(item.ventas or 0)
+            rows.append({
+                "producto": item.producto,
+                "sku": item.sku or "",
+                "categoria": item.categoria,
+                "cantidad": quantity,
+                "ventas": sales_value,
+                "precio_promedio": (sales_value / quantity) if quantity else 0,
+                "costo_estimado": float(item.costo_estimado or 0),
+                "utilidad": float(item.utilidad or 0),
+            })
+        return (
+            [
+                ("producto", "Producto", "text"), ("sku", "SKU", "text"),
+                ("categoria", "Categoría", "text"), ("cantidad", "Cantidad", "number"),
+                ("ventas", "Valor vendido", "money"), ("precio_promedio", "Precio prom.", "money"),
+                ("costo_estimado", "Costo estimado", "money"), ("utilidad", "Utilidad", "money"),
+            ],
+            rows,
+            _totals(rows, ["cantidad", "ventas", "costo_estimado", "utilidad"]),
+        )
+
+    if report_type == "ventas_categoria":
+        category_name = func.coalesce(Category.name, "Sin categoría")
+        query = (
+            db.session.query(
+                category_name.label("categoria"),
+                func.count(func.distinct(InvoiceItem.product_id)).label("productos"),
+                func.coalesce(func.sum(InvoiceItem.quantity), 0).label("cantidad"),
+                func.coalesce(func.sum(InvoiceItem.subtotal), 0).label("ventas"),
+                func.coalesce(
+                    func.sum(InvoiceItem.quantity * func.coalesce(Product.cost, 0)),
+                    0,
+                ).label("costo_estimado"),
+                func.coalesce(
+                    func.sum(
+                        InvoiceItem.subtotal
+                        - (InvoiceItem.quantity * func.coalesce(Product.cost, 0))
+                    ),
+                    0,
+                ).label("utilidad"),
+            )
+            .join(Invoice, Invoice.id == InvoiceItem.invoice_id)
+            .outerjoin(Product, Product.id == InvoiceItem.product_id)
+            .outerjoin(Category, Category.id == Product.category_id)
+            .filter(
+                InvoiceItem.tenant_id == tenant.id,
+                Invoice.status.in_(valid_statuses),
+                Invoice.issue_date >= period_start,
+                Invoice.issue_date < period_end,
+            )
+        )
+        if category_id:
+            query = query.filter(Category.id == category_id)
+        rows_raw = (
+            query.group_by(category_name)
+            .order_by(func.sum(InvoiceItem.subtotal).desc())
+            .all()
+        )
+        rows = []
+        for item in rows_raw:
+            quantity = float(item.cantidad or 0)
+            sales_value = float(item.ventas or 0)
+            rows.append({
+                "categoria": item.categoria,
+                "productos": int(item.productos or 0),
+                "cantidad": quantity,
+                "ventas": sales_value,
+                "precio_promedio": (sales_value / quantity) if quantity else 0,
+                "costo_estimado": float(item.costo_estimado or 0),
+                "utilidad": float(item.utilidad or 0),
+            })
+        return (
+            [
+                ("categoria", "Categoría", "text"), ("productos", "Productos", "number"),
+                ("cantidad", "Cantidad", "number"), ("ventas", "Valor vendido", "money"),
+                ("precio_promedio", "Precio prom.", "money"),
+                ("costo_estimado", "Costo estimado", "money"),
+                ("utilidad", "Utilidad", "money"),
+            ],
+            rows,
+            _totals(rows, ["productos", "cantidad", "ventas", "costo_estimado", "utilidad"]),
         )
 
     if report_type == "cierres_caja":
@@ -928,7 +1176,17 @@ def _payment_label(value):
         "efectivo": "Efectivo",
         "transferencia": "Transferencia",
         "tarjeta": "Tarjeta",
+        "cheque": "Cheque",
         "credito": "Crédito",
+    }.get(value, value or "")
+
+
+def _status_label(value):
+    return {
+        "issued": "Emitida",
+        "paid": "Pagada",
+        "partially_paid": "Pago parcial",
+        "overdue": "Vencida",
     }.get(value, value or "")
 
 

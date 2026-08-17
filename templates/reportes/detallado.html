@@ -10,7 +10,7 @@
 {% endblock %}
 
 {% block content %}
-<section class="grid md:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
+<section class="grid md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
   <button type="button" onclick="openReportModal('ventas_contado')"
           class="text-left bg-white rounded-xl border shadow-sm p-5 hover:border-indigo-300 hover:shadow-md transition">
     <p class="text-2xl mb-3">💵</p>
@@ -22,6 +22,24 @@
     <p class="text-2xl mb-3">🧾</p>
     <h3 class="font-semibold text-slate-900">Ventas de crédito</h3>
     <p class="text-sm text-slate-500 mt-1">Créditos, abonos, saldos y vencimientos por fecha.</p>
+  </button>
+  <button type="button" onclick="openReportModal('ventas_venta')"
+          class="text-left bg-white rounded-xl border shadow-sm p-5 hover:border-indigo-300 hover:shadow-md transition">
+    <p class="text-2xl mb-3">🧮</p>
+    <h3 class="font-semibold text-slate-900">Ventas por venta</h3>
+    <p class="text-sm text-slate-500 mt-1">Detalle individual, cliente, sede, valores, saldo y utilidad.</p>
+  </button>
+  <button type="button" onclick="openReportModal('ventas_producto')"
+          class="text-left bg-white rounded-xl border shadow-sm p-5 hover:border-indigo-300 hover:shadow-md transition">
+    <p class="text-2xl mb-3">🏷️</p>
+    <h3 class="font-semibold text-slate-900">Ventas por producto</h3>
+    <p class="text-sm text-slate-500 mt-1">Cantidad vendida, valor vendido y utilidad por producto.</p>
+  </button>
+  <button type="button" onclick="openReportModal('ventas_categoria')"
+          class="text-left bg-white rounded-xl border shadow-sm p-5 hover:border-indigo-300 hover:shadow-md transition">
+    <p class="text-2xl mb-3">📊</p>
+    <h3 class="font-semibold text-slate-900">Ventas por categoría</h3>
+    <p class="text-sm text-slate-500 mt-1">Cantidades y valores agrupados por categoría.</p>
   </button>
   <button type="button" onclick="openReportModal('cierres_caja')"
           class="text-left bg-white rounded-xl border shadow-sm p-5 hover:border-indigo-300 hover:shadow-md transition">
@@ -52,22 +70,68 @@
         <p class="text-sm text-slate-500 mt-1">
           {% if uses_dates %}Periodo: {{ period_label }}{% else %}Consulta actual{% endif %}
           {% if selected_warehouse %} · {{ selected_warehouse.label }}{% endif %}
+          {% if selected_product %} · Producto: {{ selected_product.name }}{% endif %}
+          {% if selected_category %} · Categoría: {{ selected_category.name }}{% endif %}
         </p>
       {% endif %}
     </div>
     {% if report_type %}
       <div class="flex flex-wrap gap-2">
-        <a href="{{ url_for('reportes.detallado_excel', tipo=report_type, desde=desde, hasta=hasta, warehouse_id=warehouse_id or '') }}"
+        <a href="{{ url_for('reportes.detallado_excel', tipo=report_type, desde=desde, hasta=hasta, warehouse_id=warehouse_id or '', product_id=product_id or '', category_id=category_id or '') }}"
            class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">
           Descargar Excel
         </a>
-        <a href="{{ url_for('reportes.detallado_pdf', tipo=report_type, desde=desde, hasta=hasta, warehouse_id=warehouse_id or '') }}"
+        <a href="{{ url_for('reportes.detallado_pdf', tipo=report_type, desde=desde, hasta=hasta, warehouse_id=warehouse_id or '', product_id=product_id or '', category_id=category_id or '') }}"
            class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
           Descargar PDF
         </a>
       </div>
     {% endif %}
   </div>
+
+  {% if report_type and uses_dates %}
+    <form method="GET" class="px-5 py-4 border-b bg-slate-50 flex flex-wrap items-end gap-3">
+      <input type="hidden" name="tipo" value="{{ report_type }}" />
+      <div>
+        <label class="block text-xs font-medium text-slate-500 mb-1">Desde</label>
+        <input type="date" name="desde" value="{{ desde }}" required
+               class="rounded-lg border px-3 py-2 bg-white text-sm" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-500 mb-1">Hasta</label>
+        <input type="date" name="hasta" value="{{ hasta }}" required
+               class="rounded-lg border px-3 py-2 bg-white text-sm" />
+      </div>
+      {% if report_type == 'ventas_producto' %}
+        <div class="min-w-[260px] flex-1">
+          <label class="block text-xs font-medium text-slate-500 mb-1">Producto</label>
+          <select name="product_id" class="w-full rounded-lg border px-3 py-2 bg-white text-sm">
+            <option value="">Todos los productos</option>
+            {% for product in products %}
+              <option value="{{ product.id }}" {% if product_id == product.id %}selected{% endif %}>
+                {{ product.name }}{% if product.sku %} · {{ product.sku }}{% endif %}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      {% elif report_type == 'ventas_categoria' %}
+        <div class="min-w-[240px] flex-1">
+          <label class="block text-xs font-medium text-slate-500 mb-1">Categoría</label>
+          <select name="category_id" class="w-full rounded-lg border px-3 py-2 bg-white text-sm">
+            <option value="">Todas las categorías</option>
+            {% for category in categories %}
+              <option value="{{ category.id }}" {% if category_id == category.id %}selected{% endif %}>
+                {{ category.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      {% endif %}
+      <button class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+        Actualizar reporte
+      </button>
+    </form>
+  {% endif %}
 
   {% if report_type in ['inventario', 'productos_vencer'] %}
     <form method="GET" class="px-5 py-4 border-b bg-slate-50 flex flex-wrap items-end gap-3">
@@ -163,6 +227,28 @@
         <input type="date" name="hasta" value="{{ hasta }}"
                class="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-indigo-500" />
       </div>
+      <div id="product-filter-field" class="hidden">
+        <label class="block text-sm font-medium text-slate-600 mb-1">Producto</label>
+        <select name="product_id" class="w-full rounded-lg border px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500">
+          <option value="">Todos los productos</option>
+          {% for product in products %}
+            <option value="{{ product.id }}" {% if product_id == product.id %}selected{% endif %}>
+              {{ product.name }}{% if product.sku %} · {{ product.sku }}{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div id="category-filter-field" class="hidden">
+        <label class="block text-sm font-medium text-slate-600 mb-1">Categoría</label>
+        <select name="category_id" class="w-full rounded-lg border px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500">
+          <option value="">Todas las categorías</option>
+          {% for category in categories %}
+            <option value="{{ category.id }}" {% if category_id == category.id %}selected{% endif %}>
+              {{ category.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
     </div>
     <div class="mt-6 flex justify-end gap-2">
       <button type="button" onclick="closeReportModal()"
@@ -180,6 +266,14 @@
 function openReportModal(type) {
   document.getElementById('modal-report-type').value = type;
   const modal = document.getElementById('report-modal');
+  const productField = document.getElementById('product-filter-field');
+  const categoryField = document.getElementById('category-filter-field');
+  const productSelect = productField ? productField.querySelector('select') : null;
+  const categorySelect = categoryField ? categoryField.querySelector('select') : null;
+  if (productField) productField.classList.toggle('hidden', type !== 'ventas_producto');
+  if (categoryField) categoryField.classList.toggle('hidden', type !== 'ventas_categoria');
+  if (productSelect) productSelect.disabled = type !== 'ventas_producto';
+  if (categorySelect) categorySelect.disabled = type !== 'ventas_categoria';
   modal.classList.remove('hidden');
   modal.classList.add('flex');
 }
