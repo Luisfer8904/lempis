@@ -236,15 +236,23 @@ def new_closure():
             flash("Debes revisar y confirmar el cierre definitivo antes de guardarlo.", "warning")
             return redirect(url_for("caja.index", desde=closure_date.isoformat(), hasta=closure_date.isoformat()))
         actual_raw = (request.form.get("actual_cash_amount") or "").strip()
-        delivered_raw = (request.form.get("delivered_cash_amount") or "").strip()
+        retained_raw = (request.form.get("retained_cash_amount") or "").strip()
         try:
             actual_amount = Decimal(actual_raw)
-            delivered_amount = Decimal(delivered_raw or "0")
+            retained_amount = Decimal(retained_raw or "0")
         except (InvalidOperation, ValueError):
             actual_amount = Decimal("-1")
-            delivered_amount = Decimal("-1")
-        if not actual_raw or actual_amount < 0 or delivered_amount < 0:
-            flash("Ingresa montos válidos para el efectivo contado y el dinero entregado.", "warning")
+            retained_amount = Decimal("-1")
+        if (
+            not actual_raw
+            or actual_amount < 0
+            or retained_amount < 0
+            or retained_amount > actual_amount
+        ):
+            flash(
+                "Ingresa montos válidos. El dinero que queda en caja no puede superar el efectivo contado.",
+                "warning",
+            )
             return redirect(url_for("caja.index", desde=closure_date.isoformat(), hasta=closure_date.isoformat()))
         closure = existing or CashClosure(tenant_id=tenant.id, user_id=current_user.id)
         closure.user_id = current_user.id
@@ -513,7 +521,11 @@ def _fill_closure_from_form(closure: CashClosure, suggested: dict) -> None:
     closure.opening_amount = _decimal(request.form.get("opening_amount"))
     _apply_suggested_amounts(closure, suggested)
     closure.actual_cash_amount = _decimal(request.form.get("actual_cash_amount"))
-    closure.delivered_cash_amount = _decimal(request.form.get("delivered_cash_amount"))
+    retained_cash = _decimal(request.form.get("retained_cash_amount"))
+    closure.delivered_cash_amount = max(
+        closure.actual_cash_amount - retained_cash,
+        Decimal("0.00"),
+    )
     closure.notes = (request.form.get("notes") or "").strip() or None
 
 
@@ -576,8 +588,9 @@ def _reconcile_closure(closure: CashClosure) -> None:
         · = 0 → cuadrado
         · < 0 → faltante
 
-    El dinero entregado se conserva como dato informativo y permite calcular
-    cuánto efectivo permanece físicamente en caja.
+    El dinero dejado en caja forma parte del efectivo contado y no genera una
+    diferencia. Se conserva indirectamente como contado menos entregado, sin
+    trasladarlo ni relacionarlo con la apertura de otro día.
     """
     start, end = _period_bounds(closure.closure_date, closure.closure_date)
     expenses_query = (

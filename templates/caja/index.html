@@ -426,6 +426,10 @@
                 <p class="text-xs uppercase tracking-wide text-slate-500">Dinero entregado</p>
                 <p class="font-mono">{{ c.delivered_cash_amount|money }}</p>
               </div>
+              <div>
+                <p class="text-xs uppercase tracking-wide text-slate-500">Dejado en caja</p>
+                <p class="font-mono text-indigo-700">{{ c.retained_cash_amount|money }}</p>
+              </div>
             </div>
 
             {# Desglose de gastos en efectivo de ese día #}
@@ -580,9 +584,10 @@
                class="w-full rounded-lg border px-3 py-2.5 text-lg font-semibold focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
       </div>
       <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700">Dinero que se entregaría o retiraría</label>
-        <input id="preclose-delivered" type="number" step="0.01" min="0" value="0.00"
+        <label class="mb-1 block text-sm font-medium text-slate-700">Dinero que quedará en caja</label>
+        <input id="preclose-retained" type="number" step="0.01" min="0" value="0.00"
                class="w-full rounded-lg border px-3 py-2.5">
+        <p class="mt-1 text-xs text-slate-500">Este dinero no se entregará y no se contará como faltante.</p>
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-700">Nota del conteo</label>
@@ -613,7 +618,7 @@
         <div class="flex justify-between gap-4"><dt class="text-slate-500">Efectivo contado</dt><dd id="preclose-counted" class="font-mono font-semibold"></dd></div>
         <div class="flex justify-between gap-4 border-t pt-3"><dt class="font-semibold text-slate-700">Diferencia</dt><dd id="preclose-difference" class="font-mono font-bold"></dd></div>
         <div class="flex justify-between gap-4"><dt class="text-slate-500">Dinero que se entregaría</dt><dd id="preclose-delivered-result" class="font-mono"></dd></div>
-        <div class="flex justify-between gap-4"><dt class="text-slate-500">Efectivo que quedaría en caja</dt><dd id="preclose-remaining" class="font-mono font-semibold"></dd></div>
+        <div class="flex justify-between gap-4"><dt class="text-slate-500">Dinero dejado en caja</dt><dd id="preclose-remaining" class="font-mono font-semibold"></dd></div>
       </dl>
     </div>
     <div class="flex justify-end gap-3 border-t bg-slate-50 px-5 py-4">
@@ -650,10 +655,10 @@
                class="w-full rounded-lg border px-3 py-2.5 text-lg font-semibold focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
       </div>
       <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700">Dinero entregado o retirado al cierre</label>
-        <input id="close-delivered" name="delivered_cash_amount" type="number" step="0.01" min="0" value="0.00"
+        <label class="mb-1 block text-sm font-medium text-slate-700">Dinero que quedará en caja</label>
+        <input id="close-retained" name="retained_cash_amount" type="number" step="0.01" min="0" value="0.00"
                class="w-full rounded-lg border px-3 py-2.5">
-        <p class="mt-1 text-xs text-slate-500">El sistema mostrará cuánto efectivo quedará para la siguiente apertura.</p>
+        <p class="mt-1 text-xs text-slate-500">No genera faltante ni sobrante y no se trasladará automáticamente a la apertura siguiente.</p>
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-700">Notas del cierre</label>
@@ -684,7 +689,7 @@
         <div class="flex justify-between gap-4"><dt class="text-slate-500">Efectivo contado</dt><dd id="close-counted" class="font-mono font-semibold"></dd></div>
         <div class="flex justify-between gap-4 border-t pt-3"><dt class="font-semibold text-slate-700">Diferencia</dt><dd id="close-difference" class="font-mono font-bold"></dd></div>
         <div class="flex justify-between gap-4"><dt class="text-slate-500">Dinero entregado</dt><dd id="close-delivered-result" class="font-mono"></dd></div>
-        <div class="flex justify-between gap-4"><dt class="text-slate-500">Efectivo que quedará en caja</dt><dd id="close-remaining" class="font-mono font-semibold"></dd></div>
+        <div class="flex justify-between gap-4"><dt class="text-slate-500">Dinero dejado en caja</dt><dd id="close-remaining" class="font-mono font-semibold"></dd></div>
       </dl>
     </div>
     <div class="flex justify-end gap-3 border-t bg-slate-50 px-5 py-4">
@@ -855,7 +860,7 @@ function ensureSavedOpening() {
   return true;
 }
 
-function cashSnapshot(actual, delivered) {
+function cashSnapshot(actual, retained) {
   const opening = cashOpeningContext().opening;
   const expected = opening
     + cashCloseContext.cashSales
@@ -865,9 +870,9 @@ function cashSnapshot(actual, delivered) {
   return {
     expected,
     actual,
-    delivered,
+    delivered: actual - retained,
     difference: actual - expected,
-    remaining: actual - delivered,
+    remaining: retained,
   };
 }
 
@@ -923,6 +928,14 @@ function validCashAmount(input) {
   return valid;
 }
 
+function validRetainedCash(actualInput, retainedInput) {
+  if (!validCashAmount(actualInput) || !validCashAmount(retainedInput)) return false;
+  const valid = Number(retainedInput.value) <= Number(actualInput.value);
+  retainedInput.setCustomValidity(valid ? '' : 'El dinero dejado en caja no puede superar el efectivo contado.');
+  retainedInput.reportValidity();
+  return valid;
+}
+
 function openPrecloseModal() {
   if (!ensureSavedOpening()) return;
   showCashScope();
@@ -932,9 +945,9 @@ function openPrecloseModal() {
 
 function calculatePreclose() {
   const actualInput = document.getElementById('preclose-actual');
-  const deliveredInput = document.getElementById('preclose-delivered');
-  if (!validCashAmount(actualInput) || !validCashAmount(deliveredInput)) return;
-  renderCashResult('preclose', cashSnapshot(Number(actualInput.value), Number(deliveredInput.value)));
+  const retainedInput = document.getElementById('preclose-retained');
+  if (!validRetainedCash(actualInput, retainedInput)) return;
+  renderCashResult('preclose', cashSnapshot(Number(actualInput.value), Number(retainedInput.value)));
   closeCashModal('preclose-modal');
   openCashModal('preclose-result-modal');
 }
@@ -957,12 +970,12 @@ function openCloseModal() {
   syncFinalCloseContext();
   document.querySelector('#close-day-form [name="confirm_final"]').value = '0';
   const precloseActual = document.getElementById('preclose-actual')?.value;
-  const precloseDelivered = document.getElementById('preclose-delivered')?.value;
+  const precloseRetained = document.getElementById('preclose-retained')?.value;
   if (precloseActual && !document.getElementById('close-actual').value) {
     document.getElementById('close-actual').value = precloseActual;
   }
-  if (precloseDelivered) {
-    document.getElementById('close-delivered').value = precloseDelivered;
+  if (precloseRetained) {
+    document.getElementById('close-retained').value = precloseRetained;
   }
   openCashModal('close-day-modal');
   setTimeout(() => document.getElementById('close-actual')?.focus(), 50);
@@ -970,11 +983,11 @@ function openCloseModal() {
 
 function reviewFinalClose() {
   const actualInput = document.getElementById('close-actual');
-  const deliveredInput = document.getElementById('close-delivered');
-  if (!validCashAmount(actualInput) || !validCashAmount(deliveredInput)) return;
+  const retainedInput = document.getElementById('close-retained');
+  if (!validRetainedCash(actualInput, retainedInput)) return;
   syncFinalCloseContext();
   document.querySelector('#close-day-form [name="confirm_final"]').value = '1';
-  renderCashResult('close', cashSnapshot(Number(actualInput.value), Number(deliveredInput.value)));
+  renderCashResult('close', cashSnapshot(Number(actualInput.value), Number(retainedInput.value)));
   closeCashModal('close-day-modal');
   openCashModal('close-confirm-modal');
 }

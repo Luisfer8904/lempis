@@ -472,12 +472,13 @@ def _custom_report_data(
             "esperado": float(c.expected_cash_amount or 0),
             "contado": float(c.actual_cash_amount or 0),
             "entregado": float(c.delivered_cash_amount or 0),
+            "dejado_caja": float(c.retained_cash_amount or 0),
             "diferencia": float(c.variance_amount or 0),
             "notas": c.notes or "",
         } for c in closures]
         totals = _totals(rows, [
             "apertura", "efectivo", "transferencia", "tarjeta", "credito",
-            "gastos", "esperado", "contado", "entregado", "diferencia",
+            "gastos", "esperado", "contado", "entregado", "dejado_caja", "diferencia",
         ])
         totals["gastos_periodo"] = float(expenses_total or 0)
         return (
@@ -488,6 +489,7 @@ def _custom_report_data(
                 ("tarjeta", "Tarjeta", "money"), ("credito", "Crédito", "money"),
                 ("gastos", "Gastos efectivo", "money"), ("esperado", "Esperado", "money"),
                 ("contado", "Contado", "money"), ("entregado", "Entregado", "money"),
+                ("dejado_caja", "Dejado en caja", "money"),
                 ("diferencia", "Diferencia", "money"), ("notas", "Notas", "text"),
             ],
             rows,

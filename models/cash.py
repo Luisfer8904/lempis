@@ -86,6 +86,14 @@ class CashClosure(db.Model, TimestampMixin):
     def is_closed(self):
         return self.status == "closed"
 
+    @property
+    def retained_cash_amount(self):
+        """Efectivo contado que no se entregó y permaneció en la caja."""
+        return max(
+            (self.actual_cash_amount or 0) - (self.delivered_cash_amount or 0),
+            0,
+        )
+
 
 class CashExpense(db.Model, TimestampMixin):
     """Gasto registrado durante el dia de caja."""
