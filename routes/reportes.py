@@ -590,31 +590,25 @@ def _custom_report_data(
     if report_type == "inventario":
         query = (
             db.session.query(
-                Branch.name.label("sede"),
                 Product.sku.label("sku"),
                 Product.name.label("producto"),
                 func.coalesce(Category.name, "Sin categoría").label("categoria"),
-                func.coalesce(ProductBatch.batch_number, "").label("lote"),
                 func.coalesce(func.sum(WarehouseStock.quantity), 0).label("stock"),
                 Product.cost.label("costo"),
-                Product.is_active.label("is_active"),
             )
             .join(Product, Product.id == WarehouseStock.product_id)
             .join(Warehouse, Warehouse.id == WarehouseStock.warehouse_id)
             .join(Branch, Branch.id == Warehouse.branch_id)
             .outerjoin(Category, Category.id == Product.category_id)
-            .outerjoin(ProductBatch, ProductBatch.id == WarehouseStock.batch_id)
             .filter(WarehouseStock.tenant_id == tenant.id)
         )
         if branch_id:
             query = query.filter(Branch.id == branch_id)
         stock_rows = (
             query.group_by(
-                Branch.id, Branch.name,
-                Product.id, Product.sku, Product.name, Product.cost, Product.is_active,
-                Category.name, ProductBatch.id, ProductBatch.batch_number,
+                Product.id, Product.sku, Product.name, Product.cost, Category.name,
             )
-            .order_by(Branch.name.asc(), Product.name.asc(), ProductBatch.batch_number.asc())
+            .order_by(Product.name.asc())
             .all()
         )
         rows = []
@@ -622,26 +616,22 @@ def _custom_report_data(
             quantity = float(item.stock or 0)
             cost = float(item.costo or 0)
             rows.append({
-                "sede": item.sede,
                 "sku": item.sku,
                 "producto": item.producto,
                 "categoria": item.categoria,
-                "lote": item.lote,
                 "stock": quantity,
                 "costo": cost,
-                "valor_costo": quantity * cost,
-                "activo": "Activo" if item.is_active else "Inactivo",
+                "valor_inventario": quantity * cost,
             })
         return (
             [
-                ("sede", "Sede", "text"), ("sku", "SKU", "text"),
-                ("producto", "Producto", "text"),
-                ("categoria", "Categoría", "text"), ("lote", "Lote", "text"),
-                ("stock", "Stock", "number"), ("costo", "Costo", "money"),
-                ("valor_costo", "Valor costo", "money"), ("activo", "Estado", "text"),
+                ("sku", "SKU", "text"), ("producto", "Producto", "text"),
+                ("categoria", "Categoría", "text"), ("stock", "Stock", "number"),
+                ("costo", "Costo unitario", "money"),
+                ("valor_inventario", "Valor inventario", "money"),
             ],
             rows,
-            _totals(rows, ["stock", "valor_costo"]),
+            _totals(rows, ["stock", "valor_inventario"]),
         )
 
     if report_type == "productos_vencer":
@@ -1784,7 +1774,7 @@ def _format_report_value(value, kind, currency):
     if kind == "money":
         return format_money(value, currency)
     if kind == "number":
-        return f"{float(value or 0):.2f}".rstrip("0").rstrip(".")
+        return f"{float(value or 0):,.2f}".rstrip("0").rstrip(".")
     return "" if value is None else str(value)
 
 
