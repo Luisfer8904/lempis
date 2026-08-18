@@ -38,7 +38,7 @@ from services.datetime_utils import format_local_datetime, local_date_range_to_u
 from services.currency import currency_symbol, format_money
 from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
-from services.locations import active_warehouses, sync_default_warehouse_stock
+from services.locations import sync_default_warehouse_stock
 
 reportes_bp = Blueprint("reportes", __name__, url_prefix="/app/reportes")
 
@@ -145,7 +145,14 @@ def _custom_report_context():
 
     title, description = report_map.get(report_type, ("Selecciona un reporte", "Elige el tipo de reporte que quieres consultar."))
     sync_default_warehouse_stock(tenant)
-    warehouse_id = request.args.get("warehouse_id", type=int) or None
+    branches = (
+        Branch.query.filter_by(tenant_id=tenant.id, is_active=True)
+        .order_by(Branch.name.asc())
+        .all()
+    )
+    available_branch_ids = {branch.id for branch in branches}
+    requested_branch_id = request.args.get("branch_id", type=int) or None
+    branch_id = requested_branch_id if requested_branch_id in available_branch_ids else None
     product_id = request.args.get("product_id", type=int) or None
     categories = (
         Category.query.filter_by(tenant_id=tenant.id)
@@ -162,12 +169,11 @@ def _custom_report_context():
         report_type,
         start_date,
         end_date,
-        warehouse_id,
+        branch_id,
         product_id,
         category_ids,
     )
-    warehouses = active_warehouses(tenant.id)
-    selected_warehouse = next((w for w in warehouses if w.id == warehouse_id), None)
+    selected_branch = next((branch for branch in branches if branch.id == branch_id), None)
     products = (
         Product.query.filter_by(tenant_id=tenant.id, is_active=True)
         .order_by(Product.name.asc())
@@ -201,9 +207,9 @@ def _custom_report_context():
             "ventas_categoria",
             "cierres_caja",
         },
-        warehouses=warehouses,
-        warehouse_id=warehouse_id,
-        selected_warehouse=selected_warehouse,
+        branches=branches,
+        branch_id=branch_id,
+        selected_branch=selected_branch,
         products=products,
         product_id=product_id,
         selected_product=selected_product,
@@ -219,7 +225,7 @@ def _custom_report_data(
     report_type,
     start_date,
     end_date,
-    warehouse_id=None,
+    branch_id=None,
     product_id=None,
     category_ids=None,
 ):
@@ -229,7 +235,7 @@ def _custom_report_data(
     valid_statuses = ["issued", "paid", "partially_paid", "overdue"]
 
     if report_type == "ventas_contado":
-        invoices = (
+        query = (
             Invoice.query
             .filter(
                 Invoice.tenant_id == tenant.id,
@@ -238,9 +244,12 @@ def _custom_report_data(
                 Invoice.issue_date >= period_start,
                 Invoice.issue_date < period_end,
             )
-            .order_by(Invoice.issue_date.desc(), Invoice.number.desc())
-            .all()
         )
+        if branch_id:
+            query = query.join(Warehouse, Warehouse.id == Invoice.warehouse_id).filter(
+                Warehouse.branch_id == branch_id
+            )
+        invoices = query.order_by(Invoice.issue_date.desc(), Invoice.number.desc()).all()
         rows = []
         for inv in invoices:
             profit = _invoice_profit(inv)
@@ -265,7 +274,7 @@ def _custom_report_data(
         )
 
     if report_type == "ventas_credito":
-        invoices = (
+        query = (
             Invoice.query
             .filter(
                 Invoice.tenant_id == tenant.id,
@@ -274,9 +283,12 @@ def _custom_report_data(
                 Invoice.issue_date >= period_start,
                 Invoice.issue_date < period_end,
             )
-            .order_by(Invoice.issue_date.desc(), Invoice.number.desc())
-            .all()
         )
+        if branch_id:
+            query = query.join(Warehouse, Warehouse.id == Invoice.warehouse_id).filter(
+                Warehouse.branch_id == branch_id
+            )
+        invoices = query.order_by(Invoice.issue_date.desc(), Invoice.number.desc()).all()
         rows = [{
             "fecha": format_local_datetime(inv.issue_date, "%d/%m/%Y", tenant),
             "factura": inv.number,
@@ -317,7 +329,7 @@ def _custom_report_data(
             .group_by(InvoiceItem.invoice_id)
             .subquery()
         )
-        sales = (
+        sales_query = (
             db.session.query(
                 Invoice,
                 Branch.name.label("sede"),
@@ -334,9 +346,10 @@ def _custom_report_data(
                 Invoice.issue_date >= period_start,
                 Invoice.issue_date < period_end,
             )
-            .order_by(Invoice.issue_date.desc(), Invoice.number.desc())
-            .all()
         )
+        if branch_id:
+            sales_query = sales_query.filter(Warehouse.branch_id == branch_id)
+        sales = sales_query.order_by(Invoice.issue_date.desc(), Invoice.number.desc()).all()
         rows = []
         for invoice, branch_name, lines, quantity, profit in sales:
             rows.append({
@@ -406,6 +419,10 @@ def _custom_report_data(
                 Invoice.issue_date < period_end,
             )
         )
+        if branch_id:
+            query = query.join(Warehouse, Warehouse.id == Invoice.warehouse_id).filter(
+                Warehouse.branch_id == branch_id
+            )
         if product_id:
             query = query.filter(Product.id == product_id)
         rows_raw = (
@@ -470,6 +487,10 @@ def _custom_report_data(
                 Invoice.issue_date < period_end,
             )
         )
+        if branch_id:
+            query = query.join(Warehouse, Warehouse.id == Invoice.warehouse_id).filter(
+                Warehouse.branch_id == branch_id
+            )
         if category_ids:
             query = query.filter(Category.id.in_(category_ids))
         rows_raw = (
@@ -506,7 +527,7 @@ def _custom_report_data(
         )
 
     if report_type == "cierres_caja":
-        closures = (
+        closures_query = (
             CashClosure.query
             .filter(
                 CashClosure.tenant_id == tenant.id,
@@ -514,18 +535,23 @@ def _custom_report_data(
                 CashClosure.closure_date <= end_date,
                 CashClosure.status == "closed",
             )
-            .order_by(CashClosure.closure_date.desc(), CashClosure.id.desc())
-            .all()
         )
-        expenses_total = (
+        if branch_id:
+            closures_query = closures_query.filter(CashClosure.branch_id == branch_id)
+        closures = closures_query.order_by(
+            CashClosure.closure_date.desc(), CashClosure.id.desc()
+        ).all()
+        expenses_query = (
             db.session.query(func.coalesce(func.sum(CashExpense.amount), 0))
             .filter(
                 CashExpense.tenant_id == tenant.id,
                 CashExpense.expense_date >= period_start,
                 CashExpense.expense_date < period_end,
             )
-            .scalar()
         )
+        if branch_id:
+            expenses_query = expenses_query.filter(CashExpense.branch_id == branch_id)
+        expenses_total = expenses_query.scalar()
         rows = [{
             "fecha": c.closure_date.strftime("%d/%m/%Y"),
             "sede": c.branch.name if c.branch else "Toda la empresa",
@@ -563,31 +589,53 @@ def _custom_report_data(
 
     if report_type == "inventario":
         query = (
-            db.session.query(WarehouseStock, Product, Warehouse, Branch)
+            db.session.query(
+                Branch.name.label("sede"),
+                Product.sku.label("sku"),
+                Product.name.label("producto"),
+                func.coalesce(Category.name, "Sin categoría").label("categoria"),
+                func.coalesce(ProductBatch.batch_number, "").label("lote"),
+                func.coalesce(func.sum(WarehouseStock.quantity), 0).label("stock"),
+                Product.cost.label("costo"),
+                Product.is_active.label("is_active"),
+            )
             .join(Product, Product.id == WarehouseStock.product_id)
             .join(Warehouse, Warehouse.id == WarehouseStock.warehouse_id)
             .join(Branch, Branch.id == Warehouse.branch_id)
+            .outerjoin(Category, Category.id == Product.category_id)
+            .outerjoin(ProductBatch, ProductBatch.id == WarehouseStock.batch_id)
             .filter(WarehouseStock.tenant_id == tenant.id)
         )
-        if warehouse_id:
-            query = query.filter(WarehouseStock.warehouse_id == warehouse_id)
-        stock_rows = query.order_by(Branch.name.asc(), Warehouse.name.asc(), Product.name.asc()).all()
-        rows = [{
-            "sede": branch.name,
-            "bodega": warehouse.name,
-            "sku": product.sku,
-            "producto": product.name,
-            "categoria": product.category.name if product.category else "Sin categoría",
-            "lote": stock.batch.batch_number if stock.batch else "",
-            "stock": float(stock.quantity or 0),
-            "costo": float(product.cost or 0),
-            "valor_costo": float((stock.quantity or 0) * (product.cost or 0)),
-            "activo": "Activo" if product.is_active else "Inactivo",
-        } for stock, product, warehouse, branch in stock_rows]
+        if branch_id:
+            query = query.filter(Branch.id == branch_id)
+        stock_rows = (
+            query.group_by(
+                Branch.id, Branch.name,
+                Product.id, Product.sku, Product.name, Product.cost, Product.is_active,
+                Category.name, ProductBatch.id, ProductBatch.batch_number,
+            )
+            .order_by(Branch.name.asc(), Product.name.asc(), ProductBatch.batch_number.asc())
+            .all()
+        )
+        rows = []
+        for item in stock_rows:
+            quantity = float(item.stock or 0)
+            cost = float(item.costo or 0)
+            rows.append({
+                "sede": item.sede,
+                "sku": item.sku,
+                "producto": item.producto,
+                "categoria": item.categoria,
+                "lote": item.lote,
+                "stock": quantity,
+                "costo": cost,
+                "valor_costo": quantity * cost,
+                "activo": "Activo" if item.is_active else "Inactivo",
+            })
         return (
             [
-                ("sede", "Sede", "text"), ("bodega", "Bodega", "text"),
-                ("sku", "SKU", "text"), ("producto", "Producto", "text"),
+                ("sede", "Sede", "text"), ("sku", "SKU", "text"),
+                ("producto", "Producto", "text"),
                 ("categoria", "Categoría", "text"), ("lote", "Lote", "text"),
                 ("stock", "Stock", "number"), ("costo", "Costo", "money"),
                 ("valor_costo", "Valor costo", "money"), ("activo", "Estado", "text"),
@@ -614,12 +662,11 @@ def _custom_report_data(
                 WarehouseStock.quantity > 0,
             )
         )
-        if warehouse_id:
-            query = query.filter(WarehouseStock.warehouse_id == warehouse_id)
+        if branch_id:
+            query = query.filter(Branch.id == branch_id)
         batches = query.order_by(ProductBatch.expiration_date.asc()).all()
         rows = [{
             "sede": branch.name,
-            "bodega": warehouse.name,
             "producto": product.name,
             "sku": product.sku,
             "lote": batch.batch_number,
@@ -630,8 +677,8 @@ def _custom_report_data(
         } for batch, product, warehouse, branch, stock in batches]
         return (
             [
-                ("sede", "Sede", "text"), ("bodega", "Bodega", "text"),
-                ("producto", "Producto", "text"), ("sku", "SKU", "text"),
+                ("sede", "Sede", "text"), ("producto", "Producto", "text"),
+                ("sku", "SKU", "text"),
                 ("lote", "Lote", "text"), ("vence", "Vence", "text"),
                 ("dias", "Días", "number"), ("cantidad", "Cantidad", "number"),
                 ("costo", "Costo", "money"),
@@ -1109,8 +1156,10 @@ def _report_filter_label(context):
         parts.append(f"Periodo: {context['period_label']}")
     else:
         parts.append("Consulta actual")
-    if context.get("selected_warehouse"):
-        parts.append(context["selected_warehouse"].label)
+    if context.get("selected_branch"):
+        parts.append(f"Sede: {context['selected_branch'].name}")
+    else:
+        parts.append("Todas las sedes")
     if context.get("selected_product"):
         parts.append(f"Producto: {context['selected_product'].name}")
     if context.get("report_type") == "ventas_categoria":
@@ -1121,7 +1170,7 @@ def _report_filter_label(context):
 def _resolve_report_logo_path(tenant=None, *, lempis=False):
     static_folder = current_app.static_folder
     if lempis:
-        path = os.path.join(static_folder, "img", "lempis-logo.png")
+        path = os.path.join(static_folder, "img", "favicon.png")
         return path if os.path.exists(path) else None
 
     logo_url = (getattr(tenant, "logo_url", None) or "").strip()
@@ -1541,6 +1590,23 @@ def _report_pdf_header(context, styles):
     if not company_logo:
         company_logo = Paragraph("EMPRESA", styles["ReportMeta"])
     lempis_logo = _pdf_logo(_resolve_report_logo_path(lempis=True))
+    lempis_brand = Table(
+        [[
+            lempis_logo,
+            [
+                Paragraph("<b>Lempis</b>", styles["ReportMeta"]),
+                Paragraph("SISTEMA DE<br/>FACTURACIÓN", styles["ReportMeta"]),
+            ],
+        ]],
+        colWidths=[15 * mm, 29 * mm],
+    )
+    lempis_brand.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
     brand = Table(
         [[
             company_logo,
@@ -1548,9 +1614,9 @@ def _report_pdf_header(context, styles):
                 Paragraph(escape(company_name.upper()), styles["ReportCompany"]),
                 Paragraph(escape(identity), styles["ReportMeta"]),
             ],
-            lempis_logo,
+            lempis_brand,
         ]],
-        colWidths=[30 * mm, 126 * mm, 30 * mm],
+        colWidths=[28 * mm, 112 * mm, 46 * mm],
     )
     brand.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),

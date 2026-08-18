@@ -47,18 +47,18 @@
     <h3 class="font-semibold text-slate-900">Cierres de caja</h3>
     <p class="text-sm text-slate-500 mt-1">Aperturas, gastos, formas de pago y dinero entregado.</p>
   </button>
-  <a href="{{ url_for('reportes.detallado', tipo='inventario') }}"
-     class="bg-white rounded-xl border shadow-sm p-5 hover:border-indigo-300 hover:shadow-md transition">
+  <button type="button" onclick="openReportModal('inventario')"
+          class="text-left bg-white rounded-xl border shadow-sm p-5 hover:border-indigo-300 hover:shadow-md transition">
     <p class="text-2xl mb-3">📦</p>
     <h3 class="font-semibold text-slate-900">Inventarios</h3>
     <p class="text-sm text-slate-500 mt-1">Existencias, costos, precios y valor de inventario.</p>
-  </a>
-  <a href="{{ url_for('reportes.detallado', tipo='productos_vencer') }}"
-     class="bg-white rounded-xl border shadow-sm p-5 hover:border-indigo-300 hover:shadow-md transition">
+  </button>
+  <button type="button" onclick="openReportModal('productos_vencer')"
+          class="text-left bg-white rounded-xl border shadow-sm p-5 hover:border-indigo-300 hover:shadow-md transition">
     <p class="text-2xl mb-3">⏳</p>
     <h3 class="font-semibold text-slate-900">Productos por vencer</h3>
     <p class="text-sm text-slate-500 mt-1">Lotes disponibles que vencen en los próximos 60 días.</p>
-  </a>
+  </button>
 </section>
 
 <section class="bg-white rounded-xl border shadow-sm overflow-hidden">
@@ -69,7 +69,7 @@
       {% if report_type %}
         <p class="text-sm text-slate-500 mt-1">
           {% if uses_dates %}Periodo: {{ period_label }}{% else %}Consulta actual{% endif %}
-          {% if selected_warehouse %} · {{ selected_warehouse.label }}{% endif %}
+          · {{ selected_branch.name if selected_branch else 'Todas las sedes' }}
           {% if selected_product %} · Producto: {{ selected_product.name }}{% endif %}
           {% if report_type == 'ventas_categoria' %} · {{ category_selection_label }}{% endif %}
         </p>
@@ -77,11 +77,11 @@
     </div>
     {% if report_type %}
       <div class="flex flex-wrap gap-2">
-        <a href="{{ url_for('reportes.detallado_excel', tipo=report_type, desde=desde, hasta=hasta, warehouse_id=warehouse_id or '', product_id=product_id or '', category_id=category_ids) }}"
+        <a href="{{ url_for('reportes.detallado_excel', tipo=report_type, desde=desde, hasta=hasta, branch_id=branch_id or '', product_id=product_id or '', category_id=category_ids) }}"
            class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">
           Descargar Excel
         </a>
-        <a href="{{ url_for('reportes.detallado_pdf', tipo=report_type, desde=desde, hasta=hasta, warehouse_id=warehouse_id or '', product_id=product_id or '', category_id=category_ids) }}"
+        <a href="{{ url_for('reportes.detallado_pdf', tipo=report_type, desde=desde, hasta=hasta, branch_id=branch_id or '', product_id=product_id or '', category_id=category_ids) }}"
            class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
           Descargar PDF
         </a>
@@ -101,6 +101,15 @@
         <label class="block text-xs font-medium text-slate-500 mb-1">Hasta</label>
         <input type="date" name="hasta" value="{{ hasta }}" required
                class="rounded-lg border px-3 py-2 bg-white text-sm" />
+      </div>
+      <div class="min-w-[230px]">
+        <label class="block text-xs font-medium text-slate-500 mb-1">Sede</label>
+        <select name="branch_id" class="w-full rounded-lg border px-3 py-2 bg-white text-sm">
+          <option value="">Todas las sedes</option>
+          {% for branch in branches %}
+            <option value="{{ branch.id }}" {% if branch_id == branch.id %}selected{% endif %}>{{ branch.name }}</option>
+          {% endfor %}
+        </select>
       </div>
       {% if report_type == 'ventas_producto' %}
         <div class="min-w-[260px] flex-1">
@@ -131,11 +140,11 @@
     <form method="GET" class="px-5 py-4 border-b bg-slate-50 flex flex-wrap items-end gap-3">
       <input type="hidden" name="tipo" value="{{ report_type }}" />
       <div class="min-w-[260px]">
-        <label class="block text-xs font-medium text-slate-500 mb-1">Sede / bodega</label>
-        <select name="warehouse_id" class="w-full rounded-lg border px-3 py-2 bg-white text-sm">
-          <option value="">Toda la empresa</option>
-          {% for w in warehouses %}
-            <option value="{{ w.id }}" {% if warehouse_id == w.id %}selected{% endif %}>{{ w.label }}</option>
+        <label class="block text-xs font-medium text-slate-500 mb-1">Sede</label>
+        <select name="branch_id" class="w-full rounded-lg border px-3 py-2 bg-white text-sm">
+          <option value="">Todas las sedes</option>
+          {% for branch in branches %}
+            <option value="{{ branch.id }}" {% if branch_id == branch.id %}selected{% endif %}>{{ branch.name }}</option>
           {% endfor %}
         </select>
       </div>
@@ -267,15 +276,26 @@
     <h3 class="text-2xl font-semibold text-slate-900">Configurar reporte</h3>
     <p class="mt-1 text-sm text-slate-500">Define el periodo y la información que deseas incluir.</p>
     <div class="mt-5 grid gap-4 sm:grid-cols-2">
-      <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Desde</label>
-        <input type="date" name="desde" value="{{ desde }}"
-               class="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-indigo-500" />
+      <div id="date-filter-fields" class="contents">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Desde</label>
+          <input type="date" name="desde" value="{{ desde }}"
+                 class="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Hasta</label>
+          <input type="date" name="hasta" value="{{ hasta }}"
+                 class="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-indigo-500" />
+        </div>
       </div>
-      <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Hasta</label>
-        <input type="date" name="hasta" value="{{ hasta }}"
-               class="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-indigo-500" />
+      <div class="sm:col-span-2">
+        <label class="block text-sm font-medium text-slate-600 mb-1">Sede</label>
+        <select name="branch_id" class="w-full rounded-lg border bg-white px-3 py-2 focus:ring-2 focus:ring-indigo-500">
+          <option value="">Todas las sedes</option>
+          {% for branch in branches %}
+            <option value="{{ branch.id }}" {% if branch_id == branch.id %}selected{% endif %}>{{ branch.name }}</option>
+          {% endfor %}
+        </select>
       </div>
       <div id="product-filter-field" class="hidden sm:col-span-2">
         <label class="block text-sm font-medium text-slate-600 mb-1">Producto</label>
@@ -311,10 +331,16 @@ function openReportModal(type) {
   const modal = document.getElementById('report-modal');
   const productField = document.getElementById('product-filter-field');
   const categoryField = document.getElementById('category-filter-field');
+  const dateFields = document.getElementById('date-filter-fields');
+  const usesDates = !['inventario', 'productos_vencer'].includes(type);
   const productSelect = productField ? productField.querySelector('select') : null;
   const categoryInputs = categoryField ? categoryField.querySelectorAll('input[name="category_id"]') : [];
   if (productField) productField.classList.toggle('hidden', type !== 'ventas_producto');
   if (categoryField) categoryField.classList.toggle('hidden', type !== 'ventas_categoria');
+  if (dateFields) {
+    dateFields.classList.toggle('hidden', !usesDates);
+    dateFields.querySelectorAll('input').forEach((input) => { input.disabled = !usesDates; });
+  }
   if (productSelect) productSelect.disabled = type !== 'ventas_producto';
   categoryInputs.forEach((input) => { input.disabled = type !== 'ventas_categoria'; });
   modal.classList.remove('hidden');
