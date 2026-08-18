@@ -16,8 +16,9 @@ class InventoryAvailabilityError(Exception):
 def sale_stock_map_for_warehouse(tenant_id: int, warehouse_id: int) -> dict[int, Decimal]:
     """Existencia realmente vendible por producto desde una bodega.
 
-    Los productos con lotes usan la mayor cantidad disponible en un solo lote,
-    porque cada línea de factura se vincula a un lote específico.
+    Para productos con lotes se muestra la suma disponible de todos sus lotes
+    en la sede. Cada lote se limita por su existencia local y su remanente real
+    para no inflar el total cuando alguno de los dos valores está desfasado.
     """
     products = Product.query.filter_by(tenant_id=tenant_id, is_active=True).all()
     rows = WarehouseStock.query.filter_by(
@@ -33,7 +34,7 @@ def sale_stock_map_for_warehouse(tenant_id: int, warehouse_id: int) -> dict[int,
         product_rows = rows_by_product.get(product.id, [])
         batch_rows = [row for row in product_rows if row.batch_id and row.batch is not None]
         if product.track_batches and batch_rows:
-            result[product.id] = max(
+            result[product.id] = sum(
                 (
                     max(
                         min(Decimal(row.quantity or 0), Decimal(row.batch.remaining_quantity or 0)),
@@ -41,7 +42,7 @@ def sale_stock_map_for_warehouse(tenant_id: int, warehouse_id: int) -> dict[int,
                     )
                     for row in batch_rows
                 ),
-                default=Decimal("0.00"),
+                Decimal("0.00"),
             )
         else:
             result[product.id] = sum(
