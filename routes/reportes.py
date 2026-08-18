@@ -10,19 +10,24 @@ from __future__ import annotations
 
 from datetime import datetime, time, timedelta
 from io import BytesIO
+from numbers import Number
+import os
+from urllib.parse import urlparse
 from xml.sax.saxutils import escape
 from sqlalchemy import case, func, extract
 
-from flask import Blueprint, render_template, request, send_file
+from flask import Blueprint, current_app, render_template, request, send_file
 from flask_login import login_required
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill
+from openpyxl.drawing.image import Image as ExcelImage
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.utils import ImageReader
+from reportlab.platypus import Image, SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 
 from models import db
 from models.cash import CashClosure, CashExpense
@@ -1052,45 +1057,204 @@ def _build_custom_excel_report(context):
         return _build_category_excel_report(context)
     wb = Workbook()
     ws = wb.active
-    ws.title = "Reporte"
-    ws.append([context["report_title"]])
-    ws.append(["Periodo", context["period_label"] if context["uses_dates"] else "Actual"])
-    ws.append([])
-    ws.append([label for _, label, _ in context["columns"]])
+    ws.title = _safe_sheet_title(context["report_title"])
+    columns = context["columns"]
+    last_col = max(len(columns), 4)
+    _prepare_excel_report_header(ws, context, last_col)
+    table_header_row = 7
+    for column_index, (_, label, _) in enumerate(columns, start=1):
+        ws.cell(table_header_row, column_index, label)
+    data_start_row = table_header_row + 1
     for row in context["rows"]:
-        ws.append([row.get(key, "") for key, _, _ in context["columns"]])
+        ws.append([row.get(key, "") for key, _, _ in columns])
+        current_row = ws.max_row
+        for column_index, (_, _, kind) in enumerate(columns, start=1):
+            _format_excel_value(ws.cell(current_row, column_index), kind, context["tenant"].currency)
+    data_end_row = ws.max_row
     if context["totals"]:
         ws.append([])
         total_row = []
-        for key, label, _ in context["columns"]:
+        for key, _, _ in columns:
             total_row.append(context["totals"].get(key, "Totales" if not total_row else ""))
         ws.append(total_row)
-    _style_sheet(ws)
+        totals_row_number = ws.max_row
+        for column_index, (_, _, kind) in enumerate(columns, start=1):
+            cell = ws.cell(totals_row_number, column_index)
+            cell.font = Font(bold=True, color="172554")
+            cell.fill = PatternFill("solid", fgColor="DBEAFE")
+            _format_excel_value(cell, kind, context["tenant"].currency)
+    _style_excel_report_table(
+        ws,
+        table_header_row,
+        data_start_row,
+        data_end_row,
+        len(columns),
+    )
+    _finish_excel_report_sheet(ws, table_header_row, len(columns))
     stream = BytesIO()
     wb.save(stream)
     stream.seek(0)
     return stream
 
 
+def _safe_sheet_title(value):
+    invalid = set('[]:*?/\\')
+    clean = "".join("-" if char in invalid else char for char in (value or "Reporte"))
+    return clean[:31]
+
+
+def _report_filter_label(context):
+    parts = []
+    if context.get("uses_dates"):
+        parts.append(f"Periodo: {context['period_label']}")
+    else:
+        parts.append("Consulta actual")
+    if context.get("selected_warehouse"):
+        parts.append(context["selected_warehouse"].label)
+    if context.get("selected_product"):
+        parts.append(f"Producto: {context['selected_product'].name}")
+    if context.get("report_type") == "ventas_categoria":
+        parts.append(context["category_selection_label"])
+    return "  •  ".join(parts)
+
+
+def _resolve_report_logo_path(tenant=None, *, lempis=False):
+    static_folder = current_app.static_folder
+    if lempis:
+        path = os.path.join(static_folder, "img", "lempis-logo.png")
+        return path if os.path.exists(path) else None
+
+    logo_url = (getattr(tenant, "logo_url", None) or "").strip()
+    if not logo_url:
+        return None
+    parsed = urlparse(logo_url)
+    if parsed.scheme not in ("", "file"):
+        return None
+    path = parsed.path
+    if os.path.isabs(path) and not path.startswith("/static/"):
+        return path if os.path.exists(path) else None
+    if path.startswith("/static/"):
+        path = path[len("/static/"):]
+    elif path.startswith("static/"):
+        path = path[len("static/"):]
+    resolved = os.path.join(static_folder, path.lstrip("/"))
+    return resolved if os.path.exists(resolved) else None
+
+
+def _add_excel_logo(ws, path, anchor, max_width=74, max_height=58):
+    if not path:
+        return False
+    try:
+        image = ExcelImage(path)
+        scale = min(max_width / image.width, max_height / image.height, 1)
+        image.width = int(image.width * scale)
+        image.height = int(image.height * scale)
+        ws.add_image(image, anchor)
+        return True
+    except Exception:
+        return False
+
+
+def _prepare_excel_report_header(ws, context, last_col):
+    tenant = context["tenant"]
+    company_name = tenant.legal_name or tenant.name
+    company_logo = _resolve_report_logo_path(tenant)
+    lempis_logo = _resolve_report_logo_path(lempis=True)
+    last_letter = get_column_letter(last_col)
+    center_start = 2 if last_col >= 4 else 1
+    center_end = last_col - 1 if last_col >= 4 else last_col
+
+    _add_excel_logo(ws, company_logo, "A1")
+    _add_excel_logo(ws, lempis_logo, f"{last_letter}1")
+    if not company_logo:
+        ws["A1"] = "EMPRESA"
+        ws["A1"].font = Font(bold=True, color="1D4ED8")
+        ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
+
+    ws.merge_cells(start_row=1, start_column=center_start, end_row=1, end_column=center_end)
+    ws.cell(1, center_start, company_name.upper())
+    ws.cell(1, center_start).font = Font(bold=True, size=16, color="0F172A")
+    ws.cell(1, center_start).alignment = Alignment(horizontal="center", vertical="center")
+    ws.merge_cells(start_row=2, start_column=center_start, end_row=2, end_column=center_end)
+    identity = "  •  ".join(part for part in [
+        f"RTN: {tenant.tax_id}" if tenant.tax_id else "",
+        f"Tel: {tenant.phone}" if tenant.phone else "",
+    ] if part) or "Reporte empresarial"
+    ws.cell(2, center_start, identity)
+    ws.cell(2, center_start).font = Font(size=10, color="64748B")
+    ws.cell(2, center_start).alignment = Alignment(horizontal="center")
+
+    ws.merge_cells(start_row=4, start_column=1, end_row=4, end_column=last_col)
+    ws.cell(4, 1, context["report_title"].upper())
+    ws.cell(4, 1).font = Font(bold=True, size=14, color="FFFFFF")
+    ws.cell(4, 1).fill = PatternFill("solid", fgColor="1E3A8A")
+    ws.cell(4, 1).alignment = Alignment(horizontal="center", vertical="center")
+    ws.merge_cells(start_row=5, start_column=1, end_row=5, end_column=last_col)
+    ws.cell(5, 1, _report_filter_label(context))
+    ws.cell(5, 1).font = Font(italic=True, size=10, color="475569")
+    ws.cell(5, 1).fill = PatternFill("solid", fgColor="EFF6FF")
+    ws.cell(5, 1).alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 34
+    ws.row_dimensions[2].height = 20
+    ws.row_dimensions[4].height = 26
+    ws.row_dimensions[5].height = 23
+
+
+def _format_excel_value(cell, kind, currency):
+    if kind == "money" and isinstance(cell.value, Number):
+        symbol = currency_symbol(currency).replace('"', '""')
+        cell.number_format = f'"{symbol}" #,##0.00'
+    elif kind == "number" and isinstance(cell.value, Number):
+        cell.number_format = "#,##0.00"
+
+
+def _style_excel_report_table(ws, header_row, data_start, data_end, column_count):
+    thin_line = Side(style="thin", color="CBD5E1")
+    for cell in ws[header_row][:column_count]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="0F766E")
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = Border(bottom=thin_line)
+    ws.row_dimensions[header_row].height = 30
+    for row_number in range(data_start, data_end + 1):
+        fill = "FFFFFF" if (row_number - data_start) % 2 == 0 else "F8FAFC"
+        for cell in ws[row_number][:column_count]:
+            cell.fill = PatternFill("solid", fgColor=fill)
+            cell.border = Border(bottom=thin_line)
+            cell.alignment = Alignment(vertical="center", wrap_text=True)
+        ws.row_dimensions[row_number].height = 22
+
+
+def _finish_excel_report_sheet(ws, header_row, column_count):
+    for column_index in range(1, column_count + 1):
+        letter = get_column_letter(column_index)
+        values = [
+            len(str(ws.cell(row_number, column_index).value or ""))
+            for row_number in range(header_row, ws.max_row + 1)
+        ]
+        ws.column_dimensions[letter].width = min(max(max(values, default=10) + 3, 13), 42)
+    ws.freeze_panes = f"A{header_row + 1}"
+    ws.auto_filter.ref = f"A{header_row}:{get_column_letter(column_count)}{max(ws.max_row, header_row)}"
+    ws.sheet_view.showGridLines = False
+    ws.page_setup.orientation = "landscape" if column_count >= 6 else "portrait"
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.print_title_rows = f"1:{header_row}"
+    ws.oddFooter.center.text = "Página &P de &N"
+    ws.oddFooter.right.text = "Generado con Lempis"
+
+
 def _build_category_excel_report(context):
     wb = Workbook()
     ws = wb.active
     ws.title = "Ventas por categoría"
-    company_name = context["tenant"].legal_name or context["tenant"].name
-    ws.append([company_name])
-    ws.merge_cells("A1:G1")
-    ws["A1"].font = Font(bold=True, size=15)
-    ws.append([f"RTN: {context['tenant'].tax_id or '—'}"])
-    ws.merge_cells("A2:G2")
-    ws.append(["VENTAS POR CATEGORÍA"])
-    ws.merge_cells("A3:G3")
-    ws["A3"].font = Font(bold=True, size=12)
-    ws.append(["Periodo", context["period_label"]])
-    ws.append(["Categorías", context["category_selection_label"]])
+    _prepare_excel_report_header(ws, context, 7)
     ws.append([])
 
-    header_fill = PatternFill("solid", fgColor="EEF2FF")
-    category_fill = PatternFill("solid", fgColor="E0E7FF")
+    header_fill = PatternFill("solid", fgColor="0F766E")
+    category_fill = PatternFill("solid", fgColor="DBEAFE")
+    thin_line = Side(style="thin", color="CBD5E1")
     symbol = currency_symbol(context["tenant"].currency).replace('"', '""')
     money_format = f'"{symbol}" #,##0.00'
     headers = [
@@ -1101,13 +1265,18 @@ def _build_category_excel_report(context):
         ws.append([f"CATEGORÍA: {category_name}"])
         category_row_number = ws.max_row
         ws.merge_cells(start_row=category_row_number, start_column=1, end_row=category_row_number, end_column=7)
-        ws.cell(category_row_number, 1).font = Font(bold=True, color="312E81")
+        ws.cell(category_row_number, 1).font = Font(bold=True, color="1E3A8A", size=11)
         ws.cell(category_row_number, 1).fill = category_fill
+        ws.cell(category_row_number, 1).alignment = Alignment(vertical="center")
+        ws.row_dimensions[category_row_number].height = 24
         ws.append(headers)
         header_row_number = ws.max_row
         for cell in ws[header_row_number]:
-            cell.font = Font(bold=True)
+            cell.font = Font(bold=True, color="FFFFFF")
             cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.border = Border(bottom=thin_line)
+        ws.row_dimensions[header_row_number].height = 28
         for row in category_rows:
             ws.append([
                 row["codigo"],
@@ -1122,6 +1291,10 @@ def _build_category_excel_report(context):
             ws.cell(ws.max_row, 5).number_format = money_format
             ws.cell(ws.max_row, 6).number_format = money_format
             ws.cell(ws.max_row, 7).number_format = money_format
+            for cell in ws[ws.max_row]:
+                cell.border = Border(bottom=thin_line)
+                cell.alignment = Alignment(vertical="center", wrap_text=True)
+            ws.row_dimensions[ws.max_row].height = 22
         ws.append([])
 
     ws.append([
@@ -1133,10 +1306,21 @@ def _build_category_excel_report(context):
     ws.cell(ws.max_row, 7).font = Font(bold=True)
     ws.cell(ws.max_row, 4).number_format = "#,##0.00"
     ws.cell(ws.max_row, 7).number_format = money_format
+    for cell in ws[ws.max_row]:
+        cell.fill = PatternFill("solid", fgColor="DBEAFE")
+        cell.border = Border(top=Side(style="medium", color="1E3A8A"))
     widths = [18, 38, 14, 16, 19, 19, 20]
     for index, width in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(index)].width = width
     ws.freeze_panes = "A7"
+    ws.sheet_view.showGridLines = False
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.print_title_rows = "1:5"
+    ws.oddFooter.center.text = "Página &P de &N"
+    ws.oddFooter.right.text = "Generado con Lempis"
     stream = BytesIO()
     wb.save(stream)
     stream.seek(0)
@@ -1210,21 +1394,26 @@ def _build_custom_pdf_report(context):
         topMargin=12 * mm,
         bottomMargin=12 * mm,
     )
-    styles = getSampleStyleSheet()
-    story = [
-        Paragraph(context["report_title"], styles["Title"]),
-        Paragraph(f"Periodo: {context['period_label'] if context['uses_dates'] else 'Actual'}", styles["Normal"]),
-        Spacer(1, 8),
-    ]
+    styles = _report_pdf_styles()
+    story = _report_pdf_header(context, styles)
     visible_cols = context["columns"][:7]
     data = [[label for _, label, _ in visible_cols]]
-    for row in context["rows"][:60]:
+    for row in context["rows"]:
         data.append([_format_report_value(row.get(key), kind, context["tenant"].currency) for key, _, kind in visible_cols])
     if len(data) == 1:
         data.append(["Sin datos"] + [""] * (len(visible_cols) - 1))
     widths = _pdf_widths(len(visible_cols))
     story.append(_pdf_table(data, widths, header=True))
-    doc.build(story)
+    if context["totals"]:
+        total_values = []
+        for index, (key, _, kind) in enumerate(visible_cols):
+            if key in context["totals"]:
+                total_values.append(_format_report_value(context["totals"][key], kind, context["tenant"].currency))
+            else:
+                total_values.append("TOTALES" if index == 0 else "")
+        story += [Spacer(1, 8), _pdf_total_band(total_values, widths)]
+    decorator = _pdf_page_decorator(context["tenant"])
+    doc.build(story, onFirstPage=decorator, onLaterPages=decorator)
     stream.seek(0)
     return stream
 
@@ -1239,35 +1428,21 @@ def _build_category_pdf_report(context):
         topMargin=12 * mm,
         bottomMargin=12 * mm,
     )
-    styles = getSampleStyleSheet()
+    styles = _report_pdf_styles()
     tenant = context["tenant"]
-    company_name = tenant.legal_name or tenant.name
-    story = [
-        Paragraph(escape(company_name.upper()), styles["Title"]),
-        Paragraph(
-            escape(" · ".join(part for part in [
-                f"RTN: {tenant.tax_id}" if tenant.tax_id else "",
-                f"Tel: {tenant.phone}" if tenant.phone else "",
-            ] if part)),
-            styles["Normal"],
-        ),
-        Spacer(1, 8),
-        Paragraph("VENTAS POR CATEGORÍA", styles["Heading2"]),
-        Paragraph(f"Periodo: {escape(context['period_label'])}", styles["Normal"]),
-        Paragraph(f"Selección: {escape(context['category_selection_label'])}", styles["Normal"]),
-    ]
+    story = _report_pdf_header(context, styles)
     headers = ["Código", "Descripción", "Unidad", "Cantidad", "Costo prom.", "Precio prom.", "Total vendido"]
     widths = [20 * mm, 48 * mm, 17 * mm, 21 * mm, 26 * mm, 26 * mm, 28 * mm]
     for category_name, category_rows in _category_report_groups(context["rows"]):
         story += [
             Spacer(1, 10),
-            Paragraph(f"CATEGORÍA: {escape(category_name.upper())}", styles["Heading3"]),
+            Paragraph(f"CATEGORÍA: {escape(category_name.upper())}", styles["ReportSection"]),
         ]
         data = [headers]
         for row in category_rows:
             data.append([
-                str(row["codigo"] or "—")[:18],
-                str(row["descripcion"] or "")[:42],
+                str(row["codigo"] or "—"),
+                str(row["descripcion"] or ""),
                 row["unidad"],
                 _format_report_value(row["cantidad"], "number", tenant.currency),
                 format_money(row["costo_promedio"], tenant.currency),
@@ -1286,9 +1461,161 @@ def _build_category_pdf_report(context):
                 styles["Heading3"],
             ),
         ]
-    doc.build(story)
+    decorator = _pdf_page_decorator(tenant)
+    doc.build(story, onFirstPage=decorator, onLaterPages=decorator)
     stream.seek(0)
     return stream
+
+
+def _report_pdf_styles():
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(
+        name="ReportCompany",
+        parent=styles["Heading2"],
+        fontName="Helvetica-Bold",
+        fontSize=14,
+        leading=17,
+        textColor=colors.HexColor("#0F172A"),
+        alignment=1,
+        spaceAfter=2,
+    ))
+    styles.add(ParagraphStyle(
+        name="ReportMeta",
+        parent=styles["Normal"],
+        fontSize=8.5,
+        leading=11,
+        textColor=colors.HexColor("#64748B"),
+        alignment=1,
+    ))
+    styles.add(ParagraphStyle(
+        name="ReportTitle",
+        parent=styles["Heading2"],
+        fontName="Helvetica-Bold",
+        fontSize=13,
+        leading=16,
+        textColor=colors.white,
+        alignment=1,
+    ))
+    styles.add(ParagraphStyle(
+        name="ReportFilter",
+        parent=styles["Normal"],
+        fontSize=8.5,
+        leading=11,
+        textColor=colors.HexColor("#334155"),
+        alignment=1,
+    ))
+    styles.add(ParagraphStyle(
+        name="ReportSection",
+        parent=styles["Heading3"],
+        fontName="Helvetica-Bold",
+        fontSize=9.5,
+        leading=12,
+        textColor=colors.HexColor("#1E3A8A"),
+        backColor=colors.HexColor("#DBEAFE"),
+        borderPadding=6,
+        spaceAfter=4,
+    ))
+    return styles
+
+
+def _pdf_logo(path, max_width=28 * mm, max_height=20 * mm):
+    if not path:
+        return ""
+    try:
+        width, height = ImageReader(path).getSize()
+        scale = min(max_width / width, max_height / height)
+        return Image(path, width=width * scale, height=height * scale)
+    except Exception:
+        return ""
+
+
+def _report_pdf_header(context, styles):
+    tenant = context["tenant"]
+    company_name = tenant.legal_name or tenant.name
+    identity = " · ".join(part for part in [
+        f"RTN: {tenant.tax_id}" if tenant.tax_id else "",
+        f"Tel: {tenant.phone}" if tenant.phone else "",
+        tenant.email or "",
+    ] if part) or "Reporte empresarial"
+    company_logo = _pdf_logo(_resolve_report_logo_path(tenant))
+    if not company_logo:
+        company_logo = Paragraph("EMPRESA", styles["ReportMeta"])
+    lempis_logo = _pdf_logo(_resolve_report_logo_path(lempis=True))
+    brand = Table(
+        [[
+            company_logo,
+            [
+                Paragraph(escape(company_name.upper()), styles["ReportCompany"]),
+                Paragraph(escape(identity), styles["ReportMeta"]),
+            ],
+            lempis_logo,
+        ]],
+        colWidths=[30 * mm, 126 * mm, 30 * mm],
+    )
+    brand.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (0, 0), (0, 0), "LEFT"),
+        ("ALIGN", (-1, 0), (-1, 0), "RIGHT"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LINEBELOW", (0, 0), (-1, -1), 0.8, colors.HexColor("#CBD5E1")),
+    ]))
+    title_band = Table(
+        [[Paragraph(escape(context["report_title"].upper()), styles["ReportTitle"])]],
+        colWidths=[186 * mm],
+    )
+    title_band.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#1E3A8A")),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+    ]))
+    filter_band = Table(
+        [[Paragraph(escape(_report_filter_label(context)), styles["ReportFilter"])]],
+        colWidths=[186 * mm],
+    )
+    filter_band.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#EFF6FF")),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#BFDBFE")),
+    ]))
+    return [brand, Spacer(1, 7), title_band, filter_band, Spacer(1, 10)]
+
+
+def _pdf_page_decorator(tenant):
+    generated_at = local_now(tenant).strftime("%d/%m/%Y %H:%M")
+
+    def draw_footer(canvas, doc):
+        canvas.saveState()
+        canvas.setStrokeColor(colors.HexColor("#CBD5E1"))
+        canvas.line(12 * mm, 9 * mm, doc.pagesize[0] - 12 * mm, 9 * mm)
+        canvas.setFont("Helvetica", 7.5)
+        canvas.setFillColor(colors.HexColor("#64748B"))
+        canvas.drawString(12 * mm, 5.5 * mm, f"Generado el {generated_at}")
+        canvas.drawRightString(
+            doc.pagesize[0] - 12 * mm,
+            5.5 * mm,
+            f"Página {doc.page} · Generado con Lempis",
+        )
+        canvas.restoreState()
+
+    return draw_footer
+
+
+def _pdf_total_band(values, widths):
+    table = Table([values], colWidths=widths)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#DBEAFE")),
+        ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#172554")),
+        ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("BOX", (0, 0), (-1, -1), 0.7, colors.HexColor("#93C5FD")),
+    ]))
+    return table
 
 
 def _category_report_groups(rows):
@@ -1305,18 +1632,45 @@ def _category_report_groups(rows):
 
 
 def _pdf_table(data, col_widths, header=False):
-    table = Table(data, colWidths=col_widths)
+    cell_style = ParagraphStyle(
+        "ReportTableCell",
+        fontName="Helvetica",
+        fontSize=7.5,
+        leading=9.5,
+        textColor=colors.HexColor("#1E293B"),
+    )
+    header_style = ParagraphStyle(
+        "ReportTableHeader",
+        parent=cell_style,
+        fontName="Helvetica-Bold",
+        textColor=colors.white,
+        alignment=1,
+    )
+    prepared_data = []
+    for row_index, row in enumerate(data):
+        prepared_data.append([
+            value if hasattr(value, "wrap") else Paragraph(
+                escape("" if value is None else str(value)),
+                header_style if header and row_index == 0 else cell_style,
+            )
+            for value in row
+        ])
+    table = Table(prepared_data, colWidths=col_widths, repeatRows=1 if header else 0)
     style = [
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#CBD5E1")),
-        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("LINEBELOW", (0, 0), (-1, -1), 0.35, colors.HexColor("#CBD5E1")),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("ROWBACKGROUNDS", (0, 1 if header else 0), (-1, -1), [colors.white, colors.HexColor("#F8FAFC")]),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ]
     if header:
         style += [
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EEF2FF")),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0F766E")),
+            ("LINEBELOW", (0, 0), (-1, 0), 0.8, colors.HexColor("#115E59")),
+            ("TOPPADDING", (0, 0), (-1, 0), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
         ]
     table.setStyle(TableStyle(style))
     return table
