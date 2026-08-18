@@ -1,16 +1,16 @@
-<details class="relative min-w-[260px]" data-category-selector>
+<details class="relative w-full min-w-[280px]" data-category-selector>
   <summary class="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg border bg-white px-3 py-2 text-sm text-slate-700">
     <span class="truncate" data-category-summary>{{ category_selection_label }}</span>
     <span class="text-slate-400">▾</span>
   </summary>
-  <div class="absolute left-0 z-30 mt-2 w-full min-w-[300px] rounded-xl border bg-white p-3 shadow-xl">
+  <div class="absolute left-0 z-30 mt-2 w-full rounded-xl border bg-white p-4 shadow-xl">
     <label class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 font-medium text-indigo-700 hover:bg-indigo-50">
       <input type="checkbox" data-select-all {% if not category_ids %}checked{% endif %}
              class="h-4 w-4 rounded border-slate-300 text-indigo-600" />
       Todas las categorías
     </label>
     <div class="my-2 border-t"></div>
-    <div class="max-h-56 space-y-1 overflow-y-auto">
+    <div class="grid max-h-80 gap-1 overflow-y-auto sm:grid-cols-2">
       {% for category in categories %}
         <label class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 hover:bg-slate-50">
           <input type="checkbox" name="category_id" value="{{ category.id }}"

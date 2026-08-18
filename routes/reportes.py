@@ -485,6 +485,7 @@ def _custom_report_data(
                 "cantidad": quantity,
                 "costo_promedio": (estimated_cost / quantity) if quantity else 0,
                 "precio_promedio": (sales_value / quantity) if quantity else 0,
+                "total_vendido": sales_value,
             })
         return (
             [
@@ -493,9 +494,10 @@ def _custom_report_data(
                 ("cantidad", "Cantidad", "number"),
                 ("costo_promedio", "Costo promedio", "money"),
                 ("precio_promedio", "Precio promedio", "money"),
+                ("total_vendido", "Total vendido", "money"),
             ],
             rows,
-            _totals(rows, ["cantidad"]),
+            _totals(rows, ["cantidad", "total_vendido"]),
         )
 
     if report_type == "cierres_caja":
@@ -1076,12 +1078,12 @@ def _build_category_excel_report(context):
     ws.title = "Ventas por categoría"
     company_name = context["tenant"].legal_name or context["tenant"].name
     ws.append([company_name])
-    ws.merge_cells("A1:F1")
+    ws.merge_cells("A1:G1")
     ws["A1"].font = Font(bold=True, size=15)
     ws.append([f"RTN: {context['tenant'].tax_id or '—'}"])
-    ws.merge_cells("A2:F2")
+    ws.merge_cells("A2:G2")
     ws.append(["VENTAS POR CATEGORÍA"])
-    ws.merge_cells("A3:F3")
+    ws.merge_cells("A3:G3")
     ws["A3"].font = Font(bold=True, size=12)
     ws.append(["Periodo", context["period_label"]])
     ws.append(["Categorías", context["category_selection_label"]])
@@ -1091,11 +1093,14 @@ def _build_category_excel_report(context):
     category_fill = PatternFill("solid", fgColor="E0E7FF")
     symbol = currency_symbol(context["tenant"].currency).replace('"', '""')
     money_format = f'"{symbol}" #,##0.00'
-    headers = ["Código", "Descripción", "Unidad", "Cantidad", "Costo promedio", "Precio promedio"]
+    headers = [
+        "Código", "Descripción", "Unidad", "Cantidad",
+        "Costo promedio", "Precio promedio", "Total vendido",
+    ]
     for category_name, category_rows in _category_report_groups(context["rows"]):
         ws.append([f"CATEGORÍA: {category_name}"])
         category_row_number = ws.max_row
-        ws.merge_cells(start_row=category_row_number, start_column=1, end_row=category_row_number, end_column=6)
+        ws.merge_cells(start_row=category_row_number, start_column=1, end_row=category_row_number, end_column=7)
         ws.cell(category_row_number, 1).font = Font(bold=True, color="312E81")
         ws.cell(category_row_number, 1).fill = category_fill
         ws.append(headers)
@@ -1111,17 +1116,24 @@ def _build_category_excel_report(context):
                 float(row["cantidad"] or 0),
                 float(row["costo_promedio"] or 0),
                 float(row["precio_promedio"] or 0),
+                float(row["total_vendido"] or 0),
             ])
             ws.cell(ws.max_row, 4).number_format = "#,##0.00"
             ws.cell(ws.max_row, 5).number_format = money_format
             ws.cell(ws.max_row, 6).number_format = money_format
+            ws.cell(ws.max_row, 7).number_format = money_format
         ws.append([])
 
-    ws.append(["CANTIDAD TOTAL", "", "", float(context["totals"].get("cantidad", 0))])
+    ws.append([
+        "TOTALES", "", "", float(context["totals"].get("cantidad", 0)), "", "",
+        float(context["totals"].get("total_vendido", 0)),
+    ])
     ws.cell(ws.max_row, 1).font = Font(bold=True)
     ws.cell(ws.max_row, 4).font = Font(bold=True)
+    ws.cell(ws.max_row, 7).font = Font(bold=True)
     ws.cell(ws.max_row, 4).number_format = "#,##0.00"
-    widths = [18, 42, 14, 16, 20, 20]
+    ws.cell(ws.max_row, 7).number_format = money_format
+    widths = [18, 38, 14, 16, 19, 19, 20]
     for index, width in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(index)].width = width
     ws.freeze_panes = "A7"
@@ -1244,8 +1256,8 @@ def _build_category_pdf_report(context):
         Paragraph(f"Periodo: {escape(context['period_label'])}", styles["Normal"]),
         Paragraph(f"Selección: {escape(context['category_selection_label'])}", styles["Normal"]),
     ]
-    headers = ["Código", "Descripción", "Unidad", "Cantidad", "Costo prom.", "Precio prom."]
-    widths = [24 * mm, 62 * mm, 19 * mm, 25 * mm, 28 * mm, 28 * mm]
+    headers = ["Código", "Descripción", "Unidad", "Cantidad", "Costo prom.", "Precio prom.", "Total vendido"]
+    widths = [20 * mm, 48 * mm, 17 * mm, 21 * mm, 26 * mm, 26 * mm, 28 * mm]
     for category_name, category_rows in _category_report_groups(context["rows"]):
         story += [
             Spacer(1, 10),
@@ -1260,10 +1272,20 @@ def _build_category_pdf_report(context):
                 _format_report_value(row["cantidad"], "number", tenant.currency),
                 format_money(row["costo_promedio"], tenant.currency),
                 format_money(row["precio_promedio"], tenant.currency),
+                format_money(row["total_vendido"], tenant.currency),
             ])
         story.append(_pdf_table(data, widths, header=True))
     if not context["rows"]:
         story += [Spacer(1, 16), Paragraph("Sin datos para los filtros seleccionados.", styles["Normal"])]
+    if context["rows"]:
+        story += [
+            Spacer(1, 10),
+            Paragraph(
+                f"Cantidad total: {_format_report_value(context['totals'].get('cantidad'), 'number', tenant.currency)}"
+                f" &nbsp;&nbsp; Total vendido: {escape(format_money(context['totals'].get('total_vendido'), tenant.currency))}",
+                styles["Heading3"],
+            ),
+        ]
     doc.build(story)
     stream.seek(0)
     return stream

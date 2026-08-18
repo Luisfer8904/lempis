@@ -154,7 +154,7 @@
             </h3>
           </div>
           <div class="overflow-x-auto">
-            <table class="saas-table w-full min-w-[820px]">
+            <table class="saas-table w-full min-w-[980px]">
               <thead>
                 <tr>
                   <th>Código</th>
@@ -163,6 +163,7 @@
                   <th class="text-right">Cantidad</th>
                   <th class="text-right">Costo promedio</th>
                   <th class="text-right">Precio promedio</th>
+                  <th class="text-right">Total vendido</th>
                 </tr>
               </thead>
               <tbody>
@@ -174,6 +175,7 @@
                     <td class="text-right font-mono">{{ '{:,.2f}'.format(row.cantidad)|replace('.00', '') }}</td>
                     <td class="text-right font-mono">{{ row.costo_promedio|money }}</td>
                     <td class="text-right font-mono">{{ row.precio_promedio|money }}</td>
+                    <td class="text-right font-mono font-semibold">{{ row.total_vendido|money }}</td>
                   </tr>
                 {% endfor %}
               </tbody>
@@ -186,9 +188,15 @@
         </div>
       {% endfor %}
       {% if rows %}
-        <div class="flex justify-end rounded-xl border bg-white px-5 py-4 text-sm">
-          <span class="mr-3 text-slate-500">Cantidad total vendida:</span>
-          <strong class="font-mono text-slate-900">{{ '{:,.2f}'.format(totals.cantidad)|replace('.00', '') }}</strong>
+        <div class="flex flex-wrap justify-end gap-x-8 gap-y-2 rounded-xl border bg-white px-5 py-4 text-sm">
+          <div>
+            <span class="mr-3 text-slate-500">Cantidad total vendida:</span>
+            <strong class="font-mono text-slate-900">{{ '{:,.2f}'.format(totals.cantidad)|replace('.00', '') }}</strong>
+          </div>
+          <div>
+            <span class="mr-3 text-slate-500">Total vendido:</span>
+            <strong class="font-mono text-indigo-700">{{ totals.total_vendido|money }}</strong>
+          </div>
         </div>
       {% endif %}
     </div>
@@ -253,7 +261,7 @@
 
 <div id="report-modal" class="hidden fixed inset-0 z-50 items-center justify-center bg-slate-900/50 px-4">
   <form method="GET" action="{{ url_for('reportes.detallado') }}"
-        class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        class="w-full max-w-2xl rounded-xl bg-white p-6 shadow-xl">
     <input type="hidden" name="tipo" id="modal-report-type" />
     <h3 class="text-lg font-semibold text-slate-900">Seleccionar periodo</h3>
     <p class="text-sm text-slate-500 mt-1">Define desde y hasta para generar el reporte.</p>
