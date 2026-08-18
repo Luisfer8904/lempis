@@ -157,6 +157,7 @@
   {% if report_type == 'ventas_categoria' %}
     <div class="space-y-5 bg-slate-50 p-5">
       {% for category_group in rows|groupby('categoria') %}
+        {% set category_totals = namespace(cantidad=0, vendido=0) %}
         <section class="overflow-hidden rounded-xl border bg-white shadow-sm">
           <div class="border-b bg-indigo-50 px-4 py-3">
             <h3 class="font-semibold uppercase tracking-wide text-indigo-900">
@@ -178,6 +179,8 @@
               </thead>
               <tbody>
                 {% for row in category_group.list %}
+                  {% set category_totals.cantidad = category_totals.cantidad + (row.cantidad or 0) %}
+                  {% set category_totals.vendido = category_totals.vendido + (row.total_vendido or 0) %}
                   <tr>
                     <td class="font-mono text-sm">{{ row.codigo or '—' }}</td>
                     <td class="font-medium">{{ row.descripcion }}</td>
@@ -189,6 +192,14 @@
                   </tr>
                 {% endfor %}
               </tbody>
+              <tfoot>
+                <tr class="border-t-2 border-indigo-200 bg-indigo-50 font-semibold text-indigo-950">
+                  <td colspan="3">Total {{ category_group.grouper }}</td>
+                  <td class="text-right font-mono">{{ '{:,.2f}'.format(category_totals.cantidad)|replace('.00', '') }}</td>
+                  <td colspan="2"></td>
+                  <td class="text-right font-mono text-indigo-700">{{ category_totals.vendido|money }}</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </section>
@@ -206,6 +217,76 @@
           <div>
             <span class="mr-3 text-slate-500">Total vendido:</span>
             <strong class="font-mono text-indigo-700">{{ totals.total_vendido|money }}</strong>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  {% elif report_type == 'inventario' %}
+    <div class="space-y-5 bg-slate-50 p-5">
+      {% for category_group in rows|groupby('categoria') %}
+        {% set category_totals = namespace(stock=0, valor=0) %}
+        <section class="overflow-hidden rounded-xl border bg-white shadow-sm">
+          <div class="border-b bg-indigo-50 px-4 py-3">
+            <h3 class="font-semibold uppercase tracking-wide text-indigo-900">
+              Categoría: {{ category_group.grouper }}
+            </h3>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="saas-table w-full min-w-[800px] table-fixed">
+              <colgroup>
+                <col style="width: 13%" />
+                <col style="width: 45%" />
+                <col style="width: 12%" />
+                <col style="width: 15%" />
+                <col style="width: 15%" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Nombre del producto</th>
+                  <th class="text-right">Stock</th>
+                  <th class="text-right">Costo unitario</th>
+                  <th class="text-right">Valor inventario</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in category_group.list %}
+                  {% set category_totals.stock = category_totals.stock + (row.stock or 0) %}
+                  {% set category_totals.valor = category_totals.valor + (row.valor_inventario or 0) %}
+                  <tr>
+                    <td class="font-mono text-sm">{{ row.sku or '—' }}</td>
+                    <td class="font-medium">{{ row.producto }}</td>
+                    <td class="text-right font-mono">{{ '{:,.2f}'.format(row.stock)|replace('.00', '') }}</td>
+                    <td class="text-right font-mono">{{ row.costo|money }}</td>
+                    <td class="text-right font-mono font-semibold">{{ row.valor_inventario|money }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+              <tfoot>
+                <tr class="border-t-2 border-indigo-200 bg-indigo-50 font-semibold text-indigo-950">
+                  <td colspan="2">Total {{ category_group.grouper }}</td>
+                  <td class="text-right font-mono">{{ '{:,.2f}'.format(category_totals.stock)|replace('.00', '') }}</td>
+                  <td></td>
+                  <td class="text-right font-mono text-indigo-700">{{ category_totals.valor|money }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </section>
+      {% else %}
+        <div class="rounded-xl border border-dashed bg-white py-12 text-center text-slate-400">
+          No hay inventario para la sede seleccionada.
+        </div>
+      {% endfor %}
+      {% if rows %}
+        <div class="flex flex-wrap justify-end gap-x-8 gap-y-2 rounded-xl border bg-white px-5 py-4 text-sm">
+          <div>
+            <span class="mr-3 text-slate-500">Stock total:</span>
+            <strong class="font-mono text-slate-900">{{ '{:,.2f}'.format(totals.stock)|replace('.00', '') }}</strong>
+          </div>
+          <div>
+            <span class="mr-3 text-slate-500">Valor total del inventario:</span>
+            <strong class="font-mono text-indigo-700">{{ totals.valor_inventario|money }}</strong>
           </div>
         </div>
       {% endif %}

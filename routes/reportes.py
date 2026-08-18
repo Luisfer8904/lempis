@@ -608,7 +608,7 @@ def _custom_report_data(
             query.group_by(
                 Product.id, Product.sku, Product.name, Product.cost, Category.name,
             )
-            .order_by(Product.name.asc())
+            .order_by(Category.name.asc(), Product.name.asc())
             .all()
         )
         rows = []
@@ -1092,6 +1092,8 @@ def _build_excel_report(context):
 def _build_custom_excel_report(context):
     if context["report_type"] == "ventas_categoria":
         return _build_category_excel_report(context)
+    if context["report_type"] == "inventario":
+        return _build_inventory_excel_report(context)
     wb = Workbook()
     ws = wb.active
     ws.title = _safe_sheet_title(context["report_title"])
@@ -1334,6 +1336,20 @@ def _build_category_excel_report(context):
                 cell.border = Border(bottom=thin_line)
                 cell.alignment = Alignment(vertical="center", wrap_text=True)
             ws.row_dimensions[ws.max_row].height = 22
+        category_quantity = sum(float(row.get("cantidad") or 0) for row in category_rows)
+        category_total = sum(float(row.get("total_vendido") or 0) for row in category_rows)
+        ws.append([
+            f"TOTAL {category_name.upper()}", "", "", category_quantity, "", "", category_total,
+        ])
+        subtotal_row_number = ws.max_row
+        ws.cell(subtotal_row_number, 1).font = Font(bold=True, color="172554")
+        ws.cell(subtotal_row_number, 4).font = Font(bold=True, color="172554")
+        ws.cell(subtotal_row_number, 7).font = Font(bold=True, color="1D4ED8")
+        ws.cell(subtotal_row_number, 4).number_format = "#,##0.00"
+        ws.cell(subtotal_row_number, 7).number_format = money_format
+        for cell in ws[subtotal_row_number]:
+            cell.fill = PatternFill("solid", fgColor="E0E7FF")
+            cell.border = Border(top=Side(style="medium", color="A5B4FC"))
         ws.append([])
 
     ws.append([
@@ -1350,6 +1366,89 @@ def _build_category_excel_report(context):
         cell.border = Border(top=Side(style="medium", color="1E3A8A"))
     widths = [18, 38, 14, 16, 19, 19, 20]
     for index, width in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(index)].width = width
+    ws.freeze_panes = "A7"
+    ws.sheet_view.showGridLines = False
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.print_title_rows = "1:5"
+    ws.oddFooter.center.text = "Página &P de &N"
+    ws.oddFooter.right.text = "Generado con Lempis"
+    stream = BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+    return stream
+
+
+def _build_inventory_excel_report(context):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Inventario"
+    _prepare_excel_report_header(ws, context, 5)
+    ws.append([])
+
+    header_fill = PatternFill("solid", fgColor="0F766E")
+    category_fill = PatternFill("solid", fgColor="DBEAFE")
+    thin_line = Side(style="thin", color="CBD5E1")
+    symbol = currency_symbol(context["tenant"].currency).replace('"', '""')
+    money_format = f'"{symbol}" #,##0.00'
+    headers = ["SKU", "Nombre del producto", "Stock", "Costo unitario", "Valor inventario"]
+    for category_name, category_rows in _category_report_groups(context["rows"]):
+        ws.append([f"CATEGORÍA: {category_name.upper()}"])
+        category_row_number = ws.max_row
+        ws.merge_cells(start_row=category_row_number, start_column=1, end_row=category_row_number, end_column=5)
+        ws.cell(category_row_number, 1).font = Font(bold=True, color="1E3A8A", size=11)
+        ws.cell(category_row_number, 1).fill = category_fill
+        ws.row_dimensions[category_row_number].height = 24
+        ws.append(headers)
+        header_row_number = ws.max_row
+        for cell in ws[header_row_number]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.border = Border(bottom=thin_line)
+        for row in category_rows:
+            ws.append([
+                row["sku"], row["producto"], float(row["stock"] or 0),
+                float(row["costo"] or 0), float(row["valor_inventario"] or 0),
+            ])
+            ws.cell(ws.max_row, 3).number_format = "#,##0.00"
+            ws.cell(ws.max_row, 4).number_format = money_format
+            ws.cell(ws.max_row, 5).number_format = money_format
+            for cell in ws[ws.max_row]:
+                cell.border = Border(bottom=thin_line)
+                cell.alignment = Alignment(vertical="center", wrap_text=True)
+        category_stock = sum(float(row.get("stock") or 0) for row in category_rows)
+        category_value = sum(float(row.get("valor_inventario") or 0) for row in category_rows)
+        ws.append([f"TOTAL {category_name.upper()}", "", category_stock, "", category_value])
+        subtotal_row = ws.max_row
+        ws.cell(subtotal_row, 1).font = Font(bold=True, color="172554")
+        ws.cell(subtotal_row, 3).font = Font(bold=True, color="172554")
+        ws.cell(subtotal_row, 5).font = Font(bold=True, color="1D4ED8")
+        ws.cell(subtotal_row, 3).number_format = "#,##0.00"
+        ws.cell(subtotal_row, 5).number_format = money_format
+        for cell in ws[subtotal_row]:
+            cell.fill = PatternFill("solid", fgColor="E0E7FF")
+            cell.border = Border(top=Side(style="medium", color="A5B4FC"))
+        ws.append([])
+
+    ws.append([
+        "TOTAL GENERAL", "", float(context["totals"].get("stock", 0)), "",
+        float(context["totals"].get("valor_inventario", 0)),
+    ])
+    total_row = ws.max_row
+    ws.cell(total_row, 1).font = Font(bold=True, color="172554")
+    ws.cell(total_row, 3).font = Font(bold=True, color="172554")
+    ws.cell(total_row, 5).font = Font(bold=True, color="1D4ED8")
+    ws.cell(total_row, 3).number_format = "#,##0.00"
+    ws.cell(total_row, 5).number_format = money_format
+    for cell in ws[total_row]:
+        cell.fill = PatternFill("solid", fgColor="BFDBFE")
+        cell.border = Border(top=Side(style="medium", color="1E3A8A"))
+
+    for index, width in enumerate([16, 52, 18, 21, 24], start=1):
         ws.column_dimensions[get_column_letter(index)].width = width
     ws.freeze_panes = "A7"
     ws.sheet_view.showGridLines = False
@@ -1424,6 +1523,8 @@ def _build_pdf_report(context):
 def _build_custom_pdf_report(context):
     if context["report_type"] == "ventas_categoria":
         return _build_category_pdf_report(context)
+    if context["report_type"] == "inventario":
+        return _build_inventory_pdf_report(context)
     stream = BytesIO()
     doc = SimpleDocTemplate(
         stream,
@@ -1489,6 +1590,16 @@ def _build_category_pdf_report(context):
                 format_money(row["total_vendido"], tenant.currency),
             ])
         story.append(_pdf_table(data, widths, header=True))
+        category_quantity = sum(float(row.get("cantidad") or 0) for row in category_rows)
+        category_total = sum(float(row.get("total_vendido") or 0) for row in category_rows)
+        story.append(_pdf_total_band(
+            [
+                f"TOTAL {category_name.upper()}", "", "",
+                _format_report_value(category_quantity, "number", tenant.currency),
+                "", "", format_money(category_total, tenant.currency),
+            ],
+            widths,
+        ))
     if not context["rows"]:
         story += [Spacer(1, 16), Paragraph("Sin datos para los filtros seleccionados.", styles["Normal"])]
     if context["rows"]:
@@ -1498,6 +1609,66 @@ def _build_category_pdf_report(context):
                 f"Cantidad total: {_format_report_value(context['totals'].get('cantidad'), 'number', tenant.currency)}"
                 f" &nbsp;&nbsp; Total vendido: {escape(format_money(context['totals'].get('total_vendido'), tenant.currency))}",
                 styles["Heading3"],
+            ),
+        ]
+    decorator = _pdf_page_decorator(tenant)
+    doc.build(story, onFirstPage=decorator, onLaterPages=decorator)
+    stream.seek(0)
+    return stream
+
+
+def _build_inventory_pdf_report(context):
+    stream = BytesIO()
+    doc = SimpleDocTemplate(
+        stream,
+        pagesize=letter,
+        rightMargin=12 * mm,
+        leftMargin=12 * mm,
+        topMargin=12 * mm,
+        bottomMargin=12 * mm,
+    )
+    styles = _report_pdf_styles()
+    tenant = context["tenant"]
+    story = _report_pdf_header(context, styles)
+    headers = ["SKU", "Nombre del producto", "Stock", "Costo unitario", "Valor inventario"]
+    widths = [20 * mm, 78 * mm, 24 * mm, 30 * mm, 34 * mm]
+    for category_name, category_rows in _category_report_groups(context["rows"]):
+        story += [
+            Spacer(1, 10),
+            Paragraph(f"CATEGORÍA: {escape(category_name.upper())}", styles["ReportSection"]),
+        ]
+        data = [headers]
+        for row in category_rows:
+            data.append([
+                str(row["sku"] or "—"),
+                str(row["producto"] or ""),
+                _format_report_value(row["stock"], "number", tenant.currency),
+                format_money(row["costo"], tenant.currency),
+                format_money(row["valor_inventario"], tenant.currency),
+            ])
+        story.append(_pdf_table(data, widths, header=True))
+        category_stock = sum(float(row.get("stock") or 0) for row in category_rows)
+        category_value = sum(float(row.get("valor_inventario") or 0) for row in category_rows)
+        story.append(_pdf_total_band(
+            [
+                f"TOTAL {category_name.upper()}", "",
+                _format_report_value(category_stock, "number", tenant.currency),
+                "", format_money(category_value, tenant.currency),
+            ],
+            widths,
+        ))
+    if not context["rows"]:
+        story += [Spacer(1, 16), Paragraph("Sin datos para los filtros seleccionados.", styles["Normal"])]
+    else:
+        story += [
+            Spacer(1, 10),
+            _pdf_total_band(
+                [
+                    "TOTAL GENERAL", "",
+                    _format_report_value(context["totals"].get("stock"), "number", tenant.currency),
+                    "", format_money(context["totals"].get("valor_inventario"), tenant.currency),
+                ],
+                widths,
             ),
         ]
     decorator = _pdf_page_decorator(tenant)
