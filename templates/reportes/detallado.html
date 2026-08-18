@@ -117,6 +117,7 @@
       {% elif report_type == 'ventas_categoria' %}
         <div class="min-w-[240px] flex-1">
           <label class="block text-xs font-medium text-slate-500 mb-1">Categorías</label>
+          {% set category_selector_mode = 'dropdown' %}
           {% include 'reportes/_category_selector.html' %}
         </div>
       {% endif %}
@@ -259,13 +260,13 @@
   {% endif %}
 </section>
 
-<div id="report-modal" class="hidden fixed inset-0 z-50 items-center justify-center bg-slate-900/50 px-4">
+<div id="report-modal" class="hidden fixed inset-0 z-50 items-center justify-center bg-slate-900/60 p-2 sm:p-6">
   <form method="GET" action="{{ url_for('reportes.detallado') }}"
-        class="w-full max-w-2xl rounded-xl bg-white p-6 shadow-xl">
+        class="max-h-[calc(100vh-1rem)] w-full max-w-6xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:max-h-[calc(100vh-3rem)] sm:p-7">
     <input type="hidden" name="tipo" id="modal-report-type" />
-    <h3 class="text-lg font-semibold text-slate-900">Seleccionar periodo</h3>
-    <p class="text-sm text-slate-500 mt-1">Define desde y hasta para generar el reporte.</p>
-    <div class="grid gap-4 mt-5">
+    <h3 class="text-2xl font-semibold text-slate-900">Configurar reporte</h3>
+    <p class="mt-1 text-sm text-slate-500">Define el periodo y la información que deseas incluir.</p>
+    <div class="mt-5 grid gap-4 sm:grid-cols-2">
       <div>
         <label class="block text-sm font-medium text-slate-600 mb-1">Desde</label>
         <input type="date" name="desde" value="{{ desde }}"
@@ -276,7 +277,7 @@
         <input type="date" name="hasta" value="{{ hasta }}"
                class="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-indigo-500" />
       </div>
-      <div id="product-filter-field" class="hidden">
+      <div id="product-filter-field" class="hidden sm:col-span-2">
         <label class="block text-sm font-medium text-slate-600 mb-1">Producto</label>
         <select name="product_id" class="w-full rounded-lg border px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500">
           <option value="">Todos los productos</option>
@@ -287,8 +288,8 @@
           {% endfor %}
         </select>
       </div>
-      <div id="category-filter-field" class="hidden">
-        <label class="block text-sm font-medium text-slate-600 mb-1">Categorías</label>
+      <div id="category-filter-field" class="hidden sm:col-span-2">
+        {% set category_selector_mode = 'panel' %}
         {% include 'reportes/_category_selector.html' %}
       </div>
     </div>
