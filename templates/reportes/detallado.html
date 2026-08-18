@@ -23,17 +23,11 @@
     <h3 class="font-semibold text-slate-900">Ventas de crédito</h3>
     <p class="text-sm text-slate-500 mt-1">Créditos, abonos, saldos y vencimientos por fecha.</p>
   </button>
-  <button type="button" onclick="openReportModal('ventas_venta')"
-          class="text-left bg-white rounded-xl border shadow-sm p-5 hover:border-indigo-300 hover:shadow-md transition">
-    <p class="text-2xl mb-3">🧮</p>
-    <h3 class="font-semibold text-slate-900">Ventas por venta</h3>
-    <p class="text-sm text-slate-500 mt-1">Detalle individual, cliente, sede, valores, saldo y utilidad.</p>
-  </button>
   <button type="button" onclick="openReportModal('ventas_producto')"
           class="text-left bg-white rounded-xl border shadow-sm p-5 hover:border-indigo-300 hover:shadow-md transition">
-    <p class="text-2xl mb-3">🏷️</p>
-    <h3 class="font-semibold text-slate-900">Ventas por producto</h3>
-    <p class="text-sm text-slate-500 mt-1">Cantidad vendida, valor vendido y utilidad por producto.</p>
+    <p class="text-2xl mb-3">🔎</p>
+    <h3 class="font-semibold text-slate-900">Rastreo por producto</h3>
+    <p class="text-sm text-slate-500 mt-1">Consulta quién compró un producto, cuándo, cuánto y a qué precio.</p>
   </button>
   <button type="button" onclick="openReportModal('ventas_categoria')"
           class="text-left bg-white rounded-xl border shadow-sm p-5 hover:border-indigo-300 hover:shadow-md transition">
@@ -112,9 +106,13 @@
         </select>
       </div>
       {% if report_type == 'ventas_producto' %}
-        <div class="min-w-[260px] flex-1">
-          <label class="block text-xs font-medium text-slate-500 mb-1">Producto</label>
-          <select name="product_id" class="w-full rounded-lg border px-3 py-2 bg-white text-sm">
+        <div class="min-w-[320px] flex-[2]">
+          <label class="block text-xs font-medium text-slate-500 mb-1">Buscar producto</label>
+          <input type="search" id="active-product-search"
+                 placeholder="Escribe el nombre o SKU..."
+                 class="mb-2 w-full rounded-lg border px-3 py-2 bg-white text-sm focus:ring-2 focus:ring-indigo-500" />
+          <select name="product_id" id="active-product-select"
+                  class="w-full rounded-lg border px-3 py-2 bg-white text-sm">
             <option value="">Todos los productos</option>
             {% for product in products %}
               <option value="{{ product.id }}" {% if product_id == product.id %}selected{% endif %}>
@@ -309,7 +307,7 @@
                   {% if kind == 'money' %}
                     {{ row[key]|money }}
                   {% elif kind == 'number' %}
-                    {{ '%.2f'|format(row[key])|replace('.00', '') }}
+                    {{ '{:,.2f}'.format(row[key])|replace('.00', '') }}
                   {% else %}
                     {{ row[key] }}
                   {% endif %}
@@ -332,7 +330,7 @@
                   {% if key in totals and kind == 'money' %}
                     {{ totals[key]|money }}
                   {% elif key in totals and kind == 'number' %}
-                    {{ '%.2f'|format(totals[key])|replace('.00', '') }}
+                    {{ '{:,.2f}'.format(totals[key])|replace('.00', '') }}
                   {% elif loop.first %}
                     Totales
                   {% endif %}
@@ -352,7 +350,8 @@
 
 <div id="report-modal" class="hidden fixed inset-0 z-50 items-center justify-center bg-slate-900/60 p-2 sm:p-6">
   <form method="GET" action="{{ url_for('reportes.detallado') }}"
-        class="max-h-[calc(100vh-1rem)] w-full max-w-6xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:max-h-[calc(100vh-3rem)] sm:p-7">
+        id="report-modal-form"
+        class="max-h-[calc(100vh-1rem)] w-full max-w-7xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:max-h-[calc(100vh-3rem)] sm:p-8">
     <input type="hidden" name="tipo" id="modal-report-type" />
     <h3 class="text-2xl font-semibold text-slate-900">Configurar reporte</h3>
     <p class="mt-1 text-sm text-slate-500">Define el periodo y la información que deseas incluir.</p>
@@ -379,15 +378,45 @@
         </select>
       </div>
       <div id="product-filter-field" class="hidden sm:col-span-2">
-        <label class="block text-sm font-medium text-slate-600 mb-1">Producto</label>
-        <select name="product_id" class="w-full rounded-lg border px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500">
-          <option value="">Todos los productos</option>
-          {% for product in products %}
-            <option value="{{ product.id }}" {% if product_id == product.id %}selected{% endif %}>
-              {{ product.name }}{% if product.sku %} · {{ product.sku }}{% endif %}
-            </option>
-          {% endfor %}
-        </select>
+        <div class="rounded-2xl border bg-slate-50 p-4 sm:p-5">
+          <label for="modal-product-search" class="block text-base font-semibold text-slate-800">
+            Buscar y seleccionar producto
+          </label>
+          <p class="mt-1 text-sm text-slate-500">Filtra por nombre o SKU y selecciona el producto que deseas rastrear.</p>
+          <div class="relative mt-4">
+            <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">⌕</span>
+            <input type="search" id="modal-product-search" autocomplete="off"
+                   placeholder="Escribe el nombre o SKU del producto..."
+                   class="w-full rounded-xl border bg-white py-3 pl-11 pr-4 text-base focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div id="modal-product-list"
+               class="mt-4 grid max-h-[42vh] gap-2 overflow-y-auto rounded-xl border bg-white p-3 sm:grid-cols-2 lg:grid-cols-3">
+            <label data-product-option data-product-search="todos los productos"
+                   class="flex cursor-pointer items-center gap-3 rounded-xl border p-3 hover:border-indigo-300 hover:bg-indigo-50">
+              <input type="radio" name="product_id" value="" {% if not product_id %}checked{% endif %}
+                     class="h-4 w-4 text-indigo-600" />
+              <span>
+                <strong class="block text-sm text-slate-900">Todos los productos</strong>
+                <span class="text-xs text-slate-500">Mostrar el historial completo</span>
+              </span>
+            </label>
+            {% for product in products %}
+              <label data-product-option
+                     data-product-search="{{ (product.name ~ ' ' ~ (product.sku or ''))|lower }}"
+                     class="flex cursor-pointer items-center gap-3 rounded-xl border p-3 hover:border-indigo-300 hover:bg-indigo-50">
+                <input type="radio" name="product_id" value="{{ product.id }}" {% if product_id == product.id %}checked{% endif %}
+                       class="h-4 w-4 text-indigo-600" />
+                <span class="min-w-0">
+                  <strong class="block truncate text-sm text-slate-900">{{ product.name }}</strong>
+                  <span class="block truncate font-mono text-xs text-slate-500">{{ product.sku or 'Sin SKU' }}</span>
+                </span>
+              </label>
+            {% endfor %}
+          </div>
+          <p id="modal-product-empty" class="mt-3 hidden rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            No se encontraron productos con ese nombre o SKU.
+          </p>
+        </div>
       </div>
       <div id="category-filter-field" class="hidden sm:col-span-2">
         {% set category_selector_mode = 'panel' %}
@@ -410,11 +439,12 @@
 function openReportModal(type) {
   document.getElementById('modal-report-type').value = type;
   const modal = document.getElementById('report-modal');
+  const modalForm = document.getElementById('report-modal-form');
   const productField = document.getElementById('product-filter-field');
   const categoryField = document.getElementById('category-filter-field');
   const dateFields = document.getElementById('date-filter-fields');
   const usesDates = !['inventario', 'productos_vencer'].includes(type);
-  const productSelect = productField ? productField.querySelector('select') : null;
+  const productInputs = productField ? productField.querySelectorAll('input[name="product_id"]') : [];
   const categoryInputs = categoryField ? categoryField.querySelectorAll('input[name="category_id"]') : [];
   if (productField) productField.classList.toggle('hidden', type !== 'ventas_producto');
   if (categoryField) categoryField.classList.toggle('hidden', type !== 'ventas_categoria');
@@ -422,10 +452,59 @@ function openReportModal(type) {
     dateFields.classList.toggle('hidden', !usesDates);
     dateFields.querySelectorAll('input').forEach((input) => { input.disabled = !usesDates; });
   }
-  if (productSelect) productSelect.disabled = type !== 'ventas_producto';
+  productInputs.forEach((input) => { input.disabled = type !== 'ventas_producto'; });
   categoryInputs.forEach((input) => { input.disabled = type !== 'ventas_categoria'; });
+  if (modalForm) modalForm.style.minHeight = type === 'ventas_producto' ? '72vh' : '';
   modal.classList.remove('hidden');
   modal.classList.add('flex');
+  if (type === 'ventas_producto') {
+    window.setTimeout(() => document.getElementById('modal-product-search')?.focus(), 50);
+  }
+}
+
+function normalizeProductSearch(value) {
+  return (value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+const modalProductSearch = document.getElementById('modal-product-search');
+const modalProductOptions = Array.from(document.querySelectorAll('[data-product-option]'));
+const modalProductEmpty = document.getElementById('modal-product-empty');
+if (modalProductSearch) {
+  modalProductSearch.addEventListener('input', () => {
+    const query = normalizeProductSearch(modalProductSearch.value);
+    let visible = 0;
+    modalProductOptions.forEach((option) => {
+      const matches = !query || normalizeProductSearch(option.dataset.productSearch).includes(query);
+      option.classList.toggle('hidden', !matches);
+      if (matches) visible += 1;
+    });
+    modalProductEmpty?.classList.toggle('hidden', visible > 0);
+  });
+}
+
+modalProductOptions.forEach((option) => {
+  const input = option.querySelector('input[type="radio"]');
+  const refresh = () => {
+    option.classList.toggle('border-indigo-500', Boolean(input?.checked));
+    option.classList.toggle('bg-indigo-50', Boolean(input?.checked));
+  };
+  input?.addEventListener('change', () => modalProductOptions.forEach((item) => {
+    const itemInput = item.querySelector('input[type="radio"]');
+    item.classList.toggle('border-indigo-500', Boolean(itemInput?.checked));
+    item.classList.toggle('bg-indigo-50', Boolean(itemInput?.checked));
+  }));
+  refresh();
+});
+
+const activeProductSearch = document.getElementById('active-product-search');
+const activeProductSelect = document.getElementById('active-product-select');
+if (activeProductSearch && activeProductSelect) {
+  activeProductSearch.addEventListener('input', () => {
+    const query = normalizeProductSearch(activeProductSearch.value);
+    Array.from(activeProductSelect.options).forEach((option, index) => {
+      option.hidden = index > 0 && Boolean(query) && !normalizeProductSearch(option.textContent).includes(query);
+    });
+  });
 }
 
 function refreshCategorySelector(container) {
