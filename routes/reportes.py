@@ -10,7 +10,8 @@ from __future__ import annotations
 
 from datetime import datetime, time, timedelta
 from io import BytesIO
-from sqlalchemy import func, extract
+from xml.sax.saxutils import escape
+from sqlalchemy import case, func, extract
 
 from flask import Blueprint, render_template, request, send_file
 from flask_login import login_required
@@ -29,7 +30,7 @@ from models.invoice import Invoice, InvoiceItem
 from models.catalog import Product, Customer, Category, ProductBatch
 from models.locations import Branch, Warehouse, WarehouseStock
 from services.datetime_utils import format_local_datetime, local_date_range_to_utc, local_now, tenant_today
-from services.currency import format_money
+from services.currency import currency_symbol, format_money
 from services.tenant_context import current_tenant
 from services.permissions import permission_required, tenant_required
 from services.locations import active_warehouses, sync_default_warehouse_stock
@@ -41,7 +42,7 @@ REPORT_OPTIONS = [
     ("ventas_credito", "Reporte de ventas de crédito", "Facturas emitidas a crédito y sus saldos."),
     ("ventas_venta", "Ventas por venta", "Detalle individual de cada venta realizada en el periodo."),
     ("ventas_producto", "Ventas por producto", "Cantidades vendidas, valores y utilidad estimada por producto."),
-    ("ventas_categoria", "Ventas por categoría", "Cantidades vendidas, valores y utilidad estimada por categoría."),
+    ("ventas_categoria", "Ventas por categoría", "Productos vendidos agrupados por categoría, con cantidades, costos y precios promedio."),
     ("cierres_caja", "Reporte de cierres de caja", "Aperturas, formas de pago, gastos, dinero contado y entregado."),
     ("inventario", "Inventarios", "Existencias, costos y valor de inventario."),
     ("productos_vencer", "Listado de productos por vencer", "Lotes vigentes próximos a vencer."),
@@ -141,7 +142,16 @@ def _custom_report_context():
     sync_default_warehouse_stock(tenant)
     warehouse_id = request.args.get("warehouse_id", type=int) or None
     product_id = request.args.get("product_id", type=int) or None
-    category_id = request.args.get("category_id", type=int) or None
+    categories = (
+        Category.query.filter_by(tenant_id=tenant.id)
+        .order_by(Category.name.asc())
+        .all()
+    )
+    available_category_ids = {category.id for category in categories}
+    category_ids = []
+    for category_id in request.args.getlist("category_id", type=int):
+        if category_id in available_category_ids and category_id not in category_ids:
+            category_ids.append(category_id)
     columns, rows, totals = _custom_report_data(
         tenant,
         report_type,
@@ -149,7 +159,7 @@ def _custom_report_context():
         end_date,
         warehouse_id,
         product_id,
-        category_id,
+        category_ids,
     )
     warehouses = active_warehouses(tenant.id)
     selected_warehouse = next((w for w in warehouses if w.id == warehouse_id), None)
@@ -158,13 +168,13 @@ def _custom_report_context():
         .order_by(Product.name.asc())
         .all()
     )
-    categories = (
-        Category.query.filter_by(tenant_id=tenant.id)
-        .order_by(Category.name.asc())
-        .all()
-    )
     selected_product = next((p for p in products if p.id == product_id), None)
-    selected_category = next((c for c in categories if c.id == category_id), None)
+    selected_categories = [category for category in categories if category.id in category_ids]
+    category_selection_label = (
+        ", ".join(category.name for category in selected_categories)
+        if selected_categories
+        else "Todas las categorías"
+    )
     return dict(
         tenant=tenant,
         report_options=REPORT_OPTIONS,
@@ -193,8 +203,9 @@ def _custom_report_context():
         product_id=product_id,
         selected_product=selected_product,
         categories=categories,
-        category_id=category_id,
-        selected_category=selected_category,
+        category_ids=category_ids,
+        selected_categories=selected_categories,
+        category_selection_label=category_selection_label,
     )
 
 
@@ -205,7 +216,7 @@ def _custom_report_data(
     end_date,
     warehouse_id=None,
     product_id=None,
-    category_id=None,
+    category_ids=None,
 ):
     if not report_type:
         return [], [], {}
@@ -424,27 +435,29 @@ def _custom_report_data(
 
     if report_type == "ventas_categoria":
         category_name = func.coalesce(Category.name, "Sin categoría")
+        product_name = func.coalesce(Product.name, InvoiceItem.description, "Producto sin catálogo")
+        unit_label = case(
+            (Product.kind == "service", "Servicio"),
+            else_="Unidad",
+        )
+        historical_unit_cost = func.coalesce(ProductBatch.cost, Product.cost, 0)
         query = (
             db.session.query(
                 category_name.label("categoria"),
-                func.count(func.distinct(InvoiceItem.product_id)).label("productos"),
+                func.coalesce(Product.sku, "").label("codigo"),
+                product_name.label("descripcion"),
+                unit_label.label("unidad"),
                 func.coalesce(func.sum(InvoiceItem.quantity), 0).label("cantidad"),
                 func.coalesce(func.sum(InvoiceItem.subtotal), 0).label("ventas"),
                 func.coalesce(
-                    func.sum(InvoiceItem.quantity * func.coalesce(Product.cost, 0)),
+                    func.sum(InvoiceItem.quantity * historical_unit_cost),
                     0,
                 ).label("costo_estimado"),
-                func.coalesce(
-                    func.sum(
-                        InvoiceItem.subtotal
-                        - (InvoiceItem.quantity * func.coalesce(Product.cost, 0))
-                    ),
-                    0,
-                ).label("utilidad"),
             )
             .join(Invoice, Invoice.id == InvoiceItem.invoice_id)
             .outerjoin(Product, Product.id == InvoiceItem.product_id)
             .outerjoin(Category, Category.id == Product.category_id)
+            .outerjoin(ProductBatch, ProductBatch.id == InvoiceItem.batch_id)
             .filter(
                 InvoiceItem.tenant_id == tenant.id,
                 Invoice.status.in_(valid_statuses),
@@ -452,36 +465,37 @@ def _custom_report_data(
                 Invoice.issue_date < period_end,
             )
         )
-        if category_id:
-            query = query.filter(Category.id == category_id)
+        if category_ids:
+            query = query.filter(Category.id.in_(category_ids))
         rows_raw = (
-            query.group_by(category_name)
-            .order_by(func.sum(InvoiceItem.subtotal).desc())
+            query.group_by(category_name, Product.sku, product_name, Product.kind)
+            .order_by(category_name.asc(), product_name.asc())
             .all()
         )
         rows = []
         for item in rows_raw:
             quantity = float(item.cantidad or 0)
             sales_value = float(item.ventas or 0)
+            estimated_cost = float(item.costo_estimado or 0)
             rows.append({
                 "categoria": item.categoria,
-                "productos": int(item.productos or 0),
+                "codigo": item.codigo or "",
+                "descripcion": item.descripcion,
+                "unidad": item.unidad,
                 "cantidad": quantity,
-                "ventas": sales_value,
+                "costo_promedio": (estimated_cost / quantity) if quantity else 0,
                 "precio_promedio": (sales_value / quantity) if quantity else 0,
-                "costo_estimado": float(item.costo_estimado or 0),
-                "utilidad": float(item.utilidad or 0),
             })
         return (
             [
-                ("categoria", "Categoría", "text"), ("productos", "Productos", "number"),
-                ("cantidad", "Cantidad", "number"), ("ventas", "Valor vendido", "money"),
-                ("precio_promedio", "Precio prom.", "money"),
-                ("costo_estimado", "Costo estimado", "money"),
-                ("utilidad", "Utilidad", "money"),
+                ("categoria", "Categoría", "text"), ("codigo", "Código", "text"),
+                ("descripcion", "Descripción", "text"), ("unidad", "Unidad", "text"),
+                ("cantidad", "Cantidad", "number"),
+                ("costo_promedio", "Costo promedio", "money"),
+                ("precio_promedio", "Precio promedio", "money"),
             ],
             rows,
-            _totals(rows, ["productos", "cantidad", "ventas", "costo_estimado", "utilidad"]),
+            _totals(rows, ["cantidad"]),
         )
 
     if report_type == "cierres_caja":
@@ -1032,6 +1046,8 @@ def _build_excel_report(context):
 
 
 def _build_custom_excel_report(context):
+    if context["report_type"] == "ventas_categoria":
+        return _build_category_excel_report(context)
     wb = Workbook()
     ws = wb.active
     ws.title = "Reporte"
@@ -1048,6 +1064,67 @@ def _build_custom_excel_report(context):
             total_row.append(context["totals"].get(key, "Totales" if not total_row else ""))
         ws.append(total_row)
     _style_sheet(ws)
+    stream = BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+    return stream
+
+
+def _build_category_excel_report(context):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Ventas por categoría"
+    company_name = context["tenant"].legal_name or context["tenant"].name
+    ws.append([company_name])
+    ws.merge_cells("A1:F1")
+    ws["A1"].font = Font(bold=True, size=15)
+    ws.append([f"RTN: {context['tenant'].tax_id or '—'}"])
+    ws.merge_cells("A2:F2")
+    ws.append(["VENTAS POR CATEGORÍA"])
+    ws.merge_cells("A3:F3")
+    ws["A3"].font = Font(bold=True, size=12)
+    ws.append(["Periodo", context["period_label"]])
+    ws.append(["Categorías", context["category_selection_label"]])
+    ws.append([])
+
+    header_fill = PatternFill("solid", fgColor="EEF2FF")
+    category_fill = PatternFill("solid", fgColor="E0E7FF")
+    symbol = currency_symbol(context["tenant"].currency).replace('"', '""')
+    money_format = f'"{symbol}" #,##0.00'
+    headers = ["Código", "Descripción", "Unidad", "Cantidad", "Costo promedio", "Precio promedio"]
+    for category_name, category_rows in _category_report_groups(context["rows"]):
+        ws.append([f"CATEGORÍA: {category_name}"])
+        category_row_number = ws.max_row
+        ws.merge_cells(start_row=category_row_number, start_column=1, end_row=category_row_number, end_column=6)
+        ws.cell(category_row_number, 1).font = Font(bold=True, color="312E81")
+        ws.cell(category_row_number, 1).fill = category_fill
+        ws.append(headers)
+        header_row_number = ws.max_row
+        for cell in ws[header_row_number]:
+            cell.font = Font(bold=True)
+            cell.fill = header_fill
+        for row in category_rows:
+            ws.append([
+                row["codigo"],
+                row["descripcion"],
+                row["unidad"],
+                float(row["cantidad"] or 0),
+                float(row["costo_promedio"] or 0),
+                float(row["precio_promedio"] or 0),
+            ])
+            ws.cell(ws.max_row, 4).number_format = "#,##0.00"
+            ws.cell(ws.max_row, 5).number_format = money_format
+            ws.cell(ws.max_row, 6).number_format = money_format
+        ws.append([])
+
+    ws.append(["CANTIDAD TOTAL", "", "", float(context["totals"].get("cantidad", 0))])
+    ws.cell(ws.max_row, 1).font = Font(bold=True)
+    ws.cell(ws.max_row, 4).font = Font(bold=True)
+    ws.cell(ws.max_row, 4).number_format = "#,##0.00"
+    widths = [18, 42, 14, 16, 20, 20]
+    for index, width in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(index)].width = width
+    ws.freeze_panes = "A7"
     stream = BytesIO()
     wb.save(stream)
     stream.seek(0)
@@ -1110,6 +1187,8 @@ def _build_pdf_report(context):
 
 
 def _build_custom_pdf_report(context):
+    if context["report_type"] == "ventas_categoria":
+        return _build_category_pdf_report(context)
     stream = BytesIO()
     doc = SimpleDocTemplate(
         stream,
@@ -1136,6 +1215,71 @@ def _build_custom_pdf_report(context):
     doc.build(story)
     stream.seek(0)
     return stream
+
+
+def _build_category_pdf_report(context):
+    stream = BytesIO()
+    doc = SimpleDocTemplate(
+        stream,
+        pagesize=letter,
+        rightMargin=12 * mm,
+        leftMargin=12 * mm,
+        topMargin=12 * mm,
+        bottomMargin=12 * mm,
+    )
+    styles = getSampleStyleSheet()
+    tenant = context["tenant"]
+    company_name = tenant.legal_name or tenant.name
+    story = [
+        Paragraph(escape(company_name.upper()), styles["Title"]),
+        Paragraph(
+            escape(" · ".join(part for part in [
+                f"RTN: {tenant.tax_id}" if tenant.tax_id else "",
+                f"Tel: {tenant.phone}" if tenant.phone else "",
+            ] if part)),
+            styles["Normal"],
+        ),
+        Spacer(1, 8),
+        Paragraph("VENTAS POR CATEGORÍA", styles["Heading2"]),
+        Paragraph(f"Periodo: {escape(context['period_label'])}", styles["Normal"]),
+        Paragraph(f"Selección: {escape(context['category_selection_label'])}", styles["Normal"]),
+    ]
+    headers = ["Código", "Descripción", "Unidad", "Cantidad", "Costo prom.", "Precio prom."]
+    widths = [24 * mm, 62 * mm, 19 * mm, 25 * mm, 28 * mm, 28 * mm]
+    for category_name, category_rows in _category_report_groups(context["rows"]):
+        story += [
+            Spacer(1, 10),
+            Paragraph(f"CATEGORÍA: {escape(category_name.upper())}", styles["Heading3"]),
+        ]
+        data = [headers]
+        for row in category_rows:
+            data.append([
+                str(row["codigo"] or "—")[:18],
+                str(row["descripcion"] or "")[:42],
+                row["unidad"],
+                _format_report_value(row["cantidad"], "number", tenant.currency),
+                format_money(row["costo_promedio"], tenant.currency),
+                format_money(row["precio_promedio"], tenant.currency),
+            ])
+        story.append(_pdf_table(data, widths, header=True))
+    if not context["rows"]:
+        story += [Spacer(1, 16), Paragraph("Sin datos para los filtros seleccionados.", styles["Normal"])]
+    doc.build(story)
+    stream.seek(0)
+    return stream
+
+
+def _category_report_groups(rows):
+    groups = []
+    by_category = {}
+    for row in rows:
+        category_name = row.get("categoria") or "Sin categoría"
+        if category_name not in by_category:
+            category_rows = []
+            by_category[category_name] = category_rows
+            groups.append((category_name, category_rows))
+        by_category[category_name].append(row)
+    return groups
 
 
 def _pdf_table(data, col_widths, header=False):

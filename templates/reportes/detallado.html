@@ -39,7 +39,7 @@
           class="text-left bg-white rounded-xl border shadow-sm p-5 hover:border-indigo-300 hover:shadow-md transition">
     <p class="text-2xl mb-3">📊</p>
     <h3 class="font-semibold text-slate-900">Ventas por categoría</h3>
-    <p class="text-sm text-slate-500 mt-1">Cantidades y valores agrupados por categoría.</p>
+    <p class="text-sm text-slate-500 mt-1">Productos, cantidades, costos y precios promedio agrupados por categoría.</p>
   </button>
   <button type="button" onclick="openReportModal('cierres_caja')"
           class="text-left bg-white rounded-xl border shadow-sm p-5 hover:border-indigo-300 hover:shadow-md transition">
@@ -71,17 +71,17 @@
           {% if uses_dates %}Periodo: {{ period_label }}{% else %}Consulta actual{% endif %}
           {% if selected_warehouse %} · {{ selected_warehouse.label }}{% endif %}
           {% if selected_product %} · Producto: {{ selected_product.name }}{% endif %}
-          {% if selected_category %} · Categoría: {{ selected_category.name }}{% endif %}
+          {% if report_type == 'ventas_categoria' %} · {{ category_selection_label }}{% endif %}
         </p>
       {% endif %}
     </div>
     {% if report_type %}
       <div class="flex flex-wrap gap-2">
-        <a href="{{ url_for('reportes.detallado_excel', tipo=report_type, desde=desde, hasta=hasta, warehouse_id=warehouse_id or '', product_id=product_id or '', category_id=category_id or '') }}"
+        <a href="{{ url_for('reportes.detallado_excel', tipo=report_type, desde=desde, hasta=hasta, warehouse_id=warehouse_id or '', product_id=product_id or '', category_id=category_ids) }}"
            class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">
           Descargar Excel
         </a>
-        <a href="{{ url_for('reportes.detallado_pdf', tipo=report_type, desde=desde, hasta=hasta, warehouse_id=warehouse_id or '', product_id=product_id or '', category_id=category_id or '') }}"
+        <a href="{{ url_for('reportes.detallado_pdf', tipo=report_type, desde=desde, hasta=hasta, warehouse_id=warehouse_id or '', product_id=product_id or '', category_id=category_ids) }}"
            class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
           Descargar PDF
         </a>
@@ -116,15 +116,8 @@
         </div>
       {% elif report_type == 'ventas_categoria' %}
         <div class="min-w-[240px] flex-1">
-          <label class="block text-xs font-medium text-slate-500 mb-1">Categoría</label>
-          <select name="category_id" class="w-full rounded-lg border px-3 py-2 bg-white text-sm">
-            <option value="">Todas las categorías</option>
-            {% for category in categories %}
-              <option value="{{ category.id }}" {% if category_id == category.id %}selected{% endif %}>
-                {{ category.name }}
-              </option>
-            {% endfor %}
-          </select>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Categorías</label>
+          {% include 'reportes/_category_selector.html' %}
         </div>
       {% endif %}
       <button class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
@@ -151,7 +144,55 @@
     </form>
   {% endif %}
 
-  {% if report_type %}
+  {% if report_type == 'ventas_categoria' %}
+    <div class="space-y-5 bg-slate-50 p-5">
+      {% for category_group in rows|groupby('categoria') %}
+        <section class="overflow-hidden rounded-xl border bg-white shadow-sm">
+          <div class="border-b bg-indigo-50 px-4 py-3">
+            <h3 class="font-semibold uppercase tracking-wide text-indigo-900">
+              Categoría: {{ category_group.grouper }}
+            </h3>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="saas-table w-full min-w-[820px]">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Descripción</th>
+                  <th>Unidad</th>
+                  <th class="text-right">Cantidad</th>
+                  <th class="text-right">Costo promedio</th>
+                  <th class="text-right">Precio promedio</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in category_group.list %}
+                  <tr>
+                    <td class="font-mono text-sm">{{ row.codigo or '—' }}</td>
+                    <td class="font-medium">{{ row.descripcion }}</td>
+                    <td>{{ row.unidad }}</td>
+                    <td class="text-right font-mono">{{ '{:,.2f}'.format(row.cantidad)|replace('.00', '') }}</td>
+                    <td class="text-right font-mono">{{ row.costo_promedio|money }}</td>
+                    <td class="text-right font-mono">{{ row.precio_promedio|money }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      {% else %}
+        <div class="rounded-xl border border-dashed bg-white py-12 text-center text-slate-400">
+          No hay ventas para las categorías y fechas seleccionadas.
+        </div>
+      {% endfor %}
+      {% if rows %}
+        <div class="flex justify-end rounded-xl border bg-white px-5 py-4 text-sm">
+          <span class="mr-3 text-slate-500">Cantidad total vendida:</span>
+          <strong class="font-mono text-slate-900">{{ '{:,.2f}'.format(totals.cantidad)|replace('.00', '') }}</strong>
+        </div>
+      {% endif %}
+    </div>
+  {% elif report_type %}
     <div class="overflow-x-auto">
       <table class="saas-table w-full min-w-[900px]">
         <thead>
@@ -239,15 +280,8 @@
         </select>
       </div>
       <div id="category-filter-field" class="hidden">
-        <label class="block text-sm font-medium text-slate-600 mb-1">Categoría</label>
-        <select name="category_id" class="w-full rounded-lg border px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500">
-          <option value="">Todas las categorías</option>
-          {% for category in categories %}
-            <option value="{{ category.id }}" {% if category_id == category.id %}selected{% endif %}>
-              {{ category.name }}
-            </option>
-          {% endfor %}
-        </select>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Categorías</label>
+        {% include 'reportes/_category_selector.html' %}
       </div>
     </div>
     <div class="mt-6 flex justify-end gap-2">
@@ -269,14 +303,47 @@ function openReportModal(type) {
   const productField = document.getElementById('product-filter-field');
   const categoryField = document.getElementById('category-filter-field');
   const productSelect = productField ? productField.querySelector('select') : null;
-  const categorySelect = categoryField ? categoryField.querySelector('select') : null;
+  const categoryInputs = categoryField ? categoryField.querySelectorAll('input[name="category_id"]') : [];
   if (productField) productField.classList.toggle('hidden', type !== 'ventas_producto');
   if (categoryField) categoryField.classList.toggle('hidden', type !== 'ventas_categoria');
   if (productSelect) productSelect.disabled = type !== 'ventas_producto';
-  if (categorySelect) categorySelect.disabled = type !== 'ventas_categoria';
+  categoryInputs.forEach((input) => { input.disabled = type !== 'ventas_categoria'; });
   modal.classList.remove('hidden');
   modal.classList.add('flex');
 }
+
+function refreshCategorySelector(container) {
+  const allInput = container.querySelector('[data-select-all]');
+  const categoryInputs = Array.from(container.querySelectorAll('input[name="category_id"]'));
+  const selected = categoryInputs.filter((input) => input.checked);
+  if (!selected.length) allInput.checked = true;
+  const summary = container.querySelector('[data-category-summary]');
+  if (!summary) return;
+  if (allInput.checked || !selected.length) {
+    summary.textContent = 'Todas las categorías';
+  } else if (selected.length <= 2) {
+    summary.textContent = selected.map((input) => input.dataset.categoryName).join(', ');
+  } else {
+    summary.textContent = `${selected.length} categorías seleccionadas`;
+  }
+}
+
+document.querySelectorAll('[data-category-selector]').forEach((container) => {
+  const allInput = container.querySelector('[data-select-all]');
+  const categoryInputs = Array.from(container.querySelectorAll('input[name="category_id"]'));
+  allInput.addEventListener('change', () => {
+    if (allInput.checked) categoryInputs.forEach((input) => { input.checked = false; });
+    refreshCategorySelector(container);
+  });
+  categoryInputs.forEach((input) => {
+    input.addEventListener('change', () => {
+      if (input.checked) allInput.checked = false;
+      refreshCategorySelector(container);
+    });
+  });
+  refreshCategorySelector(container);
+});
+
 function closeReportModal() {
   const modal = document.getElementById('report-modal');
   modal.classList.add('hidden');
